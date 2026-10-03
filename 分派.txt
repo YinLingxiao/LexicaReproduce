@@ -1,0 +1,32 @@
+头文件是合同，公开函数先别改。私有成员可以改。业务只写在自己的目录。
+
+A 主程序与整合
+  CMakeLists.txt build.bat src/main.cpp src/common src/app src/api src/cli src/ai
+  启动、HTTP、查词编排（C 查词 → D 记历史 → E 初始化）、复习提交后通知 D、合并
+  AI 还没发真实请求，密钥只读环境变量 LEXICA_AI_KEY，接口不回传密钥
+
+B 前端
+  web
+  查词、我的词汇、复习、统计、设置。假页面换成真接口
+  正式查词 POST /api/lookup 必须带 op_id，同一次重试用同一个
+  建议和复习读词条不要当查词
+
+C 词库与查词
+  src/dict
+  open lookup suggest get importFile
+  现在是内存假词：apple banana run。换成 SQLite、迁移、ECDICT
+  重复导入不能产生重复词条。查询本身不要写历史
+
+D 个人词汇与统计
+  src/vocab
+  recordLookup setFavorite setNote setPaused list history stats addReview isPaused
+  现在是内存，重启会丢。换成自己的表
+  统计按 Asia/Shanghai，无活动的日期补零。建议请求不能进历史
+  只读 E 的阶段，不改复习成绩
+
+E 复习与记忆
+  src/review
+  ensureState start next hint submit summary stageOf
+  现在：凡是初始化过且未暂停的词都会入选，阶段不推进
+  补上到期、0～3 阶段、1/3/7/14 天、判分和错词重练
+  重复提交只记一次。初始题目不要带答案
