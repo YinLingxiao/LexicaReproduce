@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+struct sqlite3;
+
 enum class StartupStatus {
     Ok,
     DictEmpty,
@@ -45,8 +47,12 @@ public:
 
 private:
     std::string dataDir_;
+    std::string dbPath_;
+    sqlite3* db_ = nullptr;
     bool ready_ = false;
-    std::vector<Entry> entries_;
-    const Entry* findWord(const std::string& word) const;
-    const Entry* findId(EntryId id) const;
+
+    bool refreshReady();
+    Result<Entry> findWord(const std::string& word) const;
+    Result<Entry> findForm(const std::string& form) const;
+    Result<Entry> findId(EntryId id) const;
 };
