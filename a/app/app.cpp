@@ -1,4 +1,5 @@
 #include "app/app.h"
+#include "common/text.h"
 #include <filesystem>
 #include <fstream>
 #include <system_error>
@@ -29,11 +30,19 @@ StartupStatus App::start(const std::string& dataDir) {
         return status_;
     }
     status_ = dict_.open(dataDir_);
-    if (status_ == StartupStatus::DbCorrupt || status_ == StartupStatus::VersionTooNew) return status_;
+    if (status_ != StartupStatus::Ok && status_ != StartupStatus::DictEmpty) return status_;
     vocab_.open(dataDir_);
-    review_.open(dataDir_);
+    if (!review_.open(dataDir_)) {
+        status_ = StartupStatus::DbCorrupt;
+        return status_;
+    }
     review_.bind(&dict_, &vocab_);
     ai_.open(dataDir_);
+    review_.setSentenceSource([this](EntryId id, const std::string& word) {
+        Entry entry;
+        if (requireEntry(id, entry) != ErrorCode::Ok || entry.word != word) return std::string();
+        return ai_.sentence(id, entry.word, meaningOf(entry));
+    });
     return status_;
 }
 
@@ -43,7 +52,10 @@ void App::shutdown() {
     dict_.close();
 }
 
-StartupStatus App::status() const { return status_; }
+StartupStatus App::status() const {
+    if (status_ != StartupStatus::Ok && status_ != StartupStatus::DictEmpty) return status_;
+    return dict_.ready() ? StartupStatus::Ok : StartupStatus::DictEmpty;
+}
 
 bool App::dictReady() const { return dict_.ready(); }
 
@@ -64,10 +76,14 @@ Result<std::vector<SuggestItem>> App::suggest(const std::string& prefix) {
 
 Result<Entry> App::entry(EntryId id) { return dict_.get(id); }
 
-Result<ImportReport> App::importDict(const std::string& path) {
-    Result<ImportReport> report = dict_.importFile(path);
-    if (report.ok()) status_ = dict_.ready() ? StartupStatus::Ok : StartupStatus::DictEmpty;
-    return report;
+Result<ImportReport> App::importDict(const std::string& path) { return dict_.importFile(path); }
+
+Result<ImportTask> App::importStart(const std::string& path) { return dict_.importStart(path); }
+
+Result<ImportTask> App::importTask(const std::string& id) const { return dict_.importTask(id); }
+
+std::string App::meaningOf(const Entry& entry) {
+    return entry.definition.empty() ? entry.translation : entry.definition;
 }
 
 ErrorCode App::requireEntry(EntryId id, Entry& entry) {
@@ -122,7 +138,7 @@ Result<Hint> App::reviewHint(QuestionId qid, int level) { return review_.hint(qi
 
 Result<Grade> App::reviewSubmit(QuestionId qid, const std::string& answer) {
     Result<Grade> grade = review_.submit(qid, answer);
-    if (grade.ok() && !grade.value.duplicate) vocab_.addReview(grade.value.entryId);
+    if (grade.ok() && !grade.value.duplicate && !grade.value.practice) vocab_.addReview(grade.value.entryId);
     return grade;
 }
 
@@ -136,6 +152,12 @@ ErrorCode App::aiSave(bool enabled, const std::string& baseUrl, const std::strin
 
 ErrorCode App::aiTest() { return ai_.test(); }
 
-Result<AiTask> App::aiExample(EntryId id, const std::string& word) { return ai_.example(id, word); }
+Result<AiTask> App::aiExample(EntryId id, const std::string& word) {
+    Entry entry;
+    ErrorCode code = requireEntry(id, entry);
+    if (code != ErrorCode::Ok) return Result<AiTask>::fail(code);
+    if (!word.empty() && normalizeWord(word) != entry.word) return Result<AiTask>::fail(ErrorCode::BadRequest);
+    return ai_.example(id, entry.word, meaningOf(entry));
+}
 
 Result<AiTask> App::aiTask(const std::string& id) { return ai_.task(id); }

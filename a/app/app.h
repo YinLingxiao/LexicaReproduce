@@ -16,6 +16,8 @@ public:
     Result<std::vector<SuggestItem>> suggest(const std::string& prefix);
     Result<Entry> entry(EntryId id);
     Result<ImportReport> importDict(const std::string& path);
+    Result<ImportTask> importStart(const std::string& path);
+    Result<ImportTask> importTask(const std::string& id) const;
 
     ErrorCode setFavorite(EntryId id, bool value);
     ErrorCode setNote(EntryId id, const std::string& text);
@@ -46,4 +48,5 @@ private:
 
     bool ensureDir(const std::string& path);
     ErrorCode requireEntry(EntryId id, Entry& entry);
+    static std::string meaningOf(const Entry& entry);
 };

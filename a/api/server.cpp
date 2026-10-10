@@ -97,7 +97,22 @@ json entryJson(const Entry& entry) {
         {"word", entry.word},
         {"phonetic", entry.phonetic},
         {"translation", entry.translation},
-        {"definition", entry.definition}
+        {"definition", entry.definition},
+        {"query", entry.query}
+    };
+}
+
+json importJson(const ImportTask& task) {
+    json error = nullptr;
+    if (task.error != ErrorCode::Ok) error = {{"code", errorName(task.error)}, {"message", errorMessage(task.error)}};
+    return {
+        {"id", task.id},
+        {"status", task.status},
+        {"added", task.report.added},
+        {"updated", task.report.updated},
+        {"skipped", task.report.skipped},
+        {"failed", task.report.failed},
+        {"error", error}
     };
 }
 
@@ -253,7 +268,8 @@ void routes(httplib::Server& svr, App& app, int port, const fs::path& webDir) {
             {"session_id", question.sessionId},
             {"entry_id", question.entryId},
             {"prompt", question.prompt},
-            {"kind", question.kind}
+            {"kind", question.kind},
+            {"practice", question.practice}
         }}});
     });
 
@@ -287,7 +303,8 @@ void routes(httplib::Server& svr, App& app, int port, const fs::path& webDir) {
             {"correct", grade.value.correct},
             {"duplicate", grade.value.duplicate},
             {"stage", grade.value.stage},
-            {"hint_level", grade.value.hintLevel}
+            {"hint_level", grade.value.hintLevel},
+            {"practice", grade.value.practice}
         });
     });
 
@@ -327,9 +344,15 @@ void routes(httplib::Server& svr, App& app, int port, const fs::path& webDir) {
         std::string path;
         if (!getString(body, "path", path)) return sendFail(res, ErrorCode::BadRequest);
         std::lock_guard<std::mutex> lock(gAppMutex);
-        Result<ImportReport> report = app.importDict(path);
-        if (!report.ok()) return sendFail(res, report.code);
-        sendOk(res, {{"added", report.value.added}, {"skipped", report.value.skipped}, {"failed", report.value.failed}});
+        Result<ImportTask> task = app.importStart(path);
+        if (!task.ok()) return sendFail(res, task.code);
+        sendOk(res, importJson(task.value));
+    });
+
+    svr.Get(R"(/api/import/([^/]+))", [&app](const httplib::Request& req, httplib::Response& res) {
+        Result<ImportTask> task = app.importTask(req.matches[1]);
+        if (!task.ok()) return sendFail(res, task.code);
+        sendOk(res, importJson(task.value));
     });
 
     svr.Get("/api/ai/config", [&app](const httplib::Request&, httplib::Response& res) {
@@ -359,7 +382,6 @@ void routes(httplib::Server& svr, App& app, int port, const fs::path& webDir) {
     });
 
     svr.Post("/api/ai/test", [&app](const httplib::Request&, httplib::Response& res) {
-        std::lock_guard<std::mutex> lock(gAppMutex);
         ErrorCode code = app.aiTest();
         if (code != ErrorCode::Ok) return sendFail(res, code);
         sendOk(res, json::object());
