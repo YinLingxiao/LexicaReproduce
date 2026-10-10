@@ -10,33 +10,37 @@ if(MINGW)
 endif()
 
 add_library(lexica_common
-  src/common/error.cpp
-  src/common/clock.cpp)
-add_library(lexica_dict src/dict/dict.cpp)
-add_library(lexica_vocab src/vocab/vocab.cpp)
-add_library(lexica_review src/review/review.cpp)
-add_library(lexica_ai src/ai/ai.cpp)
-add_library(lexica_app src/app/app.cpp)
-add_library(lexica_api src/api/server.cpp)
+  a/common/error.cpp
+  a/common/clock.cpp)
+target_include_directories(lexica_common PUBLIC ${CMAKE_SOURCE_DIR}/a)
 
-foreach(target lexica_common lexica_dict lexica_vocab lexica_review lexica_ai lexica_app lexica_api)
-  target_include_directories(${target} PUBLIC ${CMAKE_SOURCE_DIR}/src)
-endforeach()
-
+add_library(lexica_dict c/dict/dict.cpp)
+target_include_directories(lexica_dict PUBLIC ${CMAKE_SOURCE_DIR}/c)
 target_link_libraries(lexica_dict PUBLIC lexica_common)
+
+add_library(lexica_vocab d/vocab/vocab.cpp)
+target_include_directories(lexica_vocab PUBLIC ${CMAKE_SOURCE_DIR}/d)
 target_link_libraries(lexica_vocab PUBLIC lexica_common)
-target_link_libraries(lexica_review PUBLIC lexica_dict lexica_vocab lexica_common)
+
+add_library(lexica_review e/review/review.cpp)
+target_include_directories(lexica_review PUBLIC ${CMAKE_SOURCE_DIR}/e)
+target_link_libraries(lexica_review PUBLIC lexica_dict lexica_vocab)
+
+add_library(lexica_ai a/ai/ai.cpp)
 target_link_libraries(lexica_ai PUBLIC lexica_common)
+
+add_library(lexica_app a/app/app.cpp)
 target_link_libraries(lexica_app PUBLIC lexica_review lexica_vocab lexica_dict lexica_ai)
 
+add_library(lexica_api a/api/server.cpp)
 target_include_directories(lexica_api SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
 target_link_libraries(lexica_api PUBLIC lexica_app ws2_32)
 
-add_executable(lexica src/main.cpp src/cli/cli.cpp)
+add_executable(lexica a/main.cpp a/cli/cli.cpp)
 target_link_libraries(lexica PRIVATE lexica_api)
 if(MINGW)
   target_link_options(lexica PRIVATE -static-libgcc -static-libstdc++ -static)
 endif()
 
 add_custom_command(TARGET lexica POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/web $<TARGET_FILE_DIR:lexica>/web)
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/b/web $<TARGET_FILE_DIR:lexica>/web)
