@@ -9,12 +9,12 @@ Lexica 五人分派（以《任务分派手册》v1.0 为准）
    运行网页版：build\lexica.exe，浏览器打开 http://127.0.0.1:8765
    运行控制台版：build\lexica.exe --cli
    可选参数：--port 端口  --data-dir 数据目录  --web-dir 网页目录
-3. 只改自己的目录。要改别人的文件，先找对方或 A。
-4. 头文件（.h）里的公开函数是接口合同，A 已经在 src/app/app.cpp 里接好了。
+3. 只改自己的目录：A 改 a/，B 改 b/，C 改 c/，D 改 d/，E 改 e/。要改别人的文件，先找对方或 A。
+4. 头文件（.h）里的公开函数是接口合同，A 已经在 a/app/app.cpp 里接好了。
    不要改公开函数的名字、参数、返回值；确实要改，先通知 A 和用到它的人。
    私有成员（private:）和 .cpp 里的内容随便改。
 5. 业务代码不要用 cin / cout，返回 ErrorCode 或 Result<T>，由 A 负责显示。
-6. 公共定义在 src/common，只有 A 能改：
+6. 公共定义在 a/common，只有 A 能改：
    types.h   ID 类型和常量（笔记 5000 字、每页 20 条最多 100、建议 8 条、每轮 12 题）
    error.h   错误码
    result.h  Result<T>：成功用 Result<T>::success(值)，失败用 Result<T>::fail(错误码)
@@ -37,7 +37,7 @@ C、D、E 的模块现在是“假实现”：数据存在内存里，重启就�
 
 三、A 主程序与整合（组长）
 --------------------------
-负责：CMakeLists.txt  build.bat  src/main.cpp  src/common  src/app  src/api  src/cli  src/ai
+负责：CMakeLists.txt  build.bat  a/ 目录（main.cpp、common、app、api、cli、ai）
 已完成：
 - 启动流程：找 exe 所在目录 → 检查 data 目录可写 → 打开各模块 → 选择网页或控制台模式 → 退出时关闭
 - HTTP 服务：只监听 127.0.0.1，外来网站的写请求返回 403，返回格式统一
@@ -47,14 +47,14 @@ C、D、E 的模块现在是“假实现”：数据存在内存里，重启就�
 要做：
 - AI：配置保存、连接测试、真实请求、15 秒超时、响应校验（完整词边界）、缓存、异步任务
   密钥只从环境变量 LEXICA_AI_KEY 读，任何接口和日志都不回传密钥
-  注意：src/api/server.cpp 里所有 App 调用共用一把锁，等网络时必须先释放这把锁
+  注意：a/api/server.cpp 里所有 App 调用共用一把锁，等网络时必须先释放这把锁
 - 合并大家的 Pull Request，每周打一个能运行的版本
 - 写接口说明和异机运行说明
 
 四、B 前端页面
 --------------
-负责：web 目录（编译时会自动复制到 build\web）
-现状：只有 web/index.html，显示服务状态。
+负责：b/web（编译时会自动复制到 build\web）
+现状：只有 b/web/index.html，显示服务状态。
 要做：五个页面——查词、我的词汇、复习、统计、设置。
       每个页面要有：加载中、空数据、出错、保存中/已保存 这几种状态。
       查词候选支持上下键选择、回车提交、Esc 收起。
@@ -77,9 +77,10 @@ C、D、E 的模块现在是“假实现”：数据存在内存里，重启就�
   GET  /api/suggest?q=前缀
        → [{id, word}]，最多 8 条
   POST /api/lookup  {"word":"apple","op_id":"随机串"}
-       → {id, word, phonetic, translation, definition}
+       → {id, word, phonetic, translation, definition, query}
+       query 是规范化后的查询词；query 与 word 不同表示词形回退（如 ran → run）
   GET  /api/entry/{id}
-       → 同上，只读词条，不算查词
+       → 同上，只读词条，不算查词，query 为空
   GET  /api/history?page=1&size=20
        → {total, items:[{id, word, utc}]}，最近的在前
   GET  /api/vocab?fav=1&stage=0&paused=0&q=词头&page=1&size=20
@@ -92,22 +93,27 @@ C、D、E 的模块现在是“假实现”：数据存在内存里，重启就�
   POST /api/review/start
        → {session_id}
   GET  /api/review/{session_id}/next
-       → {has:false} 或 {has:true, question:{id, session_id, entry_id, prompt, kind}}
-       kind：local 本地释义题 / ai AI 填空题
+       → {has:false} 或 {has:true, question:{id, session_id, entry_id, prompt, kind, practice}}
+       kind：local 本地释义题 / ai AI 填空题；practice 为 true 表示错词重练，不计正式成绩
   POST /api/review/question/{id}/hint    {"level":1}  不传 level 就取下一级
        → {level, text}
+       1 首字母  2 另一种释义（题干用英文就给中文，反之亦然）  3 直接给答案，用了本题按没掌握计
   POST /api/review/question/{id}/submit  {"answer":"apple"}
-       → {entry_id, correct, duplicate, stage, hint_level}
+       → {entry_id, correct, duplicate, stage, hint_level, practice}
        duplicate 为 true 表示这题之前提交过，这次没有重复记分
   GET  /api/review/{session_id}/summary
        → {formal_count, formal_correct, practice_count, reinforce:[单词]}
+       formal_count 只算已作答的正式题
   GET  /api/stats
        → {days:[{date, lookups, reviews}] 共 14 天, stage0, stage1, stage2, stage3, paused}
-  POST /api/import  {"path":"本地词库文件路径"}
-       → {added, skipped, failed}
+  POST /api/import  {"path":"ECDICT 的 stardict.db 或 ecdict.csv 路径"}
+       → {id, status, added, updated, skipped, failed, error}  后台导入，立即返回
+  GET  /api/import/{id}
+       → 同上；status：running / succeeded / failed；error 为 null 或 {code, message}
   GET  /api/ai/config
        → {enabled, base_url, model, key_configured}
   PUT  /api/ai/config  {"enabled":true,"base_url":"...","model":"..."}
+       base_url 只能是 https，本机 http://127.0.0.1 / localhost 例外，否则 BAD_REQUEST
   POST /api/ai/test
   POST /api/ai/example {"id":1,"word":"apple"}
        → {id, status, text}
@@ -117,21 +123,26 @@ C、D、E 的模块现在是“假实现”：数据存在内存里，重启就�
         QUESTION_EXPIRED 题目已失效  DB_ERROR 数据库错误  AI_DISABLED AI 未开启
         AI_KEY_MISSING 未配置密钥  AI_TIMEOUT AI 超时  AI_INVALID AI 响应不合格  FORBIDDEN 来源不被允许
 
-开发方法：先运行 build\lexica.exe，再到设置页调 /api/import（路径随便填）导入假词库，
-          里面有 apple、banana、run 三个词，就能把每个页面跑通。
+开发方法：先运行 build\lexica.exe，再到设置页调 /api/import 导入 ECDICT
+          （stardict.db 或 ecdict.csv），轮询 /api/import/{id} 到 succeeded。
 
 五、C 词库与查词
 ----------------
-负责：src/dict/dict.h  src/dict/dict.cpp，以及公共数据库
-现状：假词库在内存里，导入后只有 apple(1)、banana(2)、run(3)。
+负责：c/dict/dict.h  c/dict/dict.cpp  c/dict/schema.cpp，以及公共数据库
+现状：已接 SQLite（data/lexica.db），支持导入 stardict.db 和 ecdict.csv。
+迁移登记在 c/dict/dict.cpp 的 schema_migrations：1 dict 词条与词形表，2 dict 原拼写，3 review 学习状态。D 建表找 C 登记下一个编号
 必须保留的公开函数：
-  StartupStatus open(dataDir)            打开或创建数据库，返回启动状态
+  StartupStatus open(dataDir)            打开或创建数据库并按顺序执行迁移，返回启动状态
   void close()
   bool ready()                           词库里有没有词
-  Result<Entry> lookup(word)             精确查询
+  Result<Entry> lookup(word)             精确优先，查不到按词形回退；Entry.query 为查询词
   Result<vector<SuggestItem>> suggest(prefix)   前缀建议，最多 kSuggestMax 条
   Result<Entry> get(id)                  按 ID 读词条
-  Result<ImportReport> importFile(path)  导入 ECDICT
+  vector<string> forms(word)             该词的变形（E 遮词用）
+  Result<ImportReport> importFile(path)  同步导入（控制台用）
+  Result<ImportTask> importStart(path) / importTask(id)   后台导入（网页用）
+导入规则：ID 由本库分配，按词头识别；已有词保留 ID、内容变了就更新；
+          大小写不同的同一词头优先保留原拼写为小写的那条；每 5000 行一个事务
 返回规则：
   空输入 → BadRequest；词库为空 → DictNotReady；查不到 → WordNotFound
   数据库打不开或坏了 → open 返回 DbCorrupt；版本比程序新 → VersionTooNew
@@ -149,7 +160,7 @@ C、D、E 的模块现在是“假实现”：数据存在内存里，重启就�
 
 六、D 个人词汇与统计
 --------------------
-负责：src/vocab/vocab.h  src/vocab/vocab.cpp，自己的数据表
+负责：d/vocab/vocab.h  d/vocab/vocab.cpp，自己的数据表
 现状：存在内存，重启就丢；统计按 UTC 划日期（要改成 Asia/Shanghai）。
 必须保留的公开函数：
   void open(dataDir)  void close()
@@ -173,11 +184,12 @@ C、D、E 的模块现在是“假实现”：数据存在内存里，重启就�
 
 七、E 复习与记忆
 ----------------
-负责：src/review/review.h  src/review/review.cpp，自己的数据表
-现状：凡是初始化过、没暂停的词都会进复习，不看到期时间；判分后阶段不变；没有错词重练；数据在内存里。
+负责：e/review/review.h  e/review/review.cpp，自己的数据表
+现状：已实现到期选题、阶段调度、错词重练，学习状态存在 review_state 表。
 必须保留的公开函数：
-  void open(dataDir)  void close()
+  bool open(dataDir)  void close()          表不存在返回 false，A 启动时报 DB_CORRUPT
   void bind(dict, vocab)                    A 启动时传入，用来读词条和暂停状态
+  void setSentenceSource(fn)                A 注入取 AI 例句的函数；AI 关闭时返回空，出本地题
   ErrorCode ensureState(id)                 第一次查到这个词时建学习状态，已有就不动
   int stageOf(id)                           D 列表和统计要用
   void countStages(s0, s1, s2, s3)          统计用

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(lexica LANGUAGES CXX)
+project(lexica LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -7,6 +7,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(MINGW)
   add_compile_options(-finput-charset=UTF-8 -fexec-charset=UTF-8 -Wall -Wextra)
+elseif(MSVC)
+  add_compile_options(/utf-8)
+endif()
+
+add_library(lexica_sqlite third_party/sqlite3.c)
+target_include_directories(lexica_sqlite PUBLIC ${CMAKE_SOURCE_DIR}/third_party)
+target_compile_definitions(lexica_sqlite PRIVATE SQLITE_OMIT_LOAD_EXTENSION)
+if(MSVC)
+  target_compile_options(lexica_sqlite PRIVATE /w)
+else()
+  target_compile_options(lexica_sqlite PRIVATE -O2 -w)
 endif()
 
 add_library(lexica_common
@@ -16,7 +27,7 @@ target_include_directories(lexica_common PUBLIC ${CMAKE_SOURCE_DIR}/a)
 
 add_library(lexica_dict c/dict/dict.cpp)
 target_include_directories(lexica_dict PUBLIC ${CMAKE_SOURCE_DIR}/c)
-target_link_libraries(lexica_dict PUBLIC lexica_common)
+target_link_libraries(lexica_dict PUBLIC lexica_common lexica_sqlite)
 
 add_library(lexica_vocab d/vocab/vocab.cpp)
 target_include_directories(lexica_vocab PUBLIC ${CMAKE_SOURCE_DIR}/d)
@@ -24,10 +35,11 @@ target_link_libraries(lexica_vocab PUBLIC lexica_common)
 
 add_library(lexica_review e/review/review.cpp)
 target_include_directories(lexica_review PUBLIC ${CMAKE_SOURCE_DIR}/e)
-target_link_libraries(lexica_review PUBLIC lexica_dict lexica_vocab)
+target_link_libraries(lexica_review PUBLIC lexica_dict lexica_vocab lexica_sqlite)
 
 add_library(lexica_ai a/ai/ai.cpp)
-target_link_libraries(lexica_ai PUBLIC lexica_common)
+target_include_directories(lexica_ai SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
+target_link_libraries(lexica_ai PUBLIC lexica_common winhttp)
 
 add_library(lexica_app a/app/app.cpp)
 target_link_libraries(lexica_app PUBLIC lexica_review lexica_vocab lexica_dict lexica_ai)

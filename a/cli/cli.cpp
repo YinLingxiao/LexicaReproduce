@@ -45,7 +45,7 @@ int runCli(App& app) {
         else if (choice == "1") {
             Result<ImportReport> report = app.importDict(ask("路径: "));
             if (!report.ok()) show(report.code);
-            else std::cout << report.value.added << " " << report.value.skipped << " " << report.value.failed << "\n";
+            else std::cout << report.value.added << " " << report.value.updated << " " << report.value.skipped << " " << report.value.failed << "\n";
         } else if (choice == "2") {
             Result<Entry> entry = app.lookup(ask("单词: "), "cli-" + std::to_string(seq++));
             if (!entry.ok()) show(entry.code);
