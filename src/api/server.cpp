@@ -155,6 +155,7 @@ std::string contentType(const fs::path& path) {
     if (ext == ".svg") return "image/svg+xml";
     if (ext == ".png") return "image/png";
     if (ext == ".ico") return "image/x-icon";
+    if (ext == ".woff2") return "font/woff2";
     return "application/octet-stream";
 }
 
@@ -471,7 +472,16 @@ void routes(httplib::Server& svr, App& app, int port, const fs::path& webDir) {
         }
         fs::path file = webDir / fs::u8path(rel);
         std::ifstream in(file, std::ios::binary);
-        if (!in) return sendFail(res, ErrorCode::BadRequest, 404);
+        if (!in) {
+            const auto dot = rel.find_last_of('.');
+            const auto slash = rel.find_last_of('/');
+            const bool asset = dot != std::string::npos && (slash == std::string::npos || dot > slash);
+            if (asset) return sendFail(res, ErrorCode::BadRequest, 404);
+            file = webDir / "index.html";
+            in.clear();
+            in.open(file, std::ios::binary);
+            if (!in) return sendFail(res, ErrorCode::BadRequest, 404);
+        }
         std::ostringstream ss;
         ss << in.rdbuf();
         res.set_content(ss.str(), contentType(file));

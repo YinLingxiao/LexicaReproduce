@@ -1,14 +1,31 @@
 <!DOCTYPE html>
-<!-- 前端：目前只请求服务状态并显示 JSON，五个业务页面尚未在这里实现。 -->
-<html lang="zh">
-<head><meta charset="utf-8"><title>Lexica</title></head>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lexica</title>
+<link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="/app.css">
+</head>
 <body>
-<pre id="s"></pre>
-<script>
-// 页面打开后读取后端状态；成功响应里的 data 包含启动状态和词库是否就绪。
-fetch("/api/status").then(function (r) { return r.json(); }).then(function (j) {
-  document.getElementById("s").textContent = JSON.stringify(j);
-});
-</script>
+<a class="skip" href="#content">Skip to content</a>
+<div class="app-shell" id="shell">
+<aside class="sidebar" id="sidebar">
+<div class="sidebar-head">
+<a href="#/" class="brand" aria-label="Lexica home"><span class="brand-wordmark">l<span class="brand-middle"><span>exica</span></span><span class="brand-dot">.</span></span></a>
+<button class="collapse-toggle" id="collapse" type="button" aria-label="Collapse sidebar" aria-expanded="true" aria-controls="sidebar-navigation"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+</div>
+<nav aria-label="Main" id="sidebar-navigation">
+<a href="#/" data-nav="/" title="Search" aria-label="Search"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 21-4.5-4.5 M19 10.5a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0"/></svg><span>Search</span></a>
+<a href="#/library" data-nav="/library" title="Words" aria-label="Words"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg><span>Words</span></a>
+<a href="#/review" data-nav="/review" title="Review" aria-label="Review"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10a9 9 0 1 1 2 8 M3 3v7h7 M12 7v5l3 2"/></svg><span>Review</span></a>
+<a href="#/stats" data-nav="/stats" title="Stats" aria-label="Stats"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 3v18h17 M9 16v-5 M14 16V7 M19 16V3"/></svg><span>Stats</span></a>
+<a href="#/settings" data-nav="/settings" title="Settings" aria-label="Settings"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16 M4 17h16 M9 4v6 M15 14v6"/></svg><span>Settings</span></a>
+</nav>
+<button class="theme" id="theme" type="button" aria-label="Toggle color theme" title="Toggle color theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z"/></svg></button>
+</aside>
+<div class="workspace" id="workspace"><div id="content" tabindex="-1"></div></div>
+</div>
+<script src="/app.js"></script>
 </body>
 </html>
