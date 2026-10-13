@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<!-- 前端：目前只请求服务状态并显示 JSON，五个业务页面尚未在这里实现。 -->
+<html lang="zh">
+<head><meta charset="utf-8"><title>Lexica</title></head>
+<body>
+<pre id="s"></pre>
+<script>
+// 页面打开后读取后端状态；成功响应里的 data 包含启动状态和词库是否就绪。
+fetch("/api/status").then(function (r) { return r.json(); }).then(function (j) {
+  document.getElementById("s").textContent = JSON.stringify(j);
+});
+</script>
+</body>
+</html>
