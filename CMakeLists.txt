@@ -74,8 +74,10 @@ if(BUILD_TESTING)
   target_link_libraries(vocab_tests PRIVATE lexica_vocab lexica_dict)
   add_executable(review_test tests/review_test.cpp)
   target_link_libraries(review_test PRIVATE lexica_app)
+  add_executable(import_concurrency_test tests/import_concurrency_test.cpp)
+  target_link_libraries(import_concurrency_test PRIVATE lexica_app)
 
-  foreach(test_target dict_test vocab_tests review_test)
+  foreach(test_target dict_test vocab_tests review_test import_concurrency_test)
     target_compile_definitions(${test_target} PRIVATE
       LEXICA_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
       LEXICA_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")

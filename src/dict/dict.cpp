@@ -635,7 +635,9 @@ ErrorCode importRows(const std::string& dbFile, const std::string& srcPath, cons
                 code = ErrorCode::BadRequest;
                 break;
             }
-            if (!tx && !execute(db, "BEGIN IMMEDIATE")) {
+            // 暂存只写 temp 库，并读取 main 库；延迟事务不会提前取得 main 的写锁。
+            // 只有 applyStaged 最终原子更新正式词库时，才使用 BEGIN IMMEDIATE。
+            if (!tx && !execute(db, "BEGIN")) {
                 code = ErrorCode::DbError;
                 break;
             }
@@ -659,7 +661,10 @@ ErrorCode importRows(const std::string& dbFile, const std::string& srcPath, cons
                     }
                 }
             }
-            // 每 5000 行提交一次临时表，缩短写锁占用；正式词库要等整份文件通过后才改。
+            // 释放尚停在 SQLITE_ROW 的读游标，确保批次提交后不继续保留主库读快照。
+            sqlite3_reset(findStage.get());
+            sqlite3_reset(findLive.get());
+            // 每 5000 行提交一次临时表；主库在此阶段仍可接受查词、收藏等写入。
             if (code == ErrorCode::Ok && ++rows >= kBatchRows) {
                 if (!commitBatch(db, tx)) code = ErrorCode::DbError;
                 else if (progress) progress(report);
