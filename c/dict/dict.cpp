@@ -17,6 +17,7 @@ namespace {
 constexpr const char* kDatabaseFile = "lexica.db";
 constexpr int kDictSchemaVersion = 2;
 constexpr int kReviewSchemaVersion = 1;
+constexpr int kVocabSchemaVersion = 1;
 constexpr int kBatchRows = 5000;
 
 class Statement {
@@ -107,17 +108,19 @@ StartupStatus migrate(sqlite3* db) {
     int dictVersion = moduleVersion(db, "dict", ok);
     bool reviewOk = false;
     int reviewVersion = ok ? moduleVersion(db, "review", reviewOk) : 0;
+    bool vocabOk = false;
+    int vocabVersion = reviewOk ? moduleVersion(db, "vocab", vocabOk) : 0;
     Statement modules(db, "SELECT DISTINCT module FROM schema_migrations");
     bool foreign = false;
     while (modules && sqlite3_step(modules.get()) == SQLITE_ROW) {
         std::string name = columnText(modules.get(), 0);
-        if (name != "dict" && name != "review") foreign = true;
+        if (name != "dict" && name != "review" && name != "vocab") foreign = true;
     }
-    if (!ok || !reviewOk || !modules) {
+    if (!ok || !reviewOk || !vocabOk || !modules) {
         execute(db, "ROLLBACK");
         return StartupStatus::DbCorrupt;
     }
-    if (foreign || dictVersion > kDictSchemaVersion || reviewVersion > kReviewSchemaVersion) {
+    if (foreign || dictVersion > kDictSchemaVersion || reviewVersion > kReviewSchemaVersion || vocabVersion > kVocabSchemaVersion) {
         execute(db, "ROLLBACK");
         return StartupStatus::VersionTooNew;
     }
@@ -161,6 +164,32 @@ StartupStatus migrate(sqlite3* db) {
             "CREATE INDEX review_due ON review_state(due_utc, entry_id);"
             "INSERT INTO schema_migrations(id, module, version, name) "
             "VALUES(3, 'review', 1, 'create review state')";
+        if (!execute(db, sql)) {
+            execute(db, "ROLLBACK");
+            return StartupStatus::DbCorrupt;
+        }
+    }
+    if (vocabVersion < 1) {
+        const char* sql =
+            "CREATE TABLE vocab_item ("
+            "entry_id INTEGER PRIMARY KEY REFERENCES dictionary_entries(id) ON DELETE CASCADE,"
+            "word TEXT NOT NULL DEFAULT '',"
+            "favorite INTEGER NOT NULL DEFAULT 0 CHECK(favorite IN(0,1)),"
+            "note TEXT NOT NULL DEFAULT '',"
+            "paused INTEGER NOT NULL DEFAULT 0 CHECK(paused IN(0,1)));"
+            "CREATE TABLE vocab_history ("
+            "seq INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "entry_id INTEGER NOT NULL REFERENCES dictionary_entries(id) ON DELETE CASCADE,"
+            "utc INTEGER NOT NULL,"
+            "kind TEXT NOT NULL CHECK(kind IN('lookup','review')));"
+            "CREATE INDEX vocab_history_kind_seq ON vocab_history(kind, seq DESC);"
+            "CREATE INDEX vocab_history_utc ON vocab_history(utc);"
+            "CREATE TABLE vocab_lookup_op ("
+            "op_id TEXT PRIMARY KEY,"
+            "entry_id INTEGER NOT NULL REFERENCES dictionary_entries(id) ON DELETE CASCADE,"
+            "utc INTEGER NOT NULL);"
+            "INSERT INTO schema_migrations(id, module, version, name) "
+            "VALUES(4, 'vocab', 1, 'create personal vocabulary tables')";
         if (!execute(db, sql)) {
             execute(db, "ROLLBACK");
             return StartupStatus::DbCorrupt;

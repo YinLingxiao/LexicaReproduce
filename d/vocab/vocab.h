@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+struct sqlite3;
+
 struct VocabQuery {
     int favorite = -1;
     int stage = -1;
@@ -56,6 +58,11 @@ struct Stats {
 
 class Vocab {
 public:
+    Vocab() = default;
+    ~Vocab();
+    Vocab(const Vocab&) = delete;
+    Vocab& operator=(const Vocab&) = delete;
+
     void open(const std::string& dataDir);
     void close();
     ErrorCode recordLookup(EntryId id, const std::string& word, const OpId& opId);
@@ -70,21 +77,9 @@ public:
     int pausedCount() const;
 
 private:
-    struct Row {
-        EntryId entryId = 0;
-        std::string word;
-        bool favorite = false;
-        std::string note;
-        bool paused = false;
-    };
-
     std::string dataDir_;
-    std::vector<Row> rows_;
-    std::vector<HistoryItem> events_;
-    std::vector<HistoryItem> reviews_;
-    std::vector<OpId> ops_;
+    sqlite3* db_ = nullptr;
 
-    Row* find(EntryId id);
-    const Row* find(EntryId id) const;
-    Row& ensure(EntryId id, const std::string& word);
+    bool ensureItem(EntryId id, const std::string& word);
+    ErrorCode setFlag(EntryId id, const std::string& word, const char* column, bool value);
 };
