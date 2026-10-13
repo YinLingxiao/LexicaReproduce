@@ -55,10 +55,13 @@ target_include_directories(lexica_api SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/third_p
 target_link_libraries(lexica_api PUBLIC lexica_app ws2_32)
 
 # 把启动入口和控制台界面连接成最终可执行程序。
-add_executable(lexica src/main.cpp src/cli/cli.cpp)
-target_link_libraries(lexica PRIVATE lexica_api)
+add_executable(lexica src/main.cpp src/cli/cli.cpp src/ui/window.cpp)
+target_include_directories(lexica SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/third_party/webview)
+target_link_libraries(lexica PRIVATE lexica_api ole32 oleaut32 shell32 shlwapi user32 advapi32 version)
 if(MINGW)
-  target_link_options(lexica PRIVATE -static-libgcc -static-libstdc++ -static)
+  target_link_options(lexica PRIVATE -mwindows -static-libgcc -static-libstdc++ -static)
+elseif(MSVC)
+  target_link_options(lexica PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
 endif()
 
 # 编译结束后把前端网页复制到 exe 旁边的 web 目录。

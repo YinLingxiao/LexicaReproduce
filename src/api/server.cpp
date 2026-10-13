@@ -496,6 +496,10 @@ void routes(httplib::Server& svr, App& app, int port, const fs::path& webDir) {
 
 }
 
+void requestServerStop() {
+    if (gServer) gServer->stop();
+}
+
 // 设置超时与请求大小限制，只在 127.0.0.1 上启动服务。
 int runServer(App& app, int port, const std::string& webDir) {
     httplib::Server svr;

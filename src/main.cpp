@@ -2,16 +2,45 @@
 #include "api/server.h"
 #include "app/app.h"
 #include "cli/cli.h"
+#include "ui/window.h"
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <atomic>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <thread>
 
 namespace fs = std::filesystem;
 
 namespace {
+
+void openConsole() {
+    if (!AttachConsole(ATTACH_PARENT_PROCESS)) AllocConsole();
+    freopen("CONOUT$", "w", stdout);
+    freopen("CONOUT$", "w", stderr);
+    freopen("CONIN$", "r", stdin);
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+    std::cout.clear();
+    std::cerr.clear();
+    std::cin.clear();
+}
+
+bool serverUp(int port) {
+    SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (s == INVALID_SOCKET) return false;
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(static_cast<unsigned short>(port));
+    inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
+    int ok = connect(s, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+    closesocket(s);
+    return ok == 0;
+}
 
 // 取得当前 exe 所在目录，作为默认数据目录和网页目录的起点。
 fs::path exeDir() {
@@ -31,8 +60,6 @@ fs::path exeDir() {
 
 // 读取命令行参数，启动 App；启动失败则退出，否则进入用户选择的界面。
 int main(int argc, char** argv) {
-    SetConsoleOutputCP(CP_UTF8);
-    SetConsoleCP(CP_UTF8);
     fs::path base = exeDir();
     fs::path dataDir = base / "data";
     fs::path webDir = base / "web";
@@ -46,12 +73,16 @@ int main(int argc, char** argv) {
         else if (arg == "--web-dir" && i + 1 < argc) webDir = fs::path(argv[++i]);
         else if (arg == "--port" && i + 1 < argc) port = std::atoi(argv[++i]);
         else {
-            std::cerr << "BAD_REQUEST " << arg << "\n";
+            std::string text = "BAD_REQUEST " + arg;
+            std::cerr << text << "\n";
+            MessageBoxA(nullptr, text.c_str(), "Lexica", MB_ICONERROR);
             return 2;
         }
     }
+    if (cli) openConsole();
     if (port <= 0 || port > 65535) {
         std::cerr << "BAD_REQUEST --port\n";
+        if (!cli) MessageBoxA(nullptr, "BAD_REQUEST --port", "Lexica", MB_ICONERROR);
         return 2;
     }
     // 先完成数据目录和数据库检查，再开放界面供用户操作。
@@ -59,15 +90,41 @@ int main(int argc, char** argv) {
     StartupStatus status = app.start(dataDir.u8string());
     std::cout << startupName(status) << "\n";
     if (status == StartupStatus::DirNotWritable || status == StartupStatus::DbCorrupt || status == StartupStatus::VersionTooNew) {
+        if (!cli) MessageBoxA(nullptr, startupName(status), "Lexica", MB_ICONERROR);
         return 1;
     }
     int code = 0;
-    // 网页模式会持续监听请求，直到用户结束程序。
     if (cli) {
         code = runCli(app);
     } else {
-        std::cout << "http://127.0.0.1:" << port << "\n";
-        code = runServer(app, port, webDir.u8string());
+        WSADATA wsa{};
+        WSAStartup(MAKEWORD(2, 2), &wsa);
+        std::atomic<bool> done{false};
+        std::thread server([&] {
+            code = runServer(app, port, webDir.u8string());
+            done = true;
+        });
+        bool up = false;
+        for (int i = 0; i < 50 && !done; ++i) {
+            if (serverUp(port)) {
+                up = true;
+                break;
+            }
+            Sleep(100);
+        }
+        if (!up) {
+            requestServerStop();
+            server.join();
+            WSACleanup();
+            MessageBoxA(nullptr, "INTERNAL", "Lexica", MB_ICONERROR);
+            app.shutdown();
+            return 1;
+        }
+        int windowCode = runWindow(port);
+        requestServerStop();
+        server.join();
+        WSACleanup();
+        if (windowCode != 0) code = windowCode;
     }
     app.shutdown();
     return code;
