@@ -1,4 +1,4 @@
 build*/
-data/
+/data/
 tmp/
 *.exe
