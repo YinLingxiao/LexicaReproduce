@@ -31,7 +31,7 @@ target_link_libraries(lexica_dict PUBLIC lexica_common lexica_sqlite)
 
 add_library(lexica_vocab d/vocab/vocab.cpp)
 target_include_directories(lexica_vocab PUBLIC ${CMAKE_SOURCE_DIR}/d)
-target_link_libraries(lexica_vocab PUBLIC lexica_common)
+target_link_libraries(lexica_vocab PUBLIC lexica_common lexica_sqlite)
 
 add_library(lexica_review e/review/review.cpp)
 target_include_directories(lexica_review PUBLIC ${CMAKE_SOURCE_DIR}/e)
