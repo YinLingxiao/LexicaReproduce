@@ -98,6 +98,18 @@ bool Review::open(const std::string& dataDir) {
         sqlite3_close(db);
         return false;
     }
+    // 成绩表（E 自己的数据表，分派 §七.7）：幂等自建，不登记 C 的迁移体系，
+    // 避免触发 C 的 VersionTooNew 检查；如需纳入迁移找 C 登记 review v2。
+    if (!exec(db, "CREATE TABLE IF NOT EXISTS review_result ("
+                  "qid INTEGER PRIMARY KEY,"
+                  "entry_id INTEGER NOT NULL,"
+                  "session_id TEXT NOT NULL,"
+                  "correct INTEGER NOT NULL,"
+                  "practice INTEGER NOT NULL DEFAULT 0,"
+                  "utc INTEGER NOT NULL)")) {
+        sqlite3_close(db);
+        return false;
+    }
     db_ = db;
     return true;
 }
@@ -116,6 +128,12 @@ void Review::bind(Dict* dict, Vocab* vocab) {
 
 void Review::setSentenceSource(SentenceSource source) { sentences_ = std::move(source); }
 
+void Review::setClock(const Clock* clock) { clock_ = clock; }
+
+std::int64_t Review::nowUtc() const {
+    return clock_ ? clock_->nowUtc() : systemClock().nowUtc();
+}
+
 ErrorCode Review::ensureState(EntryId id) {
     if (id <= 0) return ErrorCode::BadRequest;
     if (!db_) return ErrorCode::DbError;
@@ -124,7 +142,7 @@ ErrorCode Review::ensureState(EntryId id) {
         return ErrorCode::DbError;
     }
     sqlite3_bind_int64(st, 1, id);
-    sqlite3_bind_int64(st, 2, systemClock().nowUtc() + 86400);
+    sqlite3_bind_int64(st, 2, nowUtc() + 86400);
     int rc = sqlite3_step(st);
     sqlite3_finalize(st);
     return rc == SQLITE_DONE ? ErrorCode::Ok : ErrorCode::DbError;
@@ -207,7 +225,7 @@ Result<SessionId> Review::start() {
     if (sqlite3_prepare_v2(static_cast<sqlite3*>(db_), "SELECT entry_id FROM review_state WHERE due_utc<=? ORDER BY due_utc, entry_id", -1, &st, nullptr) != SQLITE_OK) {
         return Result<SessionId>::fail(ErrorCode::DbError);
     }
-    sqlite3_bind_int64(st, 1, systemClock().nowUtc());
+    sqlite3_bind_int64(st, 1, nowUtc());
     std::vector<EntryId> due;
     while (sqlite3_step(st) == SQLITE_ROW) due.push_back(sqlite3_column_int64(st, 0));
     sqlite3_finalize(st);
@@ -279,18 +297,38 @@ Result<Hint> Review::hint(QuestionId qid, int level) {
     return Result<Hint>::success(hint);
 }
 
-bool Review::writeState(EntryId id, int stage, std::int64_t due) {
+// 成绩 + 学习状态在同一事务内落盘（分派 §七.7）：
+//   updateState=true  → UPDATE review_state + INSERT review_result（正式题）
+//   updateState=false → 仅 INSERT review_result，practice 标记为 1（重练题，不改正式成绩）
+bool Review::persist(const Item& item, int stage, std::int64_t due, bool updateState) {
     sqlite3* db = static_cast<sqlite3*>(db_);
     if (!exec(db, "BEGIN IMMEDIATE")) return false;
-    sqlite3_stmt* st = nullptr;
-    bool ok = sqlite3_prepare_v2(db, "UPDATE review_state SET stage=?, due_utc=? WHERE entry_id=?", -1, &st, nullptr) == SQLITE_OK;
-    if (ok) {
-        sqlite3_bind_int(st, 1, stage);
-        sqlite3_bind_int64(st, 2, due);
-        sqlite3_bind_int64(st, 3, id);
-        ok = sqlite3_step(st) == SQLITE_DONE && sqlite3_changes(db) == 1;
+    bool ok = true;
+    if (updateState) {
+        sqlite3_stmt* st = nullptr;
+        ok = sqlite3_prepare_v2(db, "UPDATE review_state SET stage=?, due_utc=? WHERE entry_id=?", -1, &st, nullptr) == SQLITE_OK;
+        if (ok) {
+            sqlite3_bind_int(st, 1, stage);
+            sqlite3_bind_int64(st, 2, due);
+            sqlite3_bind_int64(st, 3, item.entryId);
+            ok = sqlite3_step(st) == SQLITE_DONE && sqlite3_changes(db) == 1;
+        }
+        if (st) sqlite3_finalize(st);
     }
-    if (st) sqlite3_finalize(st);
+    if (ok) {
+        sqlite3_stmt* st = nullptr;
+        ok = sqlite3_prepare_v2(db, "INSERT INTO review_result(qid, entry_id, session_id, correct, practice, utc) VALUES(?,?,?,?,?,?)", -1, &st, nullptr) == SQLITE_OK;
+        if (ok) {
+            sqlite3_bind_int64(st, 1, item.id);
+            sqlite3_bind_int64(st, 2, item.entryId);
+            sqlite3_bind_text(st, 3, item.sessionId.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(st, 4, item.correct ? 1 : 0);
+            sqlite3_bind_int(st, 5, item.practice ? 1 : 0);
+            sqlite3_bind_int64(st, 6, nowUtc());
+            ok = sqlite3_step(st) == SQLITE_DONE;
+        }
+        if (st) sqlite3_finalize(st);
+    }
     if (!ok || !exec(db, "COMMIT")) {
         exec(db, "ROLLBACK");
         return false;
@@ -319,13 +357,19 @@ Result<Grade> Review::submit(QuestionId qid, const std::string& answer) {
     if (!item->practice) {
         if (mastered && item->hintLevel == 0) nextStage = std::min(stage + 1, 3);
         else if (!mastered) nextStage = std::max(stage - 1, 0);
-        std::int64_t due = systemClock().nowUtc() + static_cast<std::int64_t>(intervalDays(nextStage)) * 86400;
-        if (!writeState(item->entryId, nextStage, due)) return Result<Grade>::fail(ErrorCode::DbError);
+        std::int64_t due = nowUtc() + static_cast<std::int64_t>(intervalDays(nextStage)) * 86400;
+        item->graded = true;
+        item->correct = mastered;
+        item->gradedHint = item->hintLevel;
+        item->resultStage = nextStage;
+        if (!persist(*item, nextStage, due, true)) return Result<Grade>::fail(ErrorCode::DbError);
+    } else {
+        item->graded = true;
+        item->correct = mastered;
+        item->gradedHint = item->hintLevel;
+        item->resultStage = stage;
+        if (!persist(*item, stage, 0, false)) return Result<Grade>::fail(ErrorCode::DbError);
     }
-    item->graded = true;
-    item->correct = mastered;
-    item->gradedHint = item->hintLevel;
-    item->resultStage = nextStage;
     grade.correct = mastered;
     grade.stage = nextStage;
     grade.hintLevel = item->gradedHint;
