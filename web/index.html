@@ -1,14 +1,32 @@
-<!DOCTYPE html>
-<!-- 前端：目前只请求服务状态并显示 JSON，五个业务页面尚未在这里实现。 -->
-<html lang="zh">
-<head><meta charset="utf-8"><title>Lexica</title></head>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7f2">
+  <title>Lexica · 记住单词了吗</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
 <body>
-<pre id="s"></pre>
-<script>
-// 页面打开后读取后端状态；成功响应里的 data 包含启动状态和词库是否就绪。
-fetch("/api/status").then(function (r) { return r.json(); }).then(function (j) {
-  document.getElementById("s").textContent = JSON.stringify(j);
-});
-</script>
+  <aside class="sidebar">
+    <a class="brand" href="#/lookup" aria-label="Lexica 首页"><span class="brand-mark">L<span>✦</span></span><span class="brand-name">lexica<span class="brand-dot">.</span></span></a>
+    <div class="workspace-label">你的语言生长足迹</div>
+    <nav aria-label="主导航">
+      <a href="#/lookup" data-page="lookup" aria-label="查询单词"><span>⌕</span><b>查询单词</b><small>01</small></a>
+      <a href="#/vocab" data-page="vocab" aria-label="我的词汇"><span>▤</span><b>我的词汇</b><small>02</small></a>
+      <a href="#/review" data-page="review" aria-label="我的复习"><span>↻</span><b>我的复习</b><small>03</small></a>
+      <a href="#/stats" data-page="stats" aria-label="学习足迹"><span>▥</span><b>学习足迹</b><small>04</small></a>
+    </nav>
+    <div class="sidebar-note"><span class="tiny-label">A LITTLE, EVERY DAY</span><p>今天你查单词了吗？</p><i></i><i></i><i></i><i></i><b></b></div></div>
+    <a class="settings-link" href="#/settings" data-page="settings" aria-label="偏好与设置"><span>⚙</span><b>偏好与设置</b></a>
+    <div class="local-status"><i id="status-dot"></i><span id="service-status">正在连接本地服务</span><span class="version">v1.0</span></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>个人学习空间 <span class="slash">/</span> <strong id="breadcrumb">探索单词</strong></span><div><span class="offline-pill">自己的学习助手</span><span class="avatar">L</span></div></header>
+    <div id="app" tabindex="-1"></div>
+    <footer><span>LEXICA / 遇到单词记得来这里。</span><span>Stay curious. Keep growing.</span></footer>
+  </main>
+  <div id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
