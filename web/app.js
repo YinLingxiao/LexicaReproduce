@@ -34,7 +34,7 @@ async function refreshStatus() {
   catch { ready = false; $('#service-status').textContent = '本地服务未连接'; $('#status-dot').classList.remove('online'); }
 }
 function lookupLayout() {
-  app.innerHTML = heading('THE WORLD, ONE WORD AT A TIME', '今天的你，<em>背单词了吗？</em>', '词库搭搭搭搭搭搭') +
+  app.innerHTML = heading('THE WORLD, ONE WORD AT A TIME', '今天的你，<em>背单词了吗？</em>', '输入一个英文单词，看看它的意思。') +
     `<div id="dict-banner"></div><div class="search-wrap"><form id="search-form" class="search-form"><span class="search-icon" aria-hidden="true">⌕</span><input id="search-input" aria-label="输入英文单词" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggestions" autocomplete="off" placeholder="遇见了什么新单词？" spellcheck="false"><button class="primary" type="submit">查词 <span aria-hidden="true">↗</span></button></form><div id="suggestions" class="suggestions" role="listbox" hidden></div></div><div class="search-caption"><kbd>Enter</kbd> 查询单词 <span>·</span> <kbd>↑</kbd><kbd>↓</kbd> 选择建议 <span>·</span> 自动补全单词</div>
     <div class="lookup-grid"><div><section id="word-panel" class="card word-card"></section><section id="note-panel" class="card note-card" hidden></section></div><aside class="side-stack"><section class="card side-card"><div class="side-title"><h2>最近遇见</h2><button class="text-button" id="history-more">更多 ↗</button></div><div id="history">${loading}</div></section><section class="tip-card"><span class="tiny-label">MAKE IT STICK</span><div class="tip-title">Small steps. Big worlds.</div><p></p><a href="#/review" class="text-button">去温习一下 <span aria-hidden="true">→</span></a></section></aside></div>`;
   $('#word-panel').innerHTML = `<div class="card-label">YOUR NEXT DISCOVERY <span class="tag">坚持看一点</span></div><div class="empty"><div class="welcome-word">Hello, curious mind.</div><p class="welcome-text">${['apple','banana','run'].map(word => `<button data-quick="${word}">${word} ↗</button>`).join('')}</div></div>`;
@@ -73,8 +73,9 @@ function lookupLayout() {
 async function renderHistory(size = 5) {
   const target = $('#history'); if (!target) return;
   try {
-    const data = await api(`/history?page=1&size=${size}`);
+    const data = await api('/history?page=1&size=100');
     if (!target.isConnected) return;
+    data.items = data.items.filter((item, i, all) => all.findIndex(x => x.id === item.id) === i).slice(0, size);
     target.innerHTML = data.items.length ? data.items.map(item => `<button class="history-item" data-id="${item.id}"><span>${escape(item.word)}</span><span>↗</span></button>`).join('') : '<p class="subtitle">还没有查词记录。<br>从第一个单词开始吧。</p>';
     target.querySelectorAll('button').forEach(button => button.onclick = () => loadEntry(button.dataset.id));
   } catch (error) { if (target.isConnected) target.innerHTML = errorBox(error); }
