@@ -3,5 +3,9 @@
     "version": "1.0.4314.35",
     "url": "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/1.0.4314.35/microsoft.web.webview2.1.0.4314.35.nupkg",
     "sha256": "90778DEB1B77E36292828B4B5833C9255C27533F40E0DDD55891AE718944EDC4"
+  },
+  "webview2Runtime": {
+    "product": "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+    "installer": "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
   }
 }

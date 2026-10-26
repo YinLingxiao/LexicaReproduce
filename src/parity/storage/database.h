@@ -52,5 +52,19 @@ public:
   }
   const std::filesystem::path &path() const { return path_; }
   void seed();
+  template <class F>
+  auto withSideConnection(F &&f)
+      -> decltype(f(static_cast<sqlite3 *>(nullptr))) {
+    std::lock_guard<std::mutex> lock(sideMutex_);
+    if (!side_)
+      openSide();
+    return f(side_);
+  }
+
+private:
+  void openSide();
+  sqlite3 *side_ = nullptr;
+  std::mutex sideMutex_;
 };
+int schemaVersion();
 } // namespace lexica::parity

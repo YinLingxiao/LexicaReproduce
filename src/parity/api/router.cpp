@@ -1,4 +1,5 @@
 #include "parity/api/router.h"
+#include "parity/contracts/cancel.h"
 #include "parity/contracts/catalog.h"
 #include <cmath>
 namespace lexica::parity {
@@ -78,6 +79,15 @@ void Router::bind(const std::string &owner, const std::string &command,
 }
 Json Router::invoke(const std::string &command, Json args,
                     Context &context) const {
+  struct CancelBind {
+    const Cancellation *previous;
+    explicit CancelBind(const Cancellation *current)
+        : previous(currentCancellation()) {
+      setCurrentCancellation(current);
+    }
+    ~CancelBind() { setCurrentCancellation(previous); }
+  } bind(context.cancellation);
+  throwIfCancelled(context.cancellation);
   if (command == "system_capabilities")
     return capabilities();
   const Json *spec = nullptr;

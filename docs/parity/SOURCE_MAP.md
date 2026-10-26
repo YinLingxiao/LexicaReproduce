@@ -54,6 +54,13 @@
 | COMP-14 | Phase 0 lookup 仅查 SQLite，不写学习事实 | 显式 read_only_seed，C 完成事件链后更新注册状态 | C |
 | COMP-15 | 旧 C++ 数据结构/复习规则不同 | 隔离新库；旧数据迁移另做报告，禁止覆盖旧用户库 | A |
 | COMP-16 | 原版外部平台依赖是 Tauri/Rust | 改为 C++ WebView2/JSON 桥，保持页面业务 DTO 语义 | A/E |
+| COMP-17 | `db_dir.txt` 在 app data 中，内容为数据库目录；空则用默认目录 | 复刻版指针放在 `LexicaReproduce/parity-v1`。只接受绝对路径。相对路径拒绝 | A |
+| COMP-18 | 原版凭据服务名 `com.lexica.app`，账号 `ai_api_key` | 服务名改为 `LexicaReproduce.parity-v1`，账号不变。不读写原版凭据 | A/F |
+| COMP-19 | Tauri WebView 数据在原版 app data，不随 db_dir 移动 | profile 固定在复刻版身份根的 `webview-profile`，不进入原版 `EBWebView` | A |
+| COMP-20 | 原版用独立 SQLite 连接做导入，主连接继续查词 | 后台命令单独队列；导入应使用 `withSideConnection` 和短事务 | A/B |
+| COMP-21 | 旧 C++ 的 stage/due 与原版记忆事件不是同一模型 | 迁移只搬笔记、收藏和暂停，不生成 encounters 或 memory_states | A |
+| COMP-22 | 原版安装器是 Tauri bundle | 复刻版是当前用户目录拷贝。卸载保留 `parity-v1`，除非明确删除数据 | A |
+| COMP-23 | 页面用 `navigator.clipboard` 和路径文本框；外链走 opener 插件，允许 GitHub | WebView 允许可信来源读剪贴板，并提供文件/目录选择。http(s) 外链交给系统浏览器 | A |
 
 COMP-06/07/08 的结论来自源码路径检查，尚需原版实机/固定数据动态核对。它们是显式登记的验证任务，不是已证明的产品设计意图。
 

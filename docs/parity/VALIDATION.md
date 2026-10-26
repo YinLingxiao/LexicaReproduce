@@ -51,3 +51,27 @@ parity_foundation_test 验证 schema/FTS/外键、55 条种子幂等和稳定 ID
 依赖审计已完成非破坏性修复，消除了报告中的高严重度项；剩余 3 个低严重度 SvelteKit/adapter/cookie 相关项。npm 给出的完整修复需要跨到 SvelteKit 3 / adapter 4，本次保留原版兼容的主版本，交由 A 评估升级。生产只分发静态前端，未部署 Node SSR 服务。
 
 基础工程可以支撑并行开发；Phase 0 的可用查询与页面迁移不表示其余 28 个业务命令已经实现。未实现能力始终由诊断目录和错误响应明确标记。
+
+## 平台增量（合同 1.1.0）
+
+日期：2026-10-26。协议仍为 1，schema 仍为 5。合同增加 `lane=background`，不改变 DTO。
+
+| 验证 | 结果 |
+|---|---|
+| `node tools/generate-contracts.mjs --check` | 通过 |
+| `node tools/verify-baseline.mjs` | 10 个固定文件通过 |
+| MSVC Release 构建 | 通过 |
+| `ctest -C Release` | 6/6 通过，含 parity_platform_test |
+| `npm run check` | 0 错误、0 警告 |
+| `npm run build` | 通过 |
+| `node tools/smoke-rpc.mjs`（Release 服务） | 14 项通过：真实 HTTP、中文数据目录、`/events` 首包与并发查词 |
+| WebView2 `--smoke-report` | ok=true，contract_version=1.1.0，ui_rendered=true，中文数据目录 |
+| `tools/check-runtime.ps1` | WebView2 Runtime 155.0.4283.62 |
+| 安装、再次安装、卸载到临时目录 | 程序目录被替换并删除；个人数据标记仍在 |
+| 原版库只读探测 | `%APPDATA%\com.lexica.app\lexica.db`，1,033,101,312 字节，user_version=4，能查到 meticulous。缺的表只有 migration 5 的 `word_enrichments` 和 `custom_wordbook_words`。探测后字节数不变 |
+
+冒烟仍会在命令未注册时确认写入不会假装成功。成功条件是查词链和能力目录，不再把“永远返回 NOT_IMPLEMENTED”当成功能完成。
+
+依赖审计仍是 3 个低严重度项：`@sveltejs/kit`、`@sveltejs/adapter-static`、`cookie`。完整修复要升到 SvelteKit 3 / adapter 4，会离开原版主版本。生产包只带静态页面，没有 Node SSR。本次不升级。
+
+未在本次启动原版 exe，也没有把那份 1GB 的 version 4 库复制后做写入升级。version 4 追加到 5 由小型夹具验证。文件选择对话框和开始菜单快捷方式没有做界面点击验收。

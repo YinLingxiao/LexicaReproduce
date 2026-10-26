@@ -1,4 +1,5 @@
 #include "parity/storage/database.h"
+#include "parity/contracts/cancel.h"
 #include "parity/contracts/clock.h"
 #include "parity/contracts/dto.h"
 #include "parity_resources.h"
@@ -59,6 +60,7 @@ Statement &Statement::null(int i) {
   return *this;
 }
 bool Statement::step() {
+  throwIfCancelled(currentCancellation());
   auto code = sqlite3_step(stmt_);
   if (code == SQLITE_ROW)
     return true;
@@ -114,10 +116,28 @@ Database::Database(const std::filesystem::path &path) : path_(path) {
     throw;
   }
 }
+void Database::openSide() {
+  const auto code = sqlite3_open_v2(path_.u8string().c_str(), &side_,
+                                    SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX,
+                                    nullptr);
+  if (code != SQLITE_OK) {
+    const std::string message =
+        side_ ? sqlite3_errmsg(side_) : "Cannot open side connection";
+    sqlite3_close(side_);
+    side_ = nullptr;
+    throw Error("DB_ERROR", message);
+  }
+  sqlite3_busy_timeout(side_, 2000);
+  execute(side_, "PRAGMA foreign_keys=ON");
+  execute(side_, "PRAGMA journal_mode=WAL");
+}
 Database::~Database() {
+  if (side_)
+    sqlite3_close(side_);
   if (db_)
     sqlite3_close(db_);
 }
+int schemaVersion() { return static_cast<int>(std::size(kMigrations)); }
 void Database::seed() {
   withConnection([](sqlite3 *db) {
     const auto seed = Json::parse(kSeedJson);

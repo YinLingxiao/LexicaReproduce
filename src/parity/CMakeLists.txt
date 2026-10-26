@@ -11,7 +11,9 @@ file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
 configure_file(storage/embedded.h.in "${CMAKE_CURRENT_BINARY_DIR}/generated/parity_resources.h" @ONLY)
 
 add_library(lexica_parity
-  contracts/clock.cpp storage/database.cpp api/router.cpp app/application.cpp)
+  contracts/clock.cpp contracts/cancel.cpp storage/database.cpp storage/legacy.cpp
+  storage/upstream.cpp api/router.cpp api/events.cpp app/application.cpp app/paths.cpp
+  app/executor.cpp)
 target_include_directories(lexica_parity PUBLIC "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/third_party"
   PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(lexica_parity PUBLIC lexica_sqlite)
@@ -62,4 +64,13 @@ if(BUILD_TESTING)
     LEXICA_TEST_OUTPUT_DIR="${PROJECT_BINARY_DIR}/test-output")
   add_test(NAME parity_foundation_test COMMAND parity_foundation_test)
   set_tests_properties(parity_foundation_test PROPERTIES TIMEOUT 60)
+  add_executable(parity_platform_test "${PROJECT_SOURCE_DIR}/tests/parity/platform_test.cpp")
+  target_link_libraries(parity_platform_test PRIVATE lexica_parity)
+  target_include_directories(parity_platform_test PRIVATE "${PROJECT_SOURCE_DIR}/tests")
+  target_compile_definitions(parity_platform_test PRIVATE
+    LEXICA_TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/tests/data"
+    LEXICA_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+    LEXICA_TEST_OUTPUT_DIR="${PROJECT_BINARY_DIR}/test-output")
+  add_test(NAME parity_platform_test COMMAND parity_platform_test)
+  set_tests_properties(parity_platform_test PROPERTIES TIMEOUT 120)
 endif()
