@@ -31,6 +31,7 @@ node tools/generate-contracts.mjs --check
 - 所有字段、nullable、默认参数、结果类型与命令所有者见 commands.json。缺省 nullable 参数被补为 null；limit 的缺省和 null 都按原版默认值处理。
 - Router 拒绝未知参数、错误类型、非法枚举及明确的边界越界，并校验返回结果。
 - 正式复习的防重复以 review_id 与事务内状态为准；study_grade 的重发语义由 C 明确测试，并通过 Context.request_id 区分同一请求重发与新的主动评分。
+- 学习模块的请求重放缓存属于单个 Application，最多保留 4096 项、16 MiB 序列化参数/结果。窗口内相同命令和 request_id 返回原结果，参数不同返回 BAD_REQUEST。它不跨数据库、不跨重启，也不承诺窗口外的 study_grade 恰好一次；客户端重试应复用当前请求 ID。
 - 新模块通过 `router.bind("所有者", "命令", handler, "implemented")` 注册；重复绑定和越权所有者立即报错。注册必须在 Application 构造完成前进行，运行中不修改 Router。
 - `commands.json` 的 `lane` 为 `background` 时，桌面和 HTTP 把该命令放到单独队列。当前是 `ensure_dictionary`、`import_ecdict`、`rebuild_memory_projection`、`ai_test_connection`、`ai_generate_examples`、`ai_enrich_words`。查词走交互队列，不排在这些命令后面。
 - 长导入使用 `Database::withSideConnection`。它有自己的连接和锁，不占用 `withConnection`。网络、解压和扫描仍然不能包在任一把锁里。
@@ -44,6 +45,8 @@ node tools/generate-contracts.mjs --check
 `Context` 提供 Database、可注入毫秒 Clock、DictionaryPort、EventSink 和逐请求 request_id。dispatch 会复制 Context；各 Agent 自有缓存或共享状态须自行同步。
 
 AI 的 `KeyStore` 与 `HttpClient` 是可替换边界。真实凭据使用 `kCredentialService`（`LexicaReproduce.parity-v1`）和 `kCredentialAccount`（`ai_api_key`）。原版服务名是 `com.lexica.app`，复刻版不得写入那条凭据。HTTP 默认保持 15 秒超时，不持有 DB 锁发送网络请求。
+
+Windows 通用凭据 TargetName 是 `LexicaReproduce.parity-v1/ai_api_key`。网络请求用异步 WinHTTP 实现协作式取消，AI 的 15 秒是整次请求的截止时间；取消不作为“生成部分成功”返回。下载、解压、导入同样观察当前取消令牌。测试服务可指定 `--no-auto-setup`，关闭启动时自动下载，显式 `ensure_dictionary`/导入仍可调用；正常产品启动默认保持自动初始化。
 
 ## 事务和锁
 

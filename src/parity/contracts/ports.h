@@ -43,15 +43,18 @@ struct Context {
   std::string request_id;
   // Null for direct dispatch. Background work polls this outside the DB lock.
   const Cancellation *cancellation = nullptr;
+  bool automatic_dictionary_setup = true;
 };
 inline void checkCancelled(const Context &context) {
   throwIfCancelled(context.cancellation);
 }
-inline void emitDictionarySetup(const Context &context, const std::string &phase,
-                                const Json &progress, const std::string &message) {
+inline void emitDictionarySetup(const Context &context,
+                                const std::string &phase, const Json &progress,
+                                const std::string &message) {
   if (!context.emit)
     return;
-  context.emit("dictionary-setup",
-               Json{{"phase", phase}, {"progress", progress}, {"message", message}});
+  context.emit(
+      "dictionary-setup",
+      Json{{"phase", phase}, {"progress", progress}, {"message", message}});
 }
 } // namespace lexica::parity

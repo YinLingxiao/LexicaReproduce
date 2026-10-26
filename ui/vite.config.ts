@@ -9,7 +9,10 @@ export default defineConfig({
 		host: '127.0.0.1',
 		port: 5173,
 		strictPort: true,
-		proxy: { '/rpc': { target: 'http://127.0.0.1:8766', changeOrigin: true } }
+		proxy: {
+			'/rpc': { target: 'http://127.0.0.1:8766', changeOrigin: true },
+			'/events': { target: 'http://127.0.0.1:8766', changeOrigin: true }
+		}
 	},
 	envPrefix: ['VITE_', 'TAURI_ENV_']
 });

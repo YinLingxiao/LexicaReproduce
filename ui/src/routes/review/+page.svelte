@@ -235,8 +235,8 @@
 		card.bookmarked = next;
 		try {
 			// 先读回已有笔记，避免收藏时覆盖用户写过的内容。
-			const note = await wordNote(card.entry.id).catch(() => null);
-			await saveWordNote(card.entry.id, next, note?.note ?? '');
+			const note = await wordNote(card.entry.id);
+			await saveWordNote(card.entry.id, next, note.note);
 		} catch (e) {
 			card.bookmarked = !next;
 			cardError = errorMessage(e);

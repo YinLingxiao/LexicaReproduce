@@ -41,7 +41,6 @@ std::unique_ptr<DictionaryPort> makeDictionary() {
 void registerDictionary(Router &router) {
   router.bind("dictionary", "app_info", [](const Json &, Context &context) -> Json {
     return context.db.withConnection([&](sqlite3 *db) -> Json {
-      backfillSeedMetadata(db, formatUtc(context.clock.nowMillis()));
       Statement version(db, "PRAGMA user_version");
       version.step();
       Statement count(db, "SELECT COUNT(*) FROM words");

@@ -290,6 +290,20 @@ test('study grade failure keeps the card and a second click does not double-writ
 	expect((await calls(page)).filter((call) => call.command === 'study_grade' && call.args.grade === 'know')).toHaveLength(1);
 });
 
+test('bookmark does not overwrite notes when reading them fails', async ({page}) => {
+	await onStudy(page, [1]);
+	await page.goto('/review');
+	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toBeVisible();
+	await page.evaluate(() => {
+		(window as any).__calls = [];
+		(window as any).__failNext = {command: 'word_note', message: 'notes unavailable'};
+	});
+	await page.getByRole('button', {name: '收藏', exact: true}).click();
+	await expect(page.getByRole('alert')).toContainText('notes unavailable');
+	await expect(page.getByRole('button', {name: '收藏', exact: true})).toHaveAttribute('aria-pressed', 'false');
+	expect((await calls(page)).filter(call => call.command === 'save_word_note')).toHaveLength(0);
+});
+
 test('study card content, context mode, syllables, speech and example preference', async ({page}) => {
 	await onStudy(page, [surgeryId, 1]);
 	await page.goto('/review');

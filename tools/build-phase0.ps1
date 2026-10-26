@@ -20,7 +20,12 @@ try {
     Push-Location ui
     try { Invoke-Checked { npm run check }; Invoke-Checked { npm run build } } finally { Pop-Location }
   }
-  Invoke-Checked { cmake --preset parity-msvc }
+  cmake --preset parity-msvc
+  if ($LASTEXITCODE -lt 0 -and (Test-Path -LiteralPath 'C:\msys64\ucrt64\bin\cmake.exe')) {
+    $env:PATH = 'C:\msys64\ucrt64\bin;' + $env:PATH
+    cmake --preset parity-msvc
+  }
+  if ($LASTEXITCODE) { throw 'CMake configure failed' }
   Invoke-Checked { cmake --build (Join-Path $taskRoot 'build-parity-msvc') --config $Config --parallel 3 }
   Invoke-Checked { ctest --test-dir (Join-Path $taskRoot 'build-parity-msvc') -C $Config --output-on-failure }
   $taskOutput = Join-Path $taskRoot "build-parity-msvc/src/parity/$Config"

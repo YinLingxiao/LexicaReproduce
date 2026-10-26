@@ -1,8 +1,6 @@
 #include "parity/modules/dictionary/api.h"
 #include "parity_resources.h"
-#include <mutex>
 #include <unordered_map>
-#include <unordered_set>
 namespace lexica::parity {
 namespace {
 std::string joinTags(const Json &tags) {
@@ -119,15 +117,6 @@ const SeedRecord *findSeedRecord(const std::string &normalizedWord) {
 void backfillSeedMetadata(sqlite3 *db, const std::string &now) {
   if (!sqlite3_get_autocommit(db))
     return;
-  const char *filename = sqlite3_db_filename(db, "main");
-  const std::string key = filename ? filename : "";
-  static std::mutex mutex;
-  static std::unordered_set<std::string> done;
-  if (!key.empty()) {
-    std::lock_guard<std::mutex> lock(mutex);
-    if (done.count(key))
-      return;
-  }
   {
     Transaction tx(db);
     for (const auto &row : seedRecords()) {
@@ -178,10 +167,6 @@ void backfillSeedMetadata(sqlite3 *db, const std::string &now) {
       }
     }
     tx.commit();
-  }
-  if (!key.empty()) {
-    std::lock_guard<std::mutex> lock(mutex);
-    done.insert(key);
   }
 }
 } // namespace lexica::parity

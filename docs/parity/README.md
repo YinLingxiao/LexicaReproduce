@@ -1,5 +1,7 @@
 # Phase 0 公共基座与交接入口
 
+2026-10-26 集成更新：六个模块已合并，31 个业务命令均已注册。当前状态、审核修复和未验收范围以 [集成审核报告](REVIEW.md) 为准；下方 Phase 0 范围保留为基础交接记录。
+
 目标：Lexica 0.2.0，参考 SHA `c4b92a39402860566bf954f92efc8e59666aaa4a`。
 公共合同版本 `1.1.0`；协议版本 `1`；SQLite `user_version=5`。1.1.0 只增加命令通道、取消和事件订阅，不改协议号和表结构。
 
@@ -62,7 +64,9 @@
 ./tools/uninstall.ps1
 ```
 
-安装目录是 `%LOCALAPPDATA%/LexicaReproduce/app`。卸载删除程序和开始菜单快捷方式，保留 `parity-v1`。只有 `-DeleteData` 才删除个人库、profile 和 `db_dir.txt`。升级是再次安装，不清理该目录。
+安装目录是 `%LOCALAPPDATA%/LexicaReproduce/app`。安装器保存文件所有权清单，升级替换清单中的文件，卸载只删除清单中的文件及空目录，保留自行放入的文件。非空且没有安装清单的目录会被拒绝。个人数据 `parity-v1` 默认保留；只有 `-DeleteData` 才删除该固定目录内的个人库、profile 和 `db_dir.txt`，外部 db_dir 指向的数据目录不自动删除。
+
+Release 使用静态 MSVC 运行库，分发仍需要 WebView2 Runtime。打包会重新构建当前代码和 UI，不沿用目录里已有的旧程序。可运行 `tools/test-install.ps1 -Package <包目录绝对路径>` 验证安装、升级、卸载及非本程序文件保护；测试不会执行 `-DeleteData`。
 
 ## Phase 0 的完成范围
 

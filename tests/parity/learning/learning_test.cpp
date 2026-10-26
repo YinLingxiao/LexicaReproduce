@@ -1,6 +1,6 @@
 #include "parity/app/application.h"
-#include "parity/modules/learning/memory_service.h"
 #include "parity/modules/learning/grader.h"
+#include "parity/modules/learning/memory_service.h"
 #include "parity/modules/learning/scheduler.h"
 #include "parity/storage/database.h"
 #include "test_support.h"
@@ -35,7 +35,8 @@ p::Json ok(p::Application &app, const std::string &command,
   return response["result"];
 }
 void expectCode(const p::Json &response, const std::string &code) {
-  check(response["ok"] == false && response["error"]["code"] == code, response.dump());
+  check(response["ok"] == false && response["error"]["code"] == code,
+        response.dump());
 }
 std::int64_t scalar(p::Application &app, const std::string &sql) {
   std::int64_t value = -1;
@@ -55,7 +56,9 @@ std::string cell(p::Application &app, const std::string &sql) {
   });
   return value;
 }
-double number(p::Application &app, const std::string &sql) { return std::stod(cell(app, sql)); }
+double number(p::Application &app, const std::string &sql) {
+  return std::stod(cell(app, sql));
+}
 std::int64_t idByName(p::Application &app, const std::string &word) {
   std::int64_t id = 0;
   app.database().withConnection([&](sqlite3 *db) {
@@ -69,12 +72,14 @@ std::int64_t wordId(p::Application &app, const std::string &word) {
   return ok(app, "lookup_word", {{"word", word}})["outcome"]["entry"]["id"];
 }
 void testGrader() {
-  check(l::blankWord("A word is a word.", "word") == "A ______ is a ______.", "repeat blank");
+  check(l::blankWord("A word is a word.", "word") == "A ______ is a ______.",
+        "repeat blank");
   check(!l::blankWord("The theme changed.", "he"), "boundary");
   check(l::blankWord("He agreed.", "he") == "______ agreed.", "start blank");
   check(l::maskHint("meticulous") == "m_________", "mask");
   check(l::maskHint("go") == "g_", "short mask");
-  check(!l::isCorrect("on", "in") && !l::isCorrect("cut", "cat"), "short exact");
+  check(!l::isCorrect("on", "in") && !l::isCorrect("cut", "cat"),
+        "short exact");
   check(l::isCorrect("Subtl", "subtle"), "distance one");
   check(l::isCorrect(" meticulous ", "meticulous"), "trim");
   check(l::isCorrect("ｍｅｔｉｃｕｌｏｕｓ", "meticulous"), "fullwidth");
@@ -89,28 +94,33 @@ void testGrader() {
   entry.word = "zenith";
   entry.senses.push_back({1, "n.", "the highest point", "顶点", {}, {}});
   auto prompt = l::buildPrompt(entry);
-  check(prompt.kind == p::PromptKind::Definition && prompt.text == "the highest point",
+  check(prompt.kind == p::PromptKind::Definition &&
+            prompt.text == "the highest point",
         "definition prompt");
   entry.senses[0].english_definition.clear();
   prompt = l::buildPrompt(entry);
-  check(prompt.kind == p::PromptKind::DefinitionZh && prompt.text == "顶点", "zh prompt");
+  check(prompt.kind == p::PromptKind::DefinitionZh && prompt.text == "顶点",
+        "zh prompt");
   entry.senses[0].english_definition = "the highest point";
-  entry.senses[0].examples.push_back({7, "The sun reached its zenith at noon.", {}});
+  entry.senses[0].examples.push_back(
+      {7, "The sun reached its zenith at noon.", {}});
   prompt = l::buildPrompt(entry);
   check(prompt.kind == p::PromptKind::Cloze &&
-            prompt.text == "The sun reached its ______ at noon." && prompt.example_id == 7,
+            prompt.text == "The sun reached its ______ at noon." &&
+            prompt.example_id == 7,
         "cloze prompt");
   auto local = l::buildDefinitionPrompt(entry);
-  check(local.kind == p::PromptKind::DefinitionZh && local.example_id == std::nullopt,
+  check(local.kind == p::PromptKind::DefinitionZh &&
+            local.example_id == std::nullopt,
         "local zh fallback");
 }
 void testFold() {
   const auto t0 = p::parseUtc("2026-01-01T00:00:00.000Z");
-  const std::pair<p::ComprehensionLevel, std::pair<double, std::int64_t>> levels[] = {
-      {p::ComprehensionLevel::Context, {2.0, 172800000}},
-      {p::ComprehensionLevel::English, {1.0, 86400000}},
-      {p::ComprehensionLevel::Chinese, {0.5, 43200000}},
-      {p::ComprehensionLevel::Unknown, {0.25, 21600000}}};
+  const std::pair<p::ComprehensionLevel, std::pair<double, std::int64_t>>
+      levels[] = {{p::ComprehensionLevel::Context, {2.0, 172800000}},
+                  {p::ComprehensionLevel::English, {1.0, 86400000}},
+                  {p::ComprehensionLevel::Chinese, {0.5, 43200000}},
+                  {p::ComprehensionLevel::Unknown, {0.25, 21600000}}};
   for (const auto &item : levels) {
     auto state = l::fold(1, {{false, t0, item.first, {}}});
     check(state && state->strength_days == item.second.first, "s0");
@@ -120,13 +130,17 @@ void testFold() {
   check(!l::fold(1, {}), "empty");
   auto english = l::fold(1, {{false, t0, p::ComprehensionLevel::English, {}}});
   check(std::abs(l::retrievability(*english, t0) - 1.0) < 1e-12, "R now");
-  check(std::abs(l::retrievability(*english, t0 + 86400000) - 0.9) < 1e-9, "R one S");
-  check(std::abs(l::retrievability(*english, t0 + 172800000) - 0.81) < 1e-9, "R two S");
+  check(std::abs(l::retrievability(*english, t0 + 86400000) - 0.9) < 1e-9,
+        "R one S");
+  check(std::abs(l::retrievability(*english, t0 + 172800000) - 0.81) < 1e-9,
+        "R two S");
   const auto hour = 3600000LL;
-  auto held = l::fold(1, {{false, t0, p::ComprehensionLevel::Chinese, {}},
-                          {false, t0 + hour, p::ComprehensionLevel::English, {}},
-                          {false, t0 + 20 * hour, p::ComprehensionLevel::Unknown, {}}});
-  check(held->strength_days == 0.425 && held->difficulty == 0.35, "weak numbers");
+  auto held =
+      l::fold(1, {{false, t0, p::ComprehensionLevel::Chinese, {}},
+                  {false, t0 + hour, p::ComprehensionLevel::English, {}},
+                  {false, t0 + 20 * hour, p::ComprehensionLevel::Unknown, {}}});
+  check(held->strength_days == 0.425 && held->difficulty == 0.35,
+        "weak numbers");
   check(held->next_review_at == t0 + 43200000, "weak does not postpone");
   check(held->weak_streak == 2 && held->high_priority && held->visit_count == 3,
         "priority streak");
@@ -142,25 +156,31 @@ void testFold() {
             reinforced->review_count == 1,
         "priority cleared");
   const auto forgottenAt = t0 + 20 * hour + l::kDayMs;
-  auto forgotten = l::fold(
-      1, {{false, t0, p::ComprehensionLevel::Chinese, {}},
-          {false, t0 + hour, p::ComprehensionLevel::English, {}},
-          {false, t0 + 20 * hour, p::ComprehensionLevel::Unknown, {}},
-          {true, t0 + 20 * hour, {}, p::RecallQuality::Good},
-          {true, forgottenAt, {}, p::RecallQuality::Forgotten}});
-  check(forgotten->strength_days == 0.25 && forgotten->lapse_count == 1, "lapse floor");
+  auto forgotten =
+      l::fold(1, {{false, t0, p::ComprehensionLevel::Chinese, {}},
+                  {false, t0 + hour, p::ComprehensionLevel::English, {}},
+                  {false, t0 + 20 * hour, p::ComprehensionLevel::Unknown, {}},
+                  {true, t0 + 20 * hour, {}, p::RecallQuality::Good},
+                  {true, forgottenAt, {}, p::RecallQuality::Forgotten}});
+  check(forgotten->strength_days == 0.25 && forgotten->lapse_count == 1,
+        "lapse floor");
   check(forgotten->next_review_at == forgottenAt + 21600000, "lapse due");
   auto same = l::fold(1, {{false, t0, p::ComprehensionLevel::Chinese, {}},
                           {true, t0, {}, p::RecallQuality::Good}});
   auto reversed = l::fold(1, {{true, t0, {}, p::RecallQuality::Good},
                               {false, t0, p::ComprehensionLevel::Chinese, {}}});
-  check(same->strength_days != reversed->strength_days, "same-instant order differs");
+  check(same->strength_days != reversed->strength_days,
+        "same-instant order differs");
   check(same->visit_count == 1 && same->review_count == 1, "visit then review");
-  check(reversed->visit_count == 1 && reversed->weak_streak == 1, "review then weak visit");
-  auto context = l::fold(1, {{false, t0, p::ComprehensionLevel::Chinese, {}},
-                             {false, t0 + 11 * l::kDayMs, p::ComprehensionLevel::Context, {}}});
-  check(context->strength_days == 0.625 && context->weak_streak == 0, "context gain");
-  check(context->next_review_at == t0 + 11 * l::kDayMs + 54000000, "context due");
+  check(reversed->visit_count == 1 && reversed->weak_streak == 1,
+        "review then weak visit");
+  auto context = l::fold(
+      1, {{false, t0, p::ComprehensionLevel::Chinese, {}},
+          {false, t0 + 11 * l::kDayMs, p::ComprehensionLevel::Context, {}}});
+  check(context->strength_days == 0.625 && context->weak_streak == 0,
+        "context gain");
+  check(context->next_review_at == t0 + 11 * l::kDayMs + 54000000,
+        "context due");
   check(l::statusOf(0.25) == p::MemoryStatus::Learning &&
             l::statusOf(4.0) == p::MemoryStatus::Familiar &&
             l::statusOf(21.0) == p::MemoryStatus::Stable,
@@ -173,7 +193,8 @@ void testMemoryCommands(const std::filesystem::path &file) {
   FakeClock clock;
   auto app = openApp(file, clock);
   auto caps = call(app, "system_capabilities", p::Json::object(), nextId());
-  check(caps["ok"] == true && caps["result"]["commands"].size() == 31, "catalog");
+  check(caps["ok"] == true && caps["result"]["commands"].size() == 31,
+        "catalog");
   for (const auto &command : caps["result"]["commands"])
     if (command["name"] == "lookup_word")
       check(command["implementation"] == "implemented", "lookup status");
@@ -181,40 +202,55 @@ void testMemoryCommands(const std::filesystem::path &file) {
   auto lookup = ok(app, "lookup_word", {{"word", "  Meticulous  "}});
   const auto id = lookup["outcome"]["entry"]["id"].get<std::int64_t>();
   const auto encounter = lookup["encounter_id"].get<std::int64_t>();
-  check(lookup["outcome"]["type"] == "hit" && lookup["comprehension_level"] == "unknown",
+  check(lookup["outcome"]["type"] == "hit" &&
+            lookup["comprehension_level"] == "unknown",
         "lookup event");
-  check(lookup["memory"]["status"] == "learning" && lookup["memory"]["visit_count"] == 1,
+  check(lookup["memory"]["status"] == "learning" &&
+            lookup["memory"]["visit_count"] == 1,
         "summary");
-  check(std::abs(number(app, "SELECT strength_days FROM memory_states") - 0.25) < 1e-12, "stored s0");
-  check(cell(app, "SELECT next_review_at FROM memory_states") == p::formatUtc(t0 + 21600000),
+  check(std::abs(number(app, "SELECT strength_days FROM memory_states") -
+                 0.25) < 1e-12,
+        "stored s0");
+  check(cell(app, "SELECT next_review_at FROM memory_states") ==
+            p::formatUtc(t0 + 21600000),
         "stored due");
-  ok(app, "set_comprehension", {{"encounterId", encounter}, {"level", "english"}});
-  check(std::abs(number(app, "SELECT strength_days FROM memory_states") - 1.0) < 1e-12,
+  ok(app, "set_comprehension",
+     {{"encounterId", encounter}, {"level", "english"}});
+  check(std::abs(number(app, "SELECT strength_days FROM memory_states") - 1.0) <
+            1e-12,
         "refold english");
   clock.now = t0 + 1000;
-  auto comp = call(app, "set_comprehension", {{"encounterId", encounter}, {"level", "english"}},
-                   "comp-replay");
+  auto comp =
+      call(app, "set_comprehension",
+           {{"encounterId", encounter}, {"level", "english"}}, "comp-replay");
   const auto updated = cell(app, "SELECT updated_at FROM memory_states");
   clock.now = t0 + 2000;
-  auto compReplay = call(app, "set_comprehension",
-                         {{"encounterId", encounter}, {"level", "english"}}, "comp-replay");
-  check(comp["ok"] == true && compReplay["result"] == comp["result"], "comprehension replay result");
-  check(cell(app, "SELECT updated_at FROM memory_states") == updated, "comprehension replay");
-  expectCode(call(app, "set_comprehension", {{"encounterId", encounter}, {"level", "context"}},
-                  nextId()),
+  auto compReplay =
+      call(app, "set_comprehension",
+           {{"encounterId", encounter}, {"level", "english"}}, "comp-replay");
+  check(comp["ok"] == true && compReplay["result"] == comp["result"],
+        "comprehension replay result");
+  check(cell(app, "SELECT updated_at FROM memory_states") == updated,
+        "comprehension replay");
+  expectCode(call(app, "set_comprehension",
+                  {{"encounterId", encounter}, {"level", "context"}}, nextId()),
              "memory");
   clock.now = t0 + 600000;
-  auto merged = call(app, "lookup_word", {{"word", "meticulous"}}, "lookup-replay");
-  auto replay = call(app, "lookup_word", {{"word", "meticulous"}}, "lookup-replay");
-  check(merged["ok"] == true && replay["result"] == merged["result"], "lookup replay");
+  auto merged =
+      call(app, "lookup_word", {{"word", "meticulous"}}, "lookup-replay");
+  auto replay =
+      call(app, "lookup_word", {{"word", "meticulous"}}, "lookup-replay");
+  check(merged["ok"] == true && replay["result"] == merged["result"],
+        "lookup replay");
   check(scalar(app, "SELECT COUNT(*) FROM encounters") == 1, "merged visit");
-  check(cell(app, "SELECT visited_at FROM encounters") == p::formatUtc(t0 + 600000),
+  check(cell(app, "SELECT visited_at FROM encounters") ==
+            p::formatUtc(t0 + 600000),
         "replay keeps merged time");
   clock.now = t0 + 600000 + 1800000;
   auto again = ok(app, "lookup_word", {{"word", "meticulous"}});
   check(again["encounter_id"] != encounter, "merge boundary");
-  expectCode(call(app, "set_comprehension", {{"encounterId", encounter}, {"level", "chinese"}},
-                  nextId()),
+  expectCode(call(app, "set_comprehension",
+                  {{"encounterId", encounter}, {"level", "chinese"}}, nextId()),
              "memory");
   expectCode(call(app, "study_group",
                   {{"wordbook", "cet4"},
@@ -230,38 +266,55 @@ void testProjection(const std::filesystem::path &file) {
   clock.now = p::parseUtc("2026-03-01T00:00:00.000Z");
   auto app = openApp(file, clock);
   app.database().withConnection([&](sqlite3 *db) {
-    p::Statement word(db, "INSERT INTO words(word,display,source,created_at) VALUES('order-a','order-a','user',?)");
+    p::Statement word(db, "INSERT INTO words(word,display,source,created_at) "
+                          "VALUES('order-a','order-a','user',?)");
     word.bind(1, p::formatUtc(clock.now)).step();
     const auto first = sqlite3_last_insert_rowid(db);
-    p::Statement word2(db, "INSERT INTO words(word,display,source,created_at) VALUES('order-b','order-b','user',?)");
+    p::Statement word2(db, "INSERT INTO words(word,display,source,created_at) "
+                           "VALUES('order-b','order-b','user',?)");
     word2.bind(1, p::formatUtc(clock.now)).step();
     const auto second = sqlite3_last_insert_rowid(db);
     const auto at = p::formatUtc(clock.now);
-    p::Statement visit(db, "INSERT INTO encounters(id,word_id,visited_at,source,comprehension_level) VALUES(101,?,?,'lookup','chinese')");
+    p::Statement visit(db,
+                       "INSERT INTO "
+                       "encounters(id,word_id,visited_at,source,comprehension_"
+                       "level) VALUES(101,?,?,'lookup','chinese')");
     visit.bind(1, first).bind(2, at).step();
-    p::Statement review(db, "INSERT INTO reviews(id,word_id,started_at,completed_at,quality) VALUES(102,?,?,?,'good')");
+    p::Statement review(
+        db, "INSERT INTO reviews(id,word_id,started_at,completed_at,quality) "
+            "VALUES(102,?,?,?,'good')");
     review.bind(1, first).bind(2, at).bind(3, at).step();
-    p::Statement reviewFirst(db, "INSERT INTO reviews(id,word_id,started_at,completed_at,quality) VALUES(201,?,?,?,'good')");
+    p::Statement reviewFirst(
+        db, "INSERT INTO reviews(id,word_id,started_at,completed_at,quality) "
+            "VALUES(201,?,?,?,'good')");
     reviewFirst.bind(1, second).bind(2, at).bind(3, at).step();
-    p::Statement visitLater(db, "INSERT INTO encounters(id,word_id,visited_at,source,comprehension_level) VALUES(202,?,?,'lookup','chinese')");
+    p::Statement visitLater(
+        db, "INSERT INTO "
+            "encounters(id,word_id,visited_at,source,comprehension_level) "
+            "VALUES(202,?,?,'lookup','chinese')");
     visitLater.bind(1, second).bind(2, at).step();
     auto forward = l::fold(first, l::loadEvents(db, first));
     auto backward = l::fold(second, l::loadEvents(db, second));
-    check(forward->review_count == 1 && forward->strength_days > 0.5, "db visit then review");
-    check(backward->weak_streak == 1 && backward->strength_days < forward->strength_days,
+    check(forward->review_count == 1 && forward->strength_days > 0.5,
+          "db visit then review");
+    check(backward->weak_streak == 1 &&
+              backward->strength_days < forward->strength_days,
           "db review then visit");
     return 0;
   });
   check(ok(app, "rebuild_memory_projection") == 2, "rebuild count");
-  auto again = call(app, "rebuild_memory_projection", p::Json::object(), "rebuild-replay");
+  auto again = call(app, "rebuild_memory_projection", p::Json::object(),
+                    "rebuild-replay");
   check(again["ok"] == true && again["result"] == 2, "rebuild replay");
   app.database().withConnection([&](sqlite3 *db) {
     p::execute(db, "UPDATE memory_states SET strength_days=99");
     return 0;
   });
   ok(app, "rebuild_memory_projection");
-  check(cell(app, "SELECT COUNT(*) FROM memory_states WHERE strength_days=99") == "0",
-        "rebuild restores");
+  check(
+      cell(app, "SELECT COUNT(*) FROM memory_states WHERE strength_days=99") ==
+          "0",
+      "rebuild restores");
   app.database().withConnection([&](sqlite3 *db) {
     auto events = l::loadEvents(db, 0);
     (void)events;
@@ -269,14 +322,16 @@ void testProjection(const std::filesystem::path &file) {
     while (ids.step()) {
       auto folded = l::fold(ids.integer(0), l::loadEvents(db, ids.integer(0)));
       auto stored = l::loadProjection(db, ids.integer(0));
-      check(folded && stored && std::abs(folded->strength_days - stored->strength_days) < 1e-12,
+      check(folded && stored &&
+                std::abs(folded->strength_days - stored->strength_days) < 1e-12,
             "projection matches fold");
     }
     p::execute(db, "DELETE FROM memory_states");
     return 0;
   });
   ok(app, "rebuild_memory_projection");
-  check(scalar(app, "SELECT COUNT(*) FROM memory_states") == 2, "rebuild recreates");
+  check(scalar(app, "SELECT COUNT(*) FROM memory_states") == 2,
+        "rebuild recreates");
 }
 void testQueue(const std::filesystem::path &file) {
   FakeClock clock;
@@ -310,9 +365,11 @@ void testQueue(const std::filesystem::path &file) {
     return std::find(ids.begin(), ids.end(), id);
   };
   check(pos(priority) == ids.begin(), "priority first");
-  check(pos(older) != ids.end() && pos(recent) != ids.end() && pos(older) < pos(recent),
+  check(pos(older) != ids.end() && pos(recent) != ids.end() &&
+            pos(older) < pos(recent),
         "lower R first");
-  check(pos(future) == ids.end() && pos(stale) == ids.end() && pos(ignored) == ids.end(),
+  check(pos(future) == ids.end() && pos(stale) == ids.end() &&
+            pos(ignored) == ids.end(),
         "filters");
   app.database().withConnection([&](sqlite3 *db) {
     p::Statement stmt(db, "DELETE FROM ignored_words WHERE word_id=?");
@@ -324,9 +381,9 @@ void testQueue(const std::filesystem::path &file) {
   for (const auto &item : restored)
     ids.push_back(item["word_id"]);
   check(std::find(ids.begin(), ids.end(), ignored) != ids.end(), "unignore");
-  for (const char *word : {"meticulous", "subtle", "elaborate", "inevitable", "reluctant",
-                           "compelling", "profound", "ambiguous", "resilient", "pragmatic",
-                           "rigorous"})
+  for (const char *word : {"meticulous", "subtle", "elaborate", "inevitable",
+                           "reluctant", "compelling", "profound", "ambiguous",
+                           "resilient", "pragmatic", "rigorous"})
     idOf(word, now - 3 * l::kDayMs);
   clock.now = now;
   const auto before = scalar(app, "SELECT COUNT(*) FROM encounters");
@@ -334,7 +391,8 @@ void testQueue(const std::filesystem::path &file) {
   auto queued = ok(app, "review_queue");
   check(grouped.size() == 10, "group cap " + std::to_string(grouped.size()));
   check(queued.size() == 10, "queue cap " + std::to_string(queued.size()));
-  check(scalar(app, "SELECT COUNT(*) FROM encounters") == before, "group read only");
+  check(scalar(app, "SELECT COUNT(*) FROM encounters") == before,
+        "group read only");
   check(scalar(app, "SELECT COUNT(*) FROM reviews") == 0, "group no reviews");
 }
 void testStudy(const std::filesystem::path &file) {
@@ -349,7 +407,9 @@ void testStudy(const std::filesystem::path &file) {
   const auto due = wordId(app, "meticulous");
   clock.now = p::parseUtc("2026-08-01T00:00:00.000Z");
   auto group = ok(app, "study_group",
-                  {{"wordbook", "cet4"}, {"dailyNewLimit", 2}, {"priority", "review_first"}});
+                  {{"wordbook", "cet4"},
+                   {"dailyNewLimit", 2},
+                   {"priority", "review_first"}});
   check(group["due_count"].get<int>() >= 1, "fallback due");
   check(group["cards"].size() == 3, "fallback quota");
   bool sawDue = false;
@@ -363,8 +423,9 @@ void testStudy(const std::filesystem::path &file) {
     stmt.bind(1, subtle).step();
     return 0;
   });
-  group = ok(app, "study_group",
-             {{"wordbook", "cet4"}, {"dailyNewLimit", 20}, {"priority", "new_first"}});
+  group = ok(
+      app, "study_group",
+      {{"wordbook", "cet4"}, {"dailyNewLimit", 20}, {"priority", "new_first"}});
   bool sawSubtle = false;
   bool sawUntaggedDue = false;
   for (const auto &card : group["cards"]) {
@@ -373,19 +434,24 @@ void testStudy(const std::filesystem::path &file) {
     if (card["entry"]["id"] == due)
       sawUntaggedDue = !card["is_new"].get<bool>();
   }
-  check(sawSubtle && sawUntaggedDue && group["new_count"] == 1, "tag plus unfiltered due");
+  check(sawSubtle && sawUntaggedDue && group["new_count"] == 1,
+        "tag plus unfiltered due");
   const auto oxford = idByName(app, "acquire");
   app.database().withConnection([&](sqlite3 *db) {
     p::Statement stmt(db, "UPDATE words SET oxford=1 WHERE id=?");
     stmt.bind(1, oxford).step();
-    p::Statement note(db, "INSERT INTO word_notes(word_id,bookmarked,note,updated_at) VALUES(?,1,'n',?)");
+    p::Statement note(
+        db, "INSERT INTO word_notes(word_id,bookmarked,note,updated_at) "
+            "VALUES(?,1,'n',?)");
     note.bind(1, oxford).bind(2, p::formatUtc(clock.now)).step();
     return 0;
   });
   ok(app, "custom_wordbook_toggle", {{"wordId", subtle}, {"added", true}});
   ok(app, "custom_wordbook_toggle", {{"wordId", subtle}, {"added", true}});
   group = ok(app, "study_group",
-             {{"wordbook", "custom"}, {"dailyNewLimit", 20}, {"priority", "new_first"}});
+             {{"wordbook", "custom"},
+              {"dailyNewLimit", 20},
+              {"priority", "new_first"}});
   bool customFlag = false, bookmarkFlag = false;
   for (const auto &card : group["cards"]) {
     if (card["entry"]["id"] == subtle)
@@ -402,15 +468,22 @@ void testStudy(const std::filesystem::path &file) {
   ok(app, "custom_wordbook_toggle", {{"wordId", subtle}, {"added", false}});
   clock.now = p::parseUtc("2026-08-01T00:00:00.000Z");
   auto encountered = ok(app, "study_group",
-                        {{"wordbook", "encountered"}, {"dailyNewLimit", 20}, {"priority", "mixed"}});
+                        {{"wordbook", "encountered"},
+                         {"dailyNewLimit", 20},
+                         {"priority", "mixed"}});
   for (const auto &card : encountered["cards"])
     check(card["is_new"] == false, "encountered has no new cards");
   expectCode(call(app, "study_group",
-                  {{"wordbook", "unknown"}, {"dailyNewLimit", 1}, {"priority", "mixed"}}, nextId()),
+                  {{"wordbook", "unknown"},
+                   {"dailyNewLimit", 1},
+                   {"priority", "mixed"}},
+                  nextId()),
              "review");
   const auto before = scalar(app, "SELECT COUNT(*) FROM encounters");
-  ok(app, "study_group", {{"wordbook", "cet4"}, {"dailyNewLimit", 0}, {"priority", "mixed"}});
-  check(scalar(app, "SELECT COUNT(*) FROM encounters") == before, "browse writes nothing");
+  ok(app, "study_group",
+     {{"wordbook", "cet4"}, {"dailyNewLimit", 0}, {"priority", "mixed"}});
+  check(scalar(app, "SELECT COUNT(*) FROM encounters") == before,
+        "browse writes nothing");
   check(scalar(app, "SELECT COUNT(*) FROM reviews") == 0, "browse no grades");
 }
 void testStudyLimit(const std::filesystem::path &file) {
@@ -421,10 +494,13 @@ void testStudyLimit(const std::filesystem::path &file) {
     p::execute(db, "UPDATE words SET tags=''");
     for (int i = 0; i < 50; ++i) {
       const auto name = "studyword" + std::to_string(i);
-      p::Statement word(db, "INSERT INTO words(word,display,source,created_at,tags) VALUES(?,?, 'user', ?, 'cet4')");
+      p::Statement word(
+          db, "INSERT INTO words(word,display,source,created_at,tags) "
+              "VALUES(?,?, 'user', ?, 'cet4')");
       word.bind(1, name).bind(2, name).bind(3, p::formatUtc(clock.now)).step();
       const auto id = sqlite3_last_insert_rowid(db);
-      p::Statement sense(db, "INSERT INTO senses(word_id,english_definition) VALUES(?, 'A vocabulary test word')");
+      p::Statement sense(db, "INSERT INTO senses(word_id,english_definition) "
+                             "VALUES(?, 'A vocabulary test word')");
       sense.bind(1, id).step();
       std::optional<p::UtcMillis> at;
       if (i < 25)
@@ -434,7 +510,10 @@ void testStudyLimit(const std::filesystem::path &file) {
       else if (i == 26)
         at = clock.now - 1;
       if (at) {
-        p::Statement visit(db, "INSERT INTO encounters(word_id,visited_at,source,comprehension_level) VALUES(?,?,'lookup','unknown')");
+        p::Statement visit(db,
+                           "INSERT INTO "
+                           "encounters(word_id,visited_at,source,comprehension_"
+                           "level) VALUES(?,?,'lookup','unknown')");
         visit.bind(1, id).bind(2, p::formatUtc(*at)).step();
       }
     }
@@ -442,8 +521,9 @@ void testStudyLimit(const std::filesystem::path &file) {
   });
   ok(app, "rebuild_memory_projection");
   for (const char *priority : {"mixed", "new_first", "review_first"}) {
-    auto group = ok(app, "study_group",
-                    {{"wordbook", "cet4"}, {"dailyNewLimit", 100}, {"priority", priority}});
+    auto group = ok(
+        app, "study_group",
+        {{"wordbook", "cet4"}, {"dailyNewLimit", 100}, {"priority", priority}});
     check(group["cards"].size() == 20, priority);
     check(group["today_learned_new"] == 1, "utc quota");
     check(group["due_count"] == 25, "due count is uncapped");
@@ -452,9 +532,9 @@ void testStudyLimit(const std::filesystem::path &file) {
     for (const auto &card : group["cards"])
       if (card["is_new"])
         ++fresh;
-    const int expected = std::string(priority) == "mixed"        ? 10
-                         : std::string(priority) == "new_first"   ? 20
-                                                                  : 0;
+    const int expected = std::string(priority) == "mixed"       ? 10
+                         : std::string(priority) == "new_first" ? 20
+                                                                : 0;
     check(fresh == expected, std::string(priority) + " mix");
   }
 }
@@ -470,85 +550,138 @@ void testReview(const std::filesystem::path &file) {
   for (const auto &item : queue)
     if (item["word_id"] == id) {
       found = true;
-      check(item["kind"] == "definition_zh" && item["source"] == "dictionary", "zh kind");
-      check(item["prompt"].get<std::string>().find("meticulous") == std::string::npos, "hidden");
+      check(item["kind"] == "definition_zh" && item["source"] == "dictionary",
+            "zh kind");
+      check(item["prompt"].get<std::string>().find("meticulous") ==
+                std::string::npos,
+            "hidden");
       check(item["example_id"].is_null(), "no example");
     }
   check(found, "due prompt");
-  auto grade = call(app, "study_grade", {{"wordId", id}, {"grade", "know"}}, "grade-same");
-  auto gradeReplay = call(app, "study_grade", {{"wordId", id}, {"grade", "know"}}, "grade-same");
-  check(grade["ok"] == true && gradeReplay["result"] == grade["result"], "grade replay");
+  auto grade = call(app, "study_grade", {{"wordId", id}, {"grade", "know"}},
+                    "grade-same");
+  auto gradeReplay = call(app, "study_grade",
+                          {{"wordId", id}, {"grade", "know"}}, "grade-same");
+  check(grade["ok"] == true && gradeReplay["result"] == grade["result"],
+        "grade replay");
   check(scalar(app, "SELECT COUNT(*) FROM reviews") == 1, "replay one review");
-  expectCode(call(app, "study_grade", {{"wordId", id}, {"grade", "forgot"}}, "grade-same"),
+  expectCode(call(app, "study_grade", {{"wordId", id}, {"grade", "forgot"}},
+                  "grade-same"),
              "BAD_REQUEST");
-  check(scalar(app, "SELECT COUNT(*) FROM reviews") == 1, "mismatched replay writes nothing");
+  check(scalar(app, "SELECT COUNT(*) FROM reviews") == 1,
+        "mismatched replay writes nothing");
   auto second = ok(app, "study_grade", {{"wordId", id}, {"grade", "know"}});
   check(second["quality"] == "good" && second["correct"] == true, "new grade");
-  check(scalar(app, "SELECT COUNT(*) FROM reviews") == 2, "new request records");
-  check(scalar(app, "SELECT COUNT(*) FROM encounters") == 1, "grade reuses visit");
+  check(scalar(app, "SELECT COUNT(*) FROM reviews") == 2,
+        "new request records");
+  check(scalar(app, "SELECT COUNT(*) FROM encounters") == 1,
+        "grade reuses visit");
   ok(app, "study_grade", {{"wordId", id}, {"grade", "hazy"}});
   ok(app, "study_grade", {{"wordId", id}, {"grade", "forgot"}});
-  check(cell(app, "SELECT quality FROM reviews ORDER BY id DESC LIMIT 1") == "forgotten", "forgot");
-  check(scalar(app, "SELECT lapse_count FROM memory_states WHERE word_id=" + std::to_string(id)) == 1,
+  check(cell(app, "SELECT quality FROM reviews ORDER BY id DESC LIMIT 1") ==
+            "forgotten",
+        "forgot");
+  check(scalar(app, "SELECT lapse_count FROM memory_states WHERE word_id=" +
+                        std::to_string(id)) == 1,
         "lapse stored");
   const auto attempts = scalar(app, "SELECT COUNT(*) FROM review_attempts");
-  check(ok(app, "practice_check", {{"wordId", id}, {"answer", "meticulous"}}) == true, "practice hit");
-  check(ok(app, "practice_check", {{"wordId", id}, {"answer", "subtle"}}) == false, "practice miss");
-  check(ok(app, "practice_check", {{"wordId", id}, {"answer", "meticulus"}}) == true, "practice typo");
-  check(ok(app, "practice_check", {{"wordId", id}, {"answer", nullptr}}) == false, "practice reveal");
-  check(ok(app, "practice_hint", {{"wordId", id}, {"senseId", nullptr}, {"hintNo", 1}})["kind"] ==
+  check(ok(app, "practice_check", {{"wordId", id}, {"answer", "meticulous"}}) ==
+            true,
+        "practice hit");
+  check(ok(app, "practice_check", {{"wordId", id}, {"answer", "subtle"}}) ==
+            false,
+        "practice miss");
+  check(ok(app, "practice_check", {{"wordId", id}, {"answer", "meticulus"}}) ==
+            true,
+        "practice typo");
+  check(ok(app, "practice_check", {{"wordId", id}, {"answer", nullptr}}) ==
+            false,
+        "practice reveal");
+  check(ok(app, "practice_hint",
+           {{"wordId", id}, {"senseId", nullptr}, {"hintNo", 1}})["kind"] ==
             "mask",
         "practice mask");
-  check(scalar(app, "SELECT COUNT(*) FROM review_attempts") == attempts, "practice not counted");
+  check(scalar(app, "SELECT COUNT(*) FROM review_attempts") == attempts,
+        "practice not counted");
   expectCode(call(app, "practice_hint",
-                  {{"wordId", id}, {"senseId", nullptr}, {"hintNo", 0}}, nextId()),
+                  {{"wordId", id}, {"senseId", nullptr}, {"hintNo", 0}},
+                  nextId()),
              "BAD_REQUEST");
-  auto started = call(app, "start_review_item",
-                      {{"wordId", id}, {"senseId", nullptr}, {"exampleId", nullptr}}, "start-replay");
-  auto startedAgain = call(app, "start_review_item",
-                           {{"wordId", id}, {"senseId", nullptr}, {"exampleId", nullptr}},
-                           "start-replay");
+  auto started =
+      call(app, "start_review_item",
+           {{"wordId", id}, {"senseId", nullptr}, {"exampleId", nullptr}},
+           "start-replay");
+  auto startedAgain =
+      call(app, "start_review_item",
+           {{"wordId", id}, {"senseId", nullptr}, {"exampleId", nullptr}},
+           "start-replay");
   check(started["result"] == startedAgain["result"], "start replay");
   const auto reviewId = started["result"].get<std::int64_t>();
-  expectCode(call(app, "request_hint", {{"reviewId", reviewId}, {"hintNo", 2}}, nextId()), "review");
-  auto hint = call(app, "request_hint", {{"reviewId", reviewId}, {"hintNo", 1}}, "hint-replay");
-  auto hintAgain = call(app, "request_hint", {{"reviewId", reviewId}, {"hintNo", 1}}, "hint-replay");
-  check(hint["result"] == hintAgain["result"] && hint["result"]["kind"] == "mask", "hint replay");
-  check(scalar(app, "SELECT hints_used FROM reviews WHERE id=" + std::to_string(reviewId)) == 1,
+  expectCode(call(app, "request_hint", {{"reviewId", reviewId}, {"hintNo", 2}},
+                  nextId()),
+             "review");
+  auto hint = call(app, "request_hint", {{"reviewId", reviewId}, {"hintNo", 1}},
+                   "hint-replay");
+  auto hintAgain = call(app, "request_hint",
+                        {{"reviewId", reviewId}, {"hintNo", 1}}, "hint-replay");
+  check(hint["result"] == hintAgain["result"] &&
+            hint["result"]["kind"] == "mask",
+        "hint replay");
+  check(scalar(app, "SELECT hints_used FROM reviews WHERE id=" +
+                        std::to_string(reviewId)) == 1,
         "one hint row");
   ok(app, "request_hint", {{"reviewId", reviewId}, {"hintNo", 2}});
-  auto submitted = call(app, "submit_review",
-                        {{"reviewId", reviewId}, {"answer", "meticulous"}}, "submit-replay");
-  auto submittedAgain = call(app, "submit_review",
-                             {{"reviewId", reviewId}, {"answer", "meticulous"}}, "submit-replay");
-  check(submitted["ok"] == true && submittedAgain["result"] == submitted["result"], "submit replay");
-  check(submitted["result"]["correct"] == true && submitted["result"]["quality"] == "hard",
+  auto submitted =
+      call(app, "submit_review",
+           {{"reviewId", reviewId}, {"answer", "meticulous"}}, "submit-replay");
+  auto submittedAgain =
+      call(app, "submit_review",
+           {{"reviewId", reviewId}, {"answer", "meticulous"}}, "submit-replay");
+  check(submitted["ok"] == true &&
+            submittedAgain["result"] == submitted["result"],
+        "submit replay");
+  check(submitted["result"]["correct"] == true &&
+            submitted["result"]["quality"] == "hard",
         "two hints hard");
-  check(submitted["result"]["memory"]["review_count"] == 5, "formal review counted");
-  expectCode(call(app, "submit_review", {{"reviewId", reviewId}, {"answer", "x"}}, nextId()),
+  check(submitted["result"]["memory"]["review_count"] == 5,
+        "formal review counted");
+  expectCode(call(app, "submit_review",
+                  {{"reviewId", reviewId}, {"answer", "x"}}, nextId()),
              "review");
-  check(scalar(app, "SELECT COUNT(*) FROM reviews WHERE id=" + std::to_string(reviewId) +
+  check(scalar(app, "SELECT COUNT(*) FROM reviews WHERE id=" +
+                        std::to_string(reviewId) +
                         " AND completed_at IS NOT NULL") == 1,
         "formal once");
-  const auto reveal = ok(app, "start_review_item",
-                         {{"wordId", id}, {"senseId", nullptr}, {"exampleId", nullptr}});
-  auto revealed = ok(app, "submit_review", {{"reviewId", reveal}, {"answer", nullptr}});
-  check(revealed["correct"] == false && revealed["quality"] == "forgotten", "reveal");
-  const auto entry = ok(app, "lookup_word", {{"word", "elaborate"}})["outcome"]["entry"];
+  const auto reveal =
+      ok(app, "start_review_item",
+         {{"wordId", id}, {"senseId", nullptr}, {"exampleId", nullptr}});
+  auto revealed =
+      ok(app, "submit_review", {{"reviewId", reveal}, {"answer", nullptr}});
+  check(revealed["correct"] == false && revealed["quality"] == "forgotten",
+        "reveal");
+  const auto entry =
+      ok(app, "lookup_word", {{"word", "elaborate"}})["outcome"]["entry"];
   const auto sense = entry["senses"][1];
   p::Json example = nullptr;
   if (!sense["examples"].empty())
     example = sense["examples"][0]["id"];
   const auto detailed = ok(app, "start_review_item",
-                           {{"wordId", entry["id"]}, {"senseId", sense["id"]}, {"exampleId", example}});
+                           {{"wordId", entry["id"]},
+                            {"senseId", sense["id"]},
+                            {"exampleId", example}});
   ok(app, "request_hint", {{"reviewId", detailed}, {"hintNo", 1}});
-  auto english = ok(app, "request_hint", {{"reviewId", detailed}, {"hintNo", 2}});
+  auto english =
+      ok(app, "request_hint", {{"reviewId", detailed}, {"hintNo", 2}});
   check(english["text"] == sense["english_definition"], "sense hint");
   expectCode(call(app, "start_review_item",
-                  {{"wordId", id}, {"senseId", 999999}, {"exampleId", nullptr}}, nextId()),
+                  {{"wordId", id}, {"senseId", 999999}, {"exampleId", nullptr}},
+                  nextId()),
              "review");
-  expectCode(call(app, "study_grade", {{"wordId", -1}, {"grade", "know"}}, nextId()), "review");
-  expectCode(call(app, "submit_review", {{"reviewId", 999999}, {"answer", nullptr}}, nextId()),
+  expectCode(
+      call(app, "study_grade", {{"wordId", -1}, {"grade", "know"}}, nextId()),
+      "review");
+  expectCode(call(app, "submit_review",
+                  {{"reviewId", 999999}, {"answer", nullptr}}, nextId()),
              "review");
 }
 void testRollback(const std::filesystem::path &file) {
@@ -558,21 +691,27 @@ void testRollback(const std::filesystem::path &file) {
   app.database().withConnection([&](sqlite3 *db) {
     p::execute(db, "DELETE FROM encounters");
     p::execute(db, "DELETE FROM memory_states");
-    p::execute(db, "CREATE TRIGGER reject_study_review BEFORE INSERT ON reviews "
-                   "BEGIN SELECT RAISE(ABORT, 'test failure'); END;");
+    p::execute(db,
+               "CREATE TRIGGER reject_study_review BEFORE INSERT ON reviews "
+               "BEGIN SELECT RAISE(ABORT, 'test failure'); END;");
     return 0;
   });
-  expectCode(call(app, "study_grade", {{"wordId", id}, {"grade", "know"}}, "rollback-grade"),
+  expectCode(call(app, "study_grade", {{"wordId", id}, {"grade", "know"}},
+                  "rollback-grade"),
              "DB_ERROR");
-  check(scalar(app, "SELECT COUNT(*) FROM encounters") == 0, "rolled encounter");
-  check(scalar(app, "SELECT COUNT(*) FROM memory_states") == 0, "rolled projection");
+  check(scalar(app, "SELECT COUNT(*) FROM encounters") == 0,
+        "rolled encounter");
+  check(scalar(app, "SELECT COUNT(*) FROM memory_states") == 0,
+        "rolled projection");
   app.database().withConnection([&](sqlite3 *db) {
     p::execute(db, "DROP TRIGGER reject_study_review");
     return 0;
   });
-  check(call(app, "study_grade", {{"wordId", id}, {"grade", "know"}}, "rollback-grade")["ok"] == true,
+  check(call(app, "study_grade", {{"wordId", id}, {"grade", "know"}},
+             "rollback-grade")["ok"] == true,
         "retry after rollback");
-  check(scalar(app, "SELECT COUNT(*) FROM encounters") == 1, "recovered encounter");
+  check(scalar(app, "SELECT COUNT(*) FROM encounters") == 1,
+        "recovered encounter");
   check(scalar(app, "SELECT COUNT(*) FROM reviews") == 1, "recovered review");
 }
 void testIgnoredAndMissing(const std::filesystem::path &file) {
@@ -581,19 +720,28 @@ void testIgnoredAndMissing(const std::filesystem::path &file) {
   auto app = openApp(file, clock);
   app.database().withConnection([&](sqlite3 *db) {
     p::execute(db, "UPDATE words SET tags=''");
-    p::Statement word(db, "INSERT INTO words(word,display,source,created_at,tags) VALUES('empty-def','empty-def','user',?,'cet4')");
+    p::Statement word(db,
+                      "INSERT INTO words(word,display,source,created_at,tags) "
+                      "VALUES('empty-def','empty-def','user',?,'cet4')");
     word.bind(1, p::formatUtc(clock.now)).step();
-    p::Statement sense(db, "INSERT INTO senses(word_id,english_definition,chinese_definition) VALUES(?, '', NULL)");
+    p::Statement sense(
+        db, "INSERT INTO senses(word_id,english_definition,chinese_definition) "
+            "VALUES(?, '', NULL)");
     sense.bind(1, sqlite3_last_insert_rowid(db)).step();
-    p::Statement zh(db, "INSERT INTO words(word,display,source,created_at,tags) VALUES('zh-only','zh-only','user',?,'cet4')");
+    p::Statement zh(db,
+                    "INSERT INTO words(word,display,source,created_at,tags) "
+                    "VALUES('zh-only','zh-only','user',?,'cet4')");
     zh.bind(1, p::formatUtc(clock.now)).step();
     const auto zhId = sqlite3_last_insert_rowid(db);
-    p::Statement zhSense(db, "INSERT INTO senses(word_id,english_definition,chinese_definition) VALUES(?, '', '只有中文')");
+    p::Statement zhSense(
+        db, "INSERT INTO senses(word_id,english_definition,chinese_definition) "
+            "VALUES(?, '', '只有中文')");
     zhSense.bind(1, zhId).step();
     return 0;
   });
-  auto group = ok(app, "study_group",
-                  {{"wordbook", "cet4"}, {"dailyNewLimit", 20}, {"priority", "new_first"}});
+  auto group = ok(
+      app, "study_group",
+      {{"wordbook", "cet4"}, {"dailyNewLimit", 20}, {"priority", "new_first"}});
   bool sawEmpty = false, sawZh = false;
   for (const auto &card : group["cards"]) {
     if (card["entry"]["word"] == "empty-def")
@@ -607,20 +755,32 @@ void testIgnoredAndMissing(const std::filesystem::path &file) {
 }
 class BlankDictionary : public p::DictionaryPort {
 public:
-  std::optional<p::WordEntry> find(sqlite3 *, const std::string &) override { return std::nullopt; }
-  std::optional<p::WordEntry> byId(sqlite3 *, std::int64_t) override { return std::nullopt; }
-  std::vector<p::Suggestion> suggest(sqlite3 *, const std::string &, int) override { return {}; }
+  std::optional<p::WordEntry> find(sqlite3 *, const std::string &) override {
+    return std::nullopt;
+  }
+  std::optional<p::WordEntry> byId(sqlite3 *, std::int64_t) override {
+    return std::nullopt;
+  }
+  std::vector<p::Suggestion> suggest(sqlite3 *, const std::string &,
+                                     int) override {
+    return {};
+  }
 };
 class FixedDictionary : public p::DictionaryPort {
 public:
   p::WordEntry entry;
-  std::optional<p::WordEntry> find(sqlite3 *, const std::string &word) override {
-    return word == "from-port" ? std::optional<p::WordEntry>{entry} : std::nullopt;
+  std::optional<p::WordEntry> find(sqlite3 *,
+                                   const std::string &word) override {
+    return word == "from-port" ? std::optional<p::WordEntry>{entry}
+                               : std::nullopt;
   }
   std::optional<p::WordEntry> byId(sqlite3 *, std::int64_t id) override {
     return id == entry.id ? std::optional<p::WordEntry>{entry} : std::nullopt;
   }
-  std::vector<p::Suggestion> suggest(sqlite3 *, const std::string &, int) override { return {}; }
+  std::vector<p::Suggestion> suggest(sqlite3 *, const std::string &,
+                                     int) override {
+    return {};
+  }
 };
 void testPort(const std::filesystem::path &file) {
   FakeClock clock;
@@ -642,7 +802,8 @@ void testPort(const std::filesystem::path &file) {
                                {"command", "lookup_word"},
                                {"args", {{"word", "meticulous"}}}},
                               blankContext);
-  check(miss["ok"] == true && miss["result"]["outcome"]["type"] == "miss", "port miss");
+  check(miss["ok"] == true && miss["result"]["outcome"]["type"] == "miss",
+        "port miss");
   db.withConnection([&](sqlite3 *raw) {
     p::Statement stmt(raw, "SELECT COUNT(*) FROM encounters");
     stmt.step();
@@ -660,7 +821,8 @@ void testPort(const std::filesystem::path &file) {
                               {"command", "lookup_word"},
                               {"args", {{"word", "from-port"}}}},
                              fixedContext);
-  check(hit["ok"] == true && hit["result"]["outcome"]["entry"]["display"] == "From Port",
+  check(hit["ok"] == true &&
+            hit["result"]["outcome"]["entry"]["display"] == "From Port",
         "port hit");
   check(hit["result"]["encounter_id"].is_number(), "port encounter");
   auto stillMiss = router.dispatch({{"protocol_version", 1},
@@ -668,7 +830,49 @@ void testPort(const std::filesystem::path &file) {
                                     {"command", "lookup_word"},
                                     {"args", {{"word", "meticulous"}}}},
                                    fixedContext);
-  check(stillMiss["result"]["outcome"]["type"] == "miss", "db word ignored without port");
+  check(stillMiss["result"]["outcome"]["type"] == "miss",
+        "db word ignored without port");
+}
+void testReceiptIsolation(const std::filesystem::path &root) {
+  FakeClock clock;
+  const auto one = root / "receipt-one.db", two = root / "receipt-two.db";
+  {
+    p::Application first(one, &clock), second(two, &clock);
+    const auto args = p::Json{{"word", "meticulous"}};
+    check(call(first, "lookup_word", args, "same-client-id")["ok"] == true,
+          "first receipt");
+    check(call(second, "lookup_word", args, "same-client-id")["ok"] == true,
+          "second receipt");
+    check(scalar(first, "SELECT COUNT(*) FROM encounters") == 1,
+          "first encounter missing");
+    check(scalar(second, "SELECT COUNT(*) FROM encounters") == 1,
+          "receipt leaked across databases");
+    const auto grade =
+        p::Json{{"wordId", idByName(first, "meticulous")}, {"grade", "know"}};
+    check(call(first, "study_grade", grade, "same-grade-id")["ok"] == true,
+          "first grade");
+    check(call(second, "study_grade", grade, "same-grade-id")["ok"] == true,
+          "second grade");
+    check(
+        scalar(second,
+               "SELECT COUNT(*) FROM reviews WHERE completed_at IS NOT NULL") ==
+            1,
+        "grade receipt leaked across databases");
+    check(call(second, "study_grade", grade, "same-grade-id")["ok"] == true,
+          "grade retry");
+    check(
+        scalar(second,
+               "SELECT COUNT(*) FROM reviews WHERE completed_at IS NOT NULL") ==
+            1,
+        "grade retry duplicated");
+  }
+  clock.now += 86400000;
+  p::Application reopened(one, &clock);
+  check(call(reopened, "lookup_word", {{"word", "meticulous"}},
+             "same-client-id")["ok"] == true,
+        "reopened lookup");
+  check(scalar(reopened, "SELECT COUNT(*) FROM encounters") == 2,
+        "receipt outlived Application");
 }
 int main() {
   try {
@@ -684,6 +888,7 @@ int main() {
     testRollback(dir / "rollback.db");
     testIgnoredAndMissing(dir / "missing.db");
     testPort(dir / "port.db");
+    testReceiptIsolation(dir);
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';
     return 1;

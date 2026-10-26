@@ -75,3 +75,28 @@ parity_foundation_test 验证 schema/FTS/外键、55 条种子幂等和稳定 ID
 依赖审计仍是 3 个低严重度项：`@sveltejs/kit`、`@sveltejs/adapter-static`、`cookie`。完整修复要升到 SvelteKit 3 / adapter 4，会离开原版主版本。生产包只带静态页面，没有 Node SSR。本次不升级。
 
 未在本次启动原版 exe，也没有把那份 1GB 的 version 4 库复制后做写入升级。version 4 追加到 5 由小型夹具验证。文件选择对话框和开始菜单快捷方式没有做界面点击验收。
+
+## 六 Agent 合并后的最终审核（2026-10-26）
+
+本节覆盖此前“未覆盖”中已经由各模块实现并联合验证的部分；仍未验收的外部真实环境见 [REVIEW.md](REVIEW.md)。分支 `codex/parity-review`，schema=5，协议=1，合同=1.1.0，31 个业务命令均可用。
+
+| 检查 | 最终结果 | 日志或证据 |
+|---|---|---|
+| 合同生成、固定上游文件 | 通过；10 个固定文件一致 | `node tools/generate-contracts.mjs --check`、`node tools/verify-baseline.mjs` |
+| MSVC Debug 构建 / CTest | 10/10 通过 | `build-parity-msvc/review-final-debug.log` |
+| MSVC Release 构建 / CTest | 10/10 通过 | `build-parity-msvc/review-final-release.log` |
+| UCRT64 构建 / CTest | 10/10 通过 | `build-parity-msvc/review-ucrt-final.log` |
+| Svelte / TypeScript | 0 错误、0 警告 | `build-parity-msvc/review-final-ui-check.log` |
+| 静态 UI 构建 | 通过 | `build-parity-msvc/review-package-final.log` |
+| 真实 C++ 服务浏览器测试 | 2/2 通过 | `build-parity-msvc/review-final-ui-live.log` |
+| 界面夹具 | 原 17/17 通过；新增笔记读取失败用例 1/1 通过 | `review-ui-fixture-final.log`、`review-ui-notes.log`，均在 build-parity-msvc |
+| 搜索建议乱序专项复验 | 3/3 通过 | `build-parity-msvc/review-ui-race3.log` |
+| Debug / Release HTTP | 每次 17 项通过；31 命令、8 SSE 订阅同时查询 | `review-final-debug.log`、`review-final-release.log` |
+| Debug / Release WebView2 | ok=true、ui_rendered=true | 原生输出位于 test-output/desktop；Release 快照见 [截图](evidence/review-release-desktop.png) 和 [报告](evidence/review-release-report.json) |
+| Release DLL 依赖 | 无 VCRUNTIME/MSVCP 动态依赖，仅 Windows 系统 DLL | `build-parity-msvc/review-runtime-dependencies.log` |
+| 安装 / 升级 / 卸载保护 | 中文目标目录、保留未拥有文件、拒绝根目录和非安装目录均通过 | `build-parity-msvc/review-install-final.log` |
+| 最终 dist 分发包 | 包内 HTTP 17 项及 WebView2 原生验证通过 | `build-parity-msvc/test-output/package`、`test-output/rpc` |
+
+C++ 测试新增跨数据库请求重放、Application 重开、同路径数据库重建后的种子补全和真实 WinHTTP 在途取消回归。初次合并的两项失败是查询准备数据附带学习写入引起的测试隔离问题，已保留只读测试原断言并修正准备方式。
+
+测试不写入原版数据目录；Windows 凭据回归使用带运行 ID 的临时 TargetName 并清理，不改用户生产凭据。安装测试不执行 DeleteData。最终 Release 包在 `dist/LexicaReproduce`；生成物不入 Git。

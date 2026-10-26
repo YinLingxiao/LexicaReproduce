@@ -168,7 +168,7 @@ struct Host {
         [this](const std::string &name, const p::Json &payload) {
           send(
               {{"protocol_version", 1}, {"event", name}, {"payload", payload}});
-        });
+        }, !smoke);
     executor = std::make_unique<p::Executor>(
         [this](const p::Json &request, const p::Cancellation *cancel) {
           return app->dispatch(request, cancel);

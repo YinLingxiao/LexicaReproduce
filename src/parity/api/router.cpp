@@ -88,8 +88,13 @@ Json Router::invoke(const std::string &command, Json args,
     ~CancelBind() { setCurrentCancellation(previous); }
   } bind(context.cancellation);
   throwIfCancelled(context.cancellation);
-  if (command == "system_capabilities")
-    return capabilities();
+  if (command == "system_capabilities") {
+    auto result = capabilities();
+    result["automatic_dictionary_setup"] =
+        context.automatic_dictionary_setup &&
+        result["automatic_dictionary_setup"].get<bool>();
+    return result;
+  }
   const Json *spec = nullptr;
   for (const auto &c : catalog_.at("commands"))
     if (c.at("name") == command) {

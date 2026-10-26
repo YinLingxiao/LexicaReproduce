@@ -17,6 +17,7 @@ int main() {
     auto root = p::appRoot();
     std::filesystem::path web = std::filesystem::u8path(LEXICA_DEFAULT_UI_DIR);
     bool stdio = false;
+    bool automaticSetup = true;
     int port = 8766;
     int argc = 0;
     auto rawArgs = CommandLineToArgvW(GetCommandLineW(), &argc);
@@ -30,6 +31,8 @@ int main() {
       const std::wstring a = argv[i];
       if (a == L"--stdio")
         stdio = true;
+      else if (a == L"--no-auto-setup")
+        automaticSetup = false;
       else if (a == L"--data-dir" && i + 1 < argc)
         root = std::filesystem::absolute(argv[++i]);
       else if (a == L"--ui-dir" && i + 1 < argc)
@@ -44,10 +47,12 @@ int main() {
     const auto layout = p::resolveLayout(root);
     p::EventHub hub;
     p::Cancellation stopped;
-    p::Application app(layout.databaseFile, nullptr,
-                       [&](const std::string &name, const p::Json &payload) {
-                         hub.publish(name, payload);
-                       });
+    p::Application app(
+        layout.databaseFile, nullptr,
+        [&](const std::string &name, const p::Json &payload) {
+          hub.publish(name, payload);
+        },
+        automaticSetup);
     if (stdio) {
       std::string line;
       while (std::getline(std::cin, line)) {
@@ -56,10 +61,13 @@ int main() {
       }
       return 0;
     }
-    p::Executor executor([&](const p::Json &request, const p::Cancellation *cancel) {
-      return app.dispatch(request, cancel);
-    });
+    p::Executor executor(
+        [&](const p::Json &request, const p::Cancellation *cancel) {
+          return app.dispatch(request, cancel);
+        });
     httplib::Server server;
+    // Eight long-lived SSE subscriptions must leave workers for ordinary RPC.
+    server.new_task_queue = [] { return new httplib::ThreadPool(16); };
     server.set_read_timeout(600, 0);
     server.set_write_timeout(600, 0);
     std::ifstream policyFile(web / L"csp.txt", std::ios::binary);
@@ -106,7 +114,8 @@ int main() {
               const char ready[] = ": ready\n\n";
               return sink.write(ready, sizeof(ready) - 1);
             }
-            if (stopped.requested() || (sink.is_writable && !sink.is_writable()))
+            if (stopped.requested() ||
+                (sink.is_writable && !sink.is_writable()))
               return false;
             auto chunk = hub.waitAfter(*cursor, 10000, &stopped);
             if (!chunk) {
@@ -125,8 +134,9 @@ int main() {
       }
       auto slot = std::make_shared<std::promise<p::Json>>();
       auto future = slot->get_future();
-      executor.submit(p::Json::parse(req.body, nullptr, false),
-                      [slot](p::Json reply) { slot->set_value(std::move(reply)); });
+      executor.submit(
+          p::Json::parse(req.body, nullptr, false),
+          [slot](p::Json reply) { slot->set_value(std::move(reply)); });
       res.set_content(future.get().dump(), "application/json; charset=utf-8");
     });
     if (std::filesystem::exists(web / L"index.html")) {

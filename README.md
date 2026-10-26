@@ -2,11 +2,11 @@
 
 Windows 上的本地词汇学习程序，提供词库导入、查词、个人词汇、复习、统计和可选 AI 例句。项目按功能组织，不再按开发人员分目录。
 
-## 1:1 复刻新版基座（Phase 0）
+## C++ / WebView2 复刻版
 
 原版 Lexica 0.2.0 的 C++/WebView2 + Svelte 基座已放在 `src/parity` 和 `ui`，与下文的旧版业务和数据库隔离。公共接口、模型和并行开发边界见 [Phase 0 交接入口](docs/parity/README.md)，六个 Agent 的任务提示词见 [任务入口](docs/agents/README.md)。
 
-新版先实现真实种子查询链路；其余业务由后续模块开发。初始化依赖后运行 `tools/build-phase0.ps1 -Smoke` 可构建、测试和执行桌面冒烟验证。新版不使用旧版简化复习规则。
+六个 Agent 的模块已合并到 `codex/parity-review`，31 个业务命令已接通。审核修复、验证结果和待验收范围见 [集成审核报告](docs/parity/REVIEW.md)。初始化依赖后运行 `tools/build-phase0.ps1 -Smoke` 可构建、测试和执行桌面验证；运行 `tools/package.ps1` 生成 `dist/LexicaReproduce/lexica_desktop.exe`。下面的旧业务说明供历史实现参考。
 
 ## 从哪里开始读
 

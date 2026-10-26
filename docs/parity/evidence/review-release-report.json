@@ -1,0 +1,172 @@
+{
+  "contract_version": "1.1.0",
+  "info": {
+    "dictionary_ready": false,
+    "fts_ok": true,
+    "schema_version": 5,
+    "word_count": 55
+  },
+  "lookup": {
+    "comprehension_level": "unknown",
+    "encounter_id": 1,
+    "memory": {
+      "high_priority": false,
+      "status": "learning",
+      "visit_count": 1
+    },
+    "outcome": {
+      "entry": {
+        "antonyms": [
+          "careless",
+          "sloppy",
+          "slapdash"
+        ],
+        "antonyms_detailed": [
+          {
+            "gloss": "粗心的；疏忽的",
+            "pos": "adj.",
+            "word": "careless"
+          },
+          {
+            "gloss": "马虎的；草率的",
+            "pos": "adj.",
+            "word": "sloppy"
+          },
+          {
+            "gloss": "仓促马虎的；敷衍的",
+            "pos": "adj.",
+            "word": "slapdash"
+          }
+        ],
+        "collins": null,
+        "collocations": [
+          {
+            "gloss": "对某事一丝不苟",
+            "text": "be meticulous about sth"
+          },
+          {
+            "gloss": "对细节的极致关注",
+            "text": "meticulous attention to detail"
+          }
+        ],
+        "derivatives": [
+          {
+            "gloss": "一丝不苟地；细致地",
+            "pos": "adv.",
+            "word": "meticulously"
+          },
+          {
+            "gloss": "一丝不苟；极其仔细",
+            "pos": "n.",
+            "word": "meticulousness"
+          }
+        ],
+        "display": "meticulous",
+        "exam_example": {
+          "id": 1,
+          "text": "She was meticulous about checking every detail before submitting the report.",
+          "translation": "提交报告前，她对每一个细节都一丝不苟地核对。"
+        },
+        "forms": [
+          {
+            "form": "meticulously",
+            "label": "Adverb"
+          },
+          {
+            "form": "meticulousness",
+            "label": "Noun"
+          }
+        ],
+        "frequency_rank": 12000,
+        "id": 1,
+        "lookalikes": [],
+        "mnemonic": "meticulous 构词记忆：meticul（核心词干） + -ous（构成形容词，表示‘充满…的’） → 一丝不苟的；极其仔细的。",
+        "oxford": false,
+        "phonetic": "/məˈtɪkjələs/",
+        "roots": [
+          {
+            "meaning": "核心词干",
+            "part": "meticul"
+          },
+          {
+            "meaning": "构成形容词，表示‘充满…的’",
+            "part": "-ous"
+          }
+        ],
+        "senses": [
+          {
+            "chinese_definition": "一丝不苟的；极其仔细的",
+            "english_definition": "very careful and paying attention to every small detail",
+            "examples": [
+              {
+                "id": 1,
+                "text": "She was meticulous about checking every detail before submitting the report.",
+                "translation": "提交报告前，她对每一个细节都一丝不苟地核对。"
+              },
+              {
+                "id": 2,
+                "text": "The restoration team kept meticulous records of every brushstroke.",
+                "translation": "修复团队对每一笔修复都做了详尽的记录。"
+              },
+              {
+                "id": 3,
+                "text": "Her meticulous notes saved us hours of debugging later.",
+                "translation": "她那细致入微的笔记后来为我们省了好几个小时的调试。"
+              }
+            ],
+            "id": 1,
+            "level": "C1",
+            "pos": "adj."
+          }
+        ],
+        "synonyms": [
+          "careful",
+          "painstaking",
+          "thorough",
+          "scrupulous"
+        ],
+        "synonyms_detailed": [
+          {
+            "gloss": "仔细的；小心的",
+            "pos": "adj.",
+            "word": "careful"
+          },
+          {
+            "gloss": "煞费苦心的；刻苦的",
+            "pos": "adj.",
+            "word": "painstaking"
+          },
+          {
+            "gloss": "彻底的；详尽的",
+            "pos": "adj.",
+            "word": "thorough"
+          },
+          {
+            "gloss": "严谨的；一丝不苟的",
+            "pos": "adj.",
+            "word": "scrupulous"
+          }
+        ],
+        "tags": [],
+        "word": "meticulous",
+        "word_family": [
+          "meticulously adv.",
+          "meticulousness n."
+        ]
+      },
+      "type": "hit"
+    }
+  },
+  "ok": true,
+  "suggestions": [
+    {
+      "display": "meticulous",
+      "frequency_rank": 12000,
+      "phonetic": "/məˈtɪkjələs/",
+      "word": "meticulous"
+    }
+  ],
+  "title": "Search · Lexica",
+  "ui_rendered": true,
+  "write": "implemented"
+}

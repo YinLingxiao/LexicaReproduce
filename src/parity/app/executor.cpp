@@ -35,11 +35,12 @@ Json Executor::busy(const Json &request) const {
   return envelope(request, "BUSY", "Command queue is full");
 }
 void Executor::submit(Json request, Reply reply) {
-  const auto command =
-      request.is_object() ? request.value("command", std::string{}) : std::string{};
-  const bool background =
-      std::find(background_.begin(), background_.end(), command) !=
-      background_.end();
+  const auto command = request.is_object() && request.contains("command") &&
+                               request["command"].is_string()
+                           ? request["command"].get<std::string>()
+                           : std::string{};
+  const bool background = std::find(background_.begin(), background_.end(),
+                                    command) != background_.end();
   Json early;
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -79,7 +80,8 @@ void Executor::loop(bool background) {
     }
     Json result;
     try {
-      result = handler_(job.request, background ? &backgroundStop_ : &shutdown_);
+      result =
+          handler_(job.request, background ? &backgroundStop_ : &shutdown_);
     } catch (const Error &error) {
       result = envelope(job.request, error.code.c_str(), error.what());
     } catch (const std::exception &) {

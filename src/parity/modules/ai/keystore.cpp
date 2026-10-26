@@ -60,7 +60,10 @@ void WindowsCredentialStore::remove() {
   }
 }
 WindowsCredentialStore &productionKeyStore() {
-  static WindowsCredentialStore store(L"LexicaReproduce/parity-ai-api-key");
+  static WindowsCredentialStore store([] {
+    const auto target = std::string(kCredentialService) + "/" + kCredentialAccount;
+    return std::wstring(target.begin(), target.end());
+  }());
   return store;
 }
 } // namespace lexica::parity
