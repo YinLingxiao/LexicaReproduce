@@ -1,0 +1,22 @@
+import {test,expect} from '@playwright/test';
+test('production Svelte uses the real C++ / SQLite transport',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('/');
+  await expect(page.getByText('55 entries · offline')).toBeVisible();
+  const input=page.getByRole('combobox');
+  await input.fill('met');
+  await expect(page.getByRole('option').filter({hasText:'meticulous'})).toBeVisible();
+  const response=page.waitForResponse(async r=>r.url().endsWith('/rpc')&&r.request().postDataJSON()?.command==='lookup_word');
+  await input.press('ArrowDown');
+  await input.press('Enter');
+  const result=await (await response).json();
+  expect(result.ok).toBe(true);expect(result.result.outcome.entry.word).toBe('meticulous');
+  await expect(page).toHaveURL(/word=meticulous/);
+  await expect(page.getByText('She was meticulous about checking every detail before submitting the report.',{exact:true})).toBeVisible();
+  await page.screenshot({path:test.info().outputPath('lookup.png'),fullPage:true});
+  await page.getByRole('link',{name:'Settings',exact:true}).first().click();
+  await expect(page.getByRole('heading',{name:'Settings',exact:true})).toBeVisible();
+  await page.setViewportSize({width:480,height:820});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});

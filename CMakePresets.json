@@ -1,0 +1,9 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {"name":"parity-msvc", "displayName":"Parity / MSVC 2022 x64", "generator":"Visual Studio 17 2022", "architecture":"x64", "binaryDir":"${sourceDir}/build-parity-msvc", "cacheVariables":{"LEXICA_BUILD_DESKTOP":"ON", "BUILD_TESTING":"ON"}},
+    {"name":"parity-ucrt", "displayName":"Parity core / MSYS2 UCRT64", "generator":"Ninja", "binaryDir":"${sourceDir}/build-parity-ucrt", "cacheVariables":{"CMAKE_BUILD_TYPE":"Debug", "CMAKE_C_COMPILER":"C:/msys64/ucrt64/bin/gcc.exe", "CMAKE_CXX_COMPILER":"C:/msys64/ucrt64/bin/g++.exe", "LEXICA_BUILD_DESKTOP":"OFF", "BUILD_TESTING":"ON"}}
+  ],
+  "buildPresets": [{"name":"parity-msvc", "configurePreset":"parity-msvc", "configuration":"Debug"}, {"name":"parity-ucrt", "configurePreset":"parity-ucrt"}],
+  "testPresets": [{"name":"parity-msvc", "configurePreset":"parity-msvc", "configuration":"Debug", "output":{"outputOnFailure":true}}, {"name":"parity-ucrt", "configurePreset":"parity-ucrt", "output":{"outputOnFailure":true}}]
+}

@@ -1,10 +1,11 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.21)
 # 编译 C 的 SQLite 和 C++ 的业务代码。
 project(lexica LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+add_compile_definitions(NOMINMAX)
 
 if(MINGW)
   add_compile_options(-finput-charset=UTF-8 -fexec-charset=UTF-8 -Wall -Wextra)
@@ -15,12 +16,17 @@ endif()
 # 先把 SQLite 编译成公共库，词库、个人词汇和复习模块都连接它。
 add_library(lexica_sqlite third_party/sqlite3.c)
 target_include_directories(lexica_sqlite PUBLIC ${CMAKE_SOURCE_DIR}/third_party)
-target_compile_definitions(lexica_sqlite PRIVATE SQLITE_OMIT_LOAD_EXTENSION)
+target_compile_definitions(lexica_sqlite PRIVATE SQLITE_OMIT_LOAD_EXTENSION SQLITE_ENABLE_FTS5)
 if(MSVC)
   target_compile_options(lexica_sqlite PRIVATE /w)
 else()
   target_compile_options(lexica_sqlite PRIVATE -O2 -w)
 endif()
+
+# Phase 0 is isolated from the legacy App and database. Production is C++/WebView2;
+# the loopback adapter and stdio use the identical router for development/tests.
+include(CTest)
+add_subdirectory(src/parity)
 
 # 公共库提供错误说明和时间，其他模块在此基础上构建。
 add_library(lexica_common

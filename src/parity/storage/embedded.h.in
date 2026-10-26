@@ -1,0 +1,9 @@
+#pragma once
+#include <string>
+namespace lexica::parity {
+inline constexpr const char* kMigrations[] = {
+@LEXICA_MIGRATIONS@
+};
+inline constexpr unsigned char kSeedBytes[] = {@LEXICA_SEED_BYTES@ 0};
+inline const std::string kSeedJson(reinterpret_cast<const char*>(kSeedBytes),sizeof(kSeedBytes)-1);
+}

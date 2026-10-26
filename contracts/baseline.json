@@ -1,0 +1,21 @@
+{
+  "upstream_repository": "https://github.com/YinLingxiao/Lexica.",
+  "upstream_sha": "c4b92a39402860566bf954f92efc8e59666aaa4a",
+  "contract_version": "1.0.0",
+  "protocol_version": 1,
+  "schema_version": 5,
+  "seed_words": 55,
+  "files": {
+    "contracts/upstream-api.ts": "9b974608026cc75c04732e099e4086f341767c5046eb4879a814a261e85a9c33",
+    "resources/seed.json": "b94301e2d1398f6336a29987ced68abf6ef305f95303302c48fac75b427be1ea",
+    "src/parity/storage/migrations/0001_init.sql": "6906645793944325236c24021d4eebc81a3e6afbcd0640486f0a061be89c3301",
+    "src/parity/storage/migrations/0002_freq_rank_index.sql": "13f367a47b2dfdf2d44d2b99e453670ca547b1f8426a91a813dcf7ad0376d449",
+    "src/parity/storage/migrations/0003_word_notes.sql": "526a02fb9761c8a835c80f1e95c5e857c6025b22ff95be80d8772ba8a4368746",
+    "src/parity/storage/migrations/0004_ai_examples.sql": "3e95bf86cedc85e4aa9a7da05879f02543cb2fded9c2178b79331a6ac42c2a67",
+    "src/parity/storage/migrations/0005_study_system.sql": "742beab3254e207ef65237528f2a45d390bf3d55889ba25d1da212b7e9bc4bdb",
+    "ui/static/fonts/inter-latin-wght-normal.woff2": "3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62",
+    "ui/static/fonts/newsreader-latin-wght-normal.woff2": "62981321d9a3cc7a61a73792729043703fd6112da86e8ec848bb57f088578757",
+    "ui/static/fonts/newsreader-latin-wght-italic.woff2": "48bc8861b9b2ca9300747cad4fd6a3b4ac3028d364df00bd1b72097baa75e509"
+  },
+  "text_hash_normalization": "UTF-8, CRLF normalized to LF; binary assets hashed as-is"
+}

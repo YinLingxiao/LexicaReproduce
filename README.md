@@ -2,6 +2,12 @@
 
 Windows 上的本地词汇学习程序，提供词库导入、查词、个人词汇、复习、统计和可选 AI 例句。项目按功能组织，不再按开发人员分目录。
 
+## 1:1 复刻新版基座（Phase 0）
+
+原版 Lexica 0.2.0 的 C++/WebView2 + Svelte 基座已放在 `src/parity` 和 `ui`，与下文的旧版业务和数据库隔离。公共接口、模型和并行开发边界见 [Phase 0 交接入口](docs/parity/README.md)，六个 Agent 的任务提示词见 [任务入口](docs/agents/README.md)。
+
+新版先实现真实种子查询链路；其余业务由后续模块开发。初始化依赖后运行 `tools/build-phase0.ps1 -Smoke` 可构建、测试和执行桌面冒烟验证。新版不使用旧版简化复习规则。
+
 ## 从哪里开始读
 
 先看 [程序入口](src/main.cpp)，再看 [App 业务编排](src/app/app.cpp)。App 展示一次查词、一次复习如何调用其他模块；具体实现继续进入对应模块。
@@ -15,7 +21,7 @@ Windows 上的本地词汇学习程序，提供词库导入、查词、个人词
 | `src/ai` | AI 配置、连接测试、后台例句任务和缓存 |
 | `src/app` | 协调以上业务模块，提供界面调用入口 |
 | `src/api`、`src/cli` | 网页 HTTP 接口与控制台菜单 |
-| `web` | 网页资源；目前主页面只展示服务状态 |
+| `web` | 旧版五页面网页资源，与新版 `ui` 分开 |
 | `tests`、`tests/data` | 验收测试及只读测试词库 |
 | `third_party` | SQLite、cpp-httplib、nlohmann/json |
 | `docs` | 运行、接口、需求和模块说明；旧分工仅保存在 `docs/history` |

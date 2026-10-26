@@ -2,3 +2,10 @@ build*/
 /data/
 tmp/
 *.exe
+.deps/
+reference/
+ui/node_modules/
+ui/.svelte-kit/
+ui/build/
+ui/test-results/
+ui/playwright-report/
