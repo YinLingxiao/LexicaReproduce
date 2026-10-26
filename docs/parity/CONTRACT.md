@@ -1,4 +1,4 @@
-# 公共接口与数据合同 v1.0.0
+# 公共接口与数据合同 v1.1.0
 
 权威输入：`contracts/models.json`、`contracts/commands.json`。C++ 生成文件为 `src/parity/contracts/dto.h`、`catalog.h`；TypeScript 为 `ui/src/lib/generated/contracts.ts`。
 
@@ -32,6 +32,10 @@ node tools/generate-contracts.mjs --check
 - Router 拒绝未知参数、错误类型、非法枚举及明确的边界越界，并校验返回结果。
 - 正式复习的防重复以 review_id 与事务内状态为准；study_grade 的重发语义由 C 明确测试，并通过 Context.request_id 区分同一请求重发与新的主动评分。
 - 新模块通过 `router.bind("所有者", "命令", handler, "implemented")` 注册；重复绑定和越权所有者立即报错。注册必须在 Application 构造完成前进行，运行中不修改 Router。
+- `commands.json` 的 `lane` 为 `background` 时，桌面和 HTTP 把该命令放到单独队列。当前是 `ensure_dictionary`、`import_ecdict`、`rebuild_memory_projection`、`ai_test_connection`、`ai_generate_examples`、`ai_enrich_words`。查词走交互队列，不排在这些命令后面。
+- 长导入使用 `Database::withSideConnection`。它有自己的连接和锁，不占用 `withConnection`。网络、解压和扫描仍然不能包在任一把锁里。
+- `Context::cancellation` 在关闭时变为已请求。处理函数在锁外调用 `checkCancelled`；SQL `step` 也会观察它。关闭先取消后台队列，再取消交互队列，然后等待线程结束。
+- 下载和导入通过 `emitDictionarySetup(context, phase, progress, message)` 发 `dictionary-setup`。`progress` 用 JSON 数字或 `null`。事件在数据库锁外发送。
 
 ## 模块接口
 
@@ -39,7 +43,7 @@ node tools/generate-contracts.mjs --check
 
 `Context` 提供 Database、可注入毫秒 Clock、DictionaryPort、EventSink 和逐请求 request_id。dispatch 会复制 Context；各 Agent 自有缓存或共享状态须自行同步。
 
-AI 的 `KeyStore` 与 `HttpClient` 是可替换边界。真实凭据存储使用复刻版独立命名空间，避免修改原版应用密钥。HTTP 默认保持 15 秒超时，不持有 DB 锁发送网络请求。
+AI 的 `KeyStore` 与 `HttpClient` 是可替换边界。真实凭据使用 `kCredentialService`（`LexicaReproduce.parity-v1`）和 `kCredentialAccount`（`ai_api_key`）。原版服务名是 `com.lexica.app`，复刻版不得写入那条凭据。HTTP 默认保持 15 秒超时，不持有 DB 锁发送网络请求。
 
 ## 事务和锁
 
@@ -82,13 +86,13 @@ encounters 与完成的 reviews 为投影事实源；前端偏好仍放在原版
 {"protocol_version":1,"event":"dictionary-setup","payload":{"phase":"importing","progress":null,"message":"Importing…"}}
 ```
 
-事件没有 request_id。原版 dictionary-setup 的阶段及 payload 已进入模型。Context.emit 可为空，调用前检查；HTTP 开发适配器当前只提供 RPC 响应，异步进度的浏览器订阅由 A 后续补齐，桌面 EventSink 已接通。
+事件没有 request_id。原版 dictionary-setup 的阶段及 payload 已进入模型。Context.emit 可为空，调用前检查。桌面 EventSink 把事件投回页面。开发服务器提供 `GET /events` 的 `text/event-stream`；浏览器里的 `listen()` 在没有 WebView 时订阅它。RPC 仍走 `POST /rpc`，事件连接不会占住查词。
 
 `system_capabilities` 返回合同、foundation_phase、逐命令 available/implementation 和 automatic_dictionary_setup。implementation 可为 implemented、seed_only、read_only_seed；未注册为 not_implemented。新增功能应通过实际注册而非修改 UI 伪造可用性。
 
 ## 错误码
 
-基础错误：BAD_REQUEST、UNKNOWN_COMMAND、PROTOCOL_MISMATCH、NOT_IMPLEMENTED、CONTRACT_ERROR、DB_ERROR、SCHEMA_MISMATCH、VERSION_TOO_NEW、DATA_DIRECTORY_ERROR、NETWORK_ERROR、RESOURCE_ERROR、WEBVIEW_ERROR、BUSY、INTERNAL_ERROR。
+基础错误：BAD_REQUEST、UNKNOWN_COMMAND、PROTOCOL_MISMATCH、NOT_IMPLEMENTED、CONTRACT_ERROR、DB_ERROR、SCHEMA_MISMATCH、VERSION_TOO_NEW、DATA_DIRECTORY_ERROR、NETWORK_ERROR、RESOURCE_ERROR、WEBVIEW_ERROR、BUSY、CANCELLED、INTERNAL_ERROR。
 
 前端传输还会产生 TIMEOUT、CANCELLED、HTTP_ERROR。业务未命中是 LookupOutcome.miss，空集合是成功响应。新增业务错误码由 A 记录后统一使用，保留可读 message；响应和日志不得携带密钥。
 

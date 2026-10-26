@@ -1,10 +1,14 @@
 #include "parity/app/application.h"
+#include "parity/app/executor.h"
+#include "parity/app/paths.h"
 #include <WebView2.h>
-#include <condition_variable>
+#include <cstring>
 #include <deque>
 #include <fstream>
+#include <optional>
 #include <shellapi.h>
 #include <shlwapi.h>
+#include <shobjidl.h>
 #include <thread>
 #include <windows.h>
 #include <wrl.h>
@@ -51,9 +55,76 @@ void require(HRESULT result) {
                    "WebView2 operation failed: " +
                        std::to_string(static_cast<unsigned long>(result)));
 }
+std::wstring webViewRuntimeVersion() {
+  const wchar_t *clients[] = {
+      L"SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+      L"SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"};
+  for (const wchar_t *subkey : clients) {
+    for (const HKEY hive : {HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER}) {
+      HKEY key = nullptr;
+      if (RegOpenKeyExW(hive, subkey, 0, KEY_READ, &key) != ERROR_SUCCESS)
+        continue;
+      wchar_t value[64]{};
+      DWORD size = sizeof(value);
+      DWORD type = 0;
+      const auto status = RegQueryValueExW(key, L"pv", nullptr, &type,
+                                           reinterpret_cast<BYTE *>(value), &size);
+      RegCloseKey(key);
+      if (status == ERROR_SUCCESS && type == REG_SZ && value[0] &&
+          wcscmp(value, L"0.0.0.0") != 0)
+        return value;
+    }
+  }
+  return {};
+}
+std::optional<std::wstring> pickPath(HWND owner, bool directory) {
+  ComPtr<IFileOpenDialog> dialog;
+  if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER,
+                              IID_PPV_ARGS(&dialog))))
+    return std::nullopt;
+  DWORD options = 0;
+  dialog->GetOptions(&options);
+  dialog->SetOptions(options | FOS_FORCEFILESYSTEM | FOS_NOCHANGEDIR |
+                     (directory ? FOS_PICKFOLDERS : FOS_FILEMUSTEXIST));
+  if (!directory) {
+    const COMDLG_FILTERSPEC filters[] = {{L"SQLite", L"*.db"}, {L"All files", L"*.*"}};
+    dialog->SetFileTypes(2, filters);
+  }
+  if (FAILED(dialog->Show(owner)))
+    return std::nullopt;
+  ComPtr<IShellItem> item;
+  PWSTR path = nullptr;
+  if (FAILED(dialog->GetResult(&item)) ||
+      FAILED(item->GetDisplayName(SIGDN_FILESYSPATH, &path)))
+    return std::nullopt;
+  std::wstring result = path;
+  CoTaskMemFree(path);
+  return result;
+}
+bool writeClipboard(HWND owner, const std::wstring &text) {
+  if (!OpenClipboard(owner))
+    return false;
+  EmptyClipboard();
+  const auto bytes = (text.size() + 1) * sizeof(wchar_t);
+  auto memory = GlobalAlloc(GMEM_MOVEABLE, bytes);
+  if (!memory) {
+    CloseClipboard();
+    return false;
+  }
+  std::memcpy(GlobalLock(memory), text.c_str(), bytes);
+  GlobalUnlock(memory);
+  if (!SetClipboardData(CF_UNICODETEXT, memory)) {
+    GlobalFree(memory);
+    CloseClipboard();
+    return false;
+  }
+  CloseClipboard();
+  return true;
+}
 struct Host {
   HWND window = nullptr;
-  fs::path data = p::defaultDataDirectory(), ui, report;
+  fs::path root, ui, report;
+  p::DataLayout layout{};
   bool smoke = false, finished = false;
   int exitCode = 0;
   p::Json diagnostics = p::Json::array();
@@ -61,11 +132,10 @@ struct Host {
   ComPtr<ICoreWebView2Controller> controller;
   ComPtr<ICoreWebView2> webview;
   std::mutex mutex;
-  std::condition_variable ready;
-  std::deque<p::Json> requests, replies;
-  bool stopping = false;
-  std::vector<std::thread> workers;
+  std::deque<p::Json> replies;
+  bool stopping = false, stopped = false;
   std::unique_ptr<p::Application> app;
+  std::unique_ptr<p::Executor> executor;
   void writeReport(p::Json value) {
     if (report.empty())
       return;
@@ -94,39 +164,28 @@ struct Host {
   }
   void startWorker() {
     app = std::make_unique<p::Application>(
-        data / L"lexica.db", nullptr,
+        layout.databaseFile, nullptr,
         [this](const std::string &name, const p::Json &payload) {
           send(
               {{"protocol_version", 1}, {"event", name}, {"payload", payload}});
         });
-    for (int i = 0; i < 4; ++i)
-      workers.emplace_back([this] {
-        for (;;) {
-          p::Json request;
-          {
-            std::unique_lock<std::mutex> lock(mutex);
-            ready.wait(lock, [this] { return stopping || !requests.empty(); });
-            if (stopping)
-              break;
-            request = std::move(requests.front());
-            requests.pop_front();
-          }
-          send(app->dispatch(request));
-        }
-      });
+    executor = std::make_unique<p::Executor>(
+        [this](const p::Json &request, const p::Cancellation *cancel) {
+          return app->dispatch(request, cancel);
+        });
   }
   void stop() {
     {
       std::lock_guard<std::mutex> lock(mutex);
+      if (stopped)
+        return;
+      stopped = true;
       stopping = true;
-      requests.clear();
       replies.clear();
     }
-    ready.notify_all();
-    for (auto &worker : workers)
-      if (worker.joinable())
-        worker.join();
-    workers.clear();
+    if (executor)
+      executor->shutdown();
+    executor.reset();
     if (controller)
       controller->Close();
     webview.Reset();
@@ -166,21 +225,56 @@ struct Host {
     ComPtr<ICoreWebView2Settings> settings;
     require(webview->get_Settings(&settings));
     settings->put_AreDefaultScriptDialogsEnabled(TRUE);
+    settings->put_AreHostObjectsAllowed(FALSE);
+    settings->put_IsStatusBarEnabled(FALSE);
+    ComPtr<ICoreWebView2Controller3> scale;
+    if (SUCCEEDED(controller.As(&scale)))
+      scale->put_ShouldDetectMonitorScaleChanges(TRUE);
+    EventRegistrationToken permission{};
+    require(webview->add_PermissionRequested(
+        Callback<ICoreWebView2PermissionRequestedEventHandler>(
+            [](ICoreWebView2 *,
+               ICoreWebView2PermissionRequestedEventArgs *args) -> HRESULT {
+              COREWEBVIEW2_PERMISSION_KIND kind{};
+              args->get_PermissionKind(&kind);
+              LPWSTR raw = nullptr;
+              std::wstring uri;
+              if (SUCCEEDED(args->get_Uri(&raw)) && raw) {
+                uri = raw;
+                CoTaskMemFree(raw);
+              }
+              args->put_State(kind == COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ &&
+                                      trusted(uri)
+                                  ? COREWEBVIEW2_PERMISSION_STATE_ALLOW
+                                  : COREWEBVIEW2_PERMISSION_STATE_DENY);
+              return S_OK;
+            })
+            .Get(),
+        &permission));
     EventRegistrationToken token{};
     require(webview->add_NavigationStarting(
         Callback<ICoreWebView2NavigationStartingEventHandler>(
             [this](ICoreWebView2 *,
                    ICoreWebView2NavigationStartingEventArgs *args) -> HRESULT {
+              try {
               LPWSTR raw = nullptr;
               if (SUCCEEDED(args->get_Uri(&raw))) {
                 const std::wstring uri = raw;
                 CoTaskMemFree(raw);
-                if (!trusted(uri))
+                if (!trusted(uri)) {
                   args->put_Cancel(TRUE);
+                  if (external(uri))
+                    ShellExecuteW(window, L"open", uri.c_str(), nullptr, nullptr,
+                                  SW_SHOWNORMAL);
+                }
                 if (smoke)
                   diagnostics.push_back({{"navigation", utf8(uri)}});
               }
               return S_OK;
+              } catch (const std::exception &) {
+                args->put_Cancel(TRUE);
+                return S_OK;
+              }
             })
             .Get(),
         &token));
@@ -223,33 +317,43 @@ struct Host {
                 if (input.size() > 1024 * 1024)
                   return S_OK;
                 auto request = p::Json::parse(input, nullptr, false);
+                if (request.is_object() &&
+                    request.value("kind", std::string{}) == "host") {
+                  const auto id = request.value("request_id", p::Json(nullptr));
+                  const auto action = request.value("action", std::string{});
+                  p::Json reply{{"protocol_version", 1},
+                                {"request_id", id},
+                                {"ok", true},
+                                {"result", nullptr}};
+                  if (action == "pick-file" || action == "pick-directory") {
+                    const auto path = pickPath(window, action == "pick-directory");
+                    reply["result"] = {
+                        {"path", path ? p::Json(utf8(*path)) : p::Json(nullptr)}};
+                  } else if (action == "clipboard-write") {
+                    if (!writeClipboard(window, wide(request.value("text", std::string{})))) {
+                      reply["ok"] = false;
+                      reply.erase("result");
+                      reply["error"] = {{"code", "RESOURCE_ERROR"},
+                                        {"message", "Clipboard is unavailable"}};
+                    }
+                  } else {
+                    reply["ok"] = false;
+                    reply.erase("result");
+                    reply["error"] = {{"code", "BAD_REQUEST"},
+                                      {"message", "Unknown host action"}};
+                  }
+                  send(std::move(reply));
+                  return S_OK;
+                }
                 if (smoke && request.is_object() &&
                     request.value("kind", std::string{}) == "phase0-smoke") {
                   smokeResult(request.at("result"));
                   return S_OK;
                 }
-                bool overflow = false;
-                {
-                  std::lock_guard<std::mutex> lock(mutex);
-                  if (stopping)
-                    return S_OK;
-                  overflow = requests.size() >= 128;
-                  if (!overflow)
-                    requests.push_back(request);
-                }
-                if (overflow) {
-                  send({{"protocol_version", 1},
-                        {"request_id",
-                         request.is_object()
-                             ? request.value("request_id", p::Json(nullptr))
-                             : p::Json(nullptr)},
-                        {"ok", false},
-                        {"error",
-                         {{"code", "BUSY"},
-                          {"message", "Command queue is full"}}}});
+                if (!executor)
                   return S_OK;
-                }
-                ready.notify_one();
+                executor->submit(std::move(request),
+                                 [this](p::Json reply) { send(std::move(reply)); });
               } catch (const std::exception &e) {
                 if (smoke)
                   fail(e.what());
@@ -267,6 +371,7 @@ struct Host {
             [this](
                 ICoreWebView2 *,
                 ICoreWebView2WebResourceRequestedEventArgs *args) -> HRESULT {
+              try {
               ComPtr<ICoreWebView2WebResourceRequest> request;
               args->get_Request(&request);
               LPWSTR raw = nullptr;
@@ -275,18 +380,27 @@ struct Host {
               CoTaskMemFree(raw);
               if (!trusted(uri))
                 return S_OK;
-              auto route = uri.substr(std::size(kOrigin) - 1);
-              route = L"/" + route.substr(0, route.find_first_of(L"?#"));
-              const bool document = route == L"/" || route == L"/library" ||
-                                    route == L"/review" || route == L"/stats" ||
-                                    route == L"/settings";
-              auto relative = document ? fs::path(L"index.html")
-                                       : fs::path(route.substr(1));
+              auto route = uri.substr(std::wstring(kOrigin).size());
+              const auto cut = route.find_first_of(L"?#");
+              if (cut != std::wstring::npos)
+                route.resize(cut);
+              if (!route.empty() && route.back() == L'/')
+                route.pop_back();
+              if (route.empty() || route.front() != L'/')
+                route.insert(route.begin(), L'/');
+              const bool known = route == L"/" || route == L"/library" ||
+                                 route == L"/review" || route == L"/stats" ||
+                                 route == L"/settings";
+              auto relative = fs::path(route == L"/" ? L"" : route.substr(1));
               bool valid = route.find_first_of(L"%\\:") == std::wstring::npos &&
                            !relative.is_absolute();
               for (const auto &part : relative)
                 if (part == L".." || part == L".")
                   valid = false;
+              const bool document =
+                  valid && (known || relative.extension().empty());
+              if (document)
+                relative = fs::path(L"index.html");
               fs::path target;
               try {
                 const auto root = fs::canonical(ui);
@@ -323,6 +437,8 @@ struct Host {
                       ? L"application/javascript; charset=utf-8"
                   : extension == L".css"   ? L"text/css; charset=utf-8"
                   : extension == L".woff2" ? L"font/woff2"
+                  : extension == L".woff"  ? L"font/woff"
+                  : extension == L".ico"   ? L"image/x-icon"
                   : extension == L".svg"   ? L"image/svg+xml"
                   : extension == L".png"   ? L"image/png"
                   : extension == L".json"  ? L"application/json"
@@ -337,6 +453,9 @@ struct Host {
                       &response)))
                 args->put_Response(response.Get());
               return S_OK;
+              } catch (const std::exception &) {
+                return S_OK;
+              }
             })
             .Get(),
         &token));
@@ -363,7 +482,7 @@ struct Host {
                   return S_OK;
                 }
                 const wchar_t *script =
-                    LR"JS((()=>{let n=0;const timer=setInterval(async()=>{if(++n>100){clearInterval(timer);window.chrome.webview.postMessage({kind:'phase0-smoke',result:{ok:false,error:'UI transport did not initialize'}});return;}if(!window.__LEXICA_INVOKE__)return;clearInterval(timer);try{const invoke=window.__LEXICA_INVOKE__;const info=await invoke('app_info');const suggestions=await invoke('search_suggest',{query:'met',limit:8});const lookup=await invoke('lookup_word',{word:'meticulous'});let unavailable='';try{await invoke('save_word_note',{wordId:lookup.outcome.entry.id,bookmarked:true,note:'smoke'});}catch(e){unavailable=e.code;}setTimeout(()=>window.chrome.webview.postMessage({kind:'phase0-smoke',result:{ok:info.fts_ok&&info.schema_version===5&&lookup.outcome.type==='hit'&&suggestions.length>0&&unavailable==='NOT_IMPLEMENTED',info,suggestions,lookup,unavailable,title:document.title,ui_rendered:document.body.textContent.includes('meticulous')}}),500);}catch(e){window.chrome.webview.postMessage({kind:'phase0-smoke',result:{ok:false,error:String(e)}});}},100);})())JS";
+                    LR"JS((()=>{let n=0;const timer=setInterval(async()=>{if(++n>100){clearInterval(timer);window.chrome.webview.postMessage({kind:'phase0-smoke',result:{ok:false,error:'UI transport did not initialize'}});return;}if(!window.__LEXICA_INVOKE__)return;clearInterval(timer);try{const invoke=window.__LEXICA_INVOKE__;const info=await invoke('app_info');const suggestions=await invoke('search_suggest',{query:'met',limit:8});const lookup=await invoke('lookup_word',{word:'meticulous'});const caps=await invoke('system_capabilities');const note=caps.commands.find(c=>c.name==='save_word_note');let write='skipped';if(!note.available){try{await invoke('save_word_note',{wordId:lookup.outcome.entry.id,bookmarked:true,note:'smoke'});write='unexpected-success';}catch(e){write=e.code;}}else write='implemented';const ok=info.fts_ok&&info.schema_version===5&&lookup.outcome.type==='hit'&&suggestions.length>0&&write!=='unexpected-success'&&(note.available||write==='NOT_IMPLEMENTED');setTimeout(()=>window.chrome.webview.postMessage({kind:'phase0-smoke',result:{ok,info,suggestions,lookup,write,contract_version:caps.contract_version,title:document.title,ui_rendered:document.body.textContent.includes('meticulous')}}),500);}catch(e){window.chrome.webview.postMessage({kind:'phase0-smoke',result:{ok:false,error:String(e)}});}},100);})())JS";
                 webview->ExecuteScript(script, nullptr);
                 return S_OK;
               })
@@ -378,12 +497,18 @@ struct Host {
                                     : kOrigin));
   }
   void init() {
+    const auto runtime = webViewRuntimeVersion();
+    if (runtime.empty())
+      throw p::Error("WEBVIEW_ERROR",
+                     "WebView2 Runtime is not installed. Install the Evergreen Runtime from https://go.microsoft.com/fwlink/p/?LinkId=2124703");
+    if (smoke)
+      diagnostics.push_back({{"webview2_runtime", utf8(runtime)}});
     if (!fs::exists(ui / L"index.html") || !fs::exists(ui / L"csp.txt"))
       throw p::Error("RESOURCE_ERROR",
                      "Build the frontend and package its ui folder first");
     startWorker();
     require(CreateCoreWebView2EnvironmentWithOptions(
-        nullptr, (data / L"webview-profile").c_str(), nullptr,
+        nullptr, layout.profile.c_str(), nullptr,
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
             [this](HRESULT result, ICoreWebView2Environment *env) -> HRESULT {
               if (FAILED(result) || !env) {
@@ -442,6 +567,14 @@ LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM w, LPARAM l) {
     info->ptMinTrackSize = {r.right - r.left, r.bottom - r.top};
     return 0;
   }
+  case WM_DPICHANGED: {
+    const auto *suggested = reinterpret_cast<RECT *>(l);
+    SetWindowPos(window, nullptr, suggested->left, suggested->top,
+                 suggested->right - suggested->left,
+                 suggested->bottom - suggested->top,
+                 SWP_NOZORDER | SWP_NOACTIVATE);
+    return 0;
+  }
   case kReply: {
     std::deque<p::Json> replies;
     {
@@ -476,11 +609,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int show) {
     wchar_t exe[32768]{};
     GetModuleFileNameW(nullptr, exe, 32768);
     host.ui = fs::path(exe).parent_path() / L"ui";
+    bool haveRoot = false;
     for (int i = 1; i < argc; ++i) {
       std::wstring a = argv[i];
-      if (a == L"--data-dir" && i + 1 < argc)
-        host.data = argv[++i];
-      else if (a == L"--ui-dir" && i + 1 < argc)
+      if (a == L"--data-dir" && i + 1 < argc) {
+        host.root = fs::absolute(argv[++i]);
+        haveRoot = true;
+      } else if (a == L"--ui-dir" && i + 1 < argc)
         host.ui = fs::absolute(argv[++i]);
       else if (a == L"--smoke-report" && i + 1 < argc) {
         host.report = fs::absolute(argv[++i]);
@@ -491,6 +626,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int show) {
       }
     }
     LocalFree(argv);
+    if (!haveRoot)
+      host.root = p::appRoot();
+    host.layout = p::resolveLayout(host.root);
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     require(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED));
     WNDCLASSW wc{};

@@ -1,5 +1,5 @@
 #include "parity/app/application.h"
-#include <cstdlib>
+#include "parity/app/paths.h"
 namespace lexica::parity {
 Application::Application(const std::filesystem::path &path, const Clock *clock,
                          EventSink sink)
@@ -15,14 +15,16 @@ Application::Application(const std::filesystem::path &path, const Clock *clock,
   registerLibrary(router_);
   registerAi(router_);
 }
+Json Application::dispatch(const Json &request, const Cancellation *cancellation) {
+  auto call = context_;
+  call.cancellation = cancellation;
+  return router_.dispatch(request, call);
+}
+void Application::emit(const std::string &event, const Json &payload) {
+  if (context_.emit)
+    context_.emit(event, payload);
+}
 std::filesystem::path defaultDataDirectory() {
-  const wchar_t *local = _wgetenv(L"LOCALAPPDATA");
-  if (!local || !*local)
-    throw Error("DATA_DIRECTORY_ERROR",
-                "LOCALAPPDATA is unavailable; specify --data-dir");
-  auto defaultDir =
-      std::filesystem::path(local) / L"LexicaReproduce" / L"parity-v1";
-  // Separate identity protects the original app's DB, key, and WebView profile.
-  return defaultDir;
+  return resolveLayout(appRoot()).databaseDirectory;
 }
 } // namespace lexica::parity

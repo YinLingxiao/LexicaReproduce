@@ -1,4 +1,5 @@
 #pragma once
+#include "parity/contracts/cancel.h"
 #include "parity/contracts/clock.h"
 #include "parity/contracts/dto.h"
 #include "parity/storage/database.h"
@@ -31,6 +32,8 @@ public:
 };
 using EventSink =
     std::function<void(const std::string &event, const Json &payload)>;
+inline constexpr char kCredentialService[] = "LexicaReproduce.parity-v1";
+inline constexpr char kCredentialAccount[] = "ai_api_key";
 struct Context {
   Database &db;
   const Clock &clock;
@@ -38,5 +41,17 @@ struct Context {
   EventSink emit;
   // Dispatch copies Context per call; never share mutable request metadata.
   std::string request_id;
+  // Null for direct dispatch. Background work polls this outside the DB lock.
+  const Cancellation *cancellation = nullptr;
 };
+inline void checkCancelled(const Context &context) {
+  throwIfCancelled(context.cancellation);
+}
+inline void emitDictionarySetup(const Context &context, const std::string &phase,
+                                const Json &progress, const std::string &message) {
+  if (!context.emit)
+    return;
+  context.emit("dictionary-setup",
+               Json{{"phase", phase}, {"progress", progress}, {"message", message}});
+}
 } // namespace lexica::parity

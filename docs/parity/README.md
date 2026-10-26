@@ -1,7 +1,7 @@
 # Phase 0 公共基座与交接入口
 
 目标：Lexica 0.2.0，参考 SHA `c4b92a39402860566bf954f92efc8e59666aaa4a`。
-公共合同版本 `1.0.0`；协议版本 `1`；SQLite `user_version=5`。
+公共合同版本 `1.1.0`；协议版本 `1`；SQLite `user_version=5`。1.1.0 只增加命令通道、取消和事件订阅，不改协议号和表结构。
 
 用户已确认 C++ 后端和桌面壳，保留原版 Svelte 网页技术，优先外观与交互 1:1。
 
@@ -19,7 +19,7 @@
 - WebView2 SDK 固定版本和包哈希见 `tools/dependencies.json`；生产机器需要 WebView2 Runtime。
 - 前端 Svelte 5 + TypeScript + Vite，使用 `ui/package-lock.json` 锁定依赖。
 - 新代码统一位于 `src/parity/`，命名空间 `lexica::parity`；旧 `src/app`、`src/dict` 等实现仍供旧程序与旧测试使用。
-- 新版数据库与原应用、旧 C++ 程序分开，默认 `%LOCALAPPDATA%/LexicaReproduce/parity-v1/lexica.db`；WebView2 profile 也在新版目录内。
+- 新版数据库与原应用、旧 C++ 程序分开。身份根目录是 `%LOCALAPPDATA%/LexicaReproduce/parity-v1`。`db_dir.txt` 里写绝对目录时，只有 `lexica.db` 和词库下载放到那个目录；WebView2 profile 仍在身份根的 `webview-profile`。凭据服务名是 `LexicaReproduce.parity-v1`，账号 `ai_api_key`，不使用原版 `com.lexica.app`。指向原版数据目录的 `db_dir.txt` 会被拒绝。
 - 实际目录采用独立 `src/parity`，替代早期方案中的分散建议目录，以隔离旧行为并明确写入所有权。
 
 ## 构建和启动
@@ -52,6 +52,17 @@
 也可用 `lexica_parity_server.exe --stdio --data-dir <测试目录>`，逐行输入 JSON 请求、逐行读取 JSON 响应。测试数据使用绝对路径和独立目录。
 
 `parity-ucrt` 预设作为非桌面核心的兼容构建路径；统一交付和 Agent 验收使用 `parity-msvc`。旧 `build.bat` 仍提供原程序构建入口。
+
+生产包不携带 Node、Rust 或 Vite：
+
+```powershell
+./tools/check-runtime.ps1
+./tools/package.ps1
+./tools/install.ps1 -Source .\dist\LexicaReproduce
+./tools/uninstall.ps1
+```
+
+安装目录是 `%LOCALAPPDATA%/LexicaReproduce/app`。卸载删除程序和开始菜单快捷方式，保留 `parity-v1`。只有 `-DeleteData` 才删除个人库、profile 和 `db_dir.txt`。升级是再次安装，不清理该目录。
 
 ## Phase 0 的完成范围
 

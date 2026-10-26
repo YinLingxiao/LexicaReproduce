@@ -1,15 +1,20 @@
 #include "httplib.h"
+#include "parity/api/events.h"
 #include "parity/app/application.h"
+#include "parity/app/executor.h"
+#include "parity/app/paths.h"
+#include <atomic>
 #include <fstream>
+#include <future>
 #include <iostream>
-#include <set>
+#include <memory>
 #include <shellapi.h>
 #include <windows.h>
 namespace p = lexica::parity;
 int main() {
   SetConsoleOutputCP(CP_UTF8);
   try {
-    auto dir = p::defaultDataDirectory();
+    auto root = p::appRoot();
     std::filesystem::path web = std::filesystem::u8path(LEXICA_DEFAULT_UI_DIR);
     bool stdio = false;
     int port = 8766;
@@ -26,7 +31,7 @@ int main() {
       if (a == L"--stdio")
         stdio = true;
       else if (a == L"--data-dir" && i + 1 < argc)
-        dir = std::filesystem::path(argv[++i]);
+        root = std::filesystem::absolute(argv[++i]);
       else if (a == L"--ui-dir" && i + 1 < argc)
         web = std::filesystem::path(argv[++i]);
       else if (a == L"--port" && i + 1 < argc)
@@ -36,7 +41,13 @@ int main() {
     }
     if (port < 1 || port > 65535)
       throw p::Error("BAD_REQUEST", "Invalid port");
-    p::Application app(dir / L"lexica.db");
+    const auto layout = p::resolveLayout(root);
+    p::EventHub hub;
+    p::Cancellation stopped;
+    p::Application app(layout.databaseFile, nullptr,
+                       [&](const std::string &name, const p::Json &payload) {
+                         hub.publish(name, payload);
+                       });
     if (stdio) {
       std::string line;
       while (std::getline(std::cin, line)) {
@@ -45,10 +56,16 @@ int main() {
       }
       return 0;
     }
+    p::Executor executor([&](const p::Json &request, const p::Cancellation *cancel) {
+      return app.dispatch(request, cancel);
+    });
     httplib::Server server;
+    server.set_read_timeout(600, 0);
+    server.set_write_timeout(600, 0);
     std::ifstream policyFile(web / L"csp.txt", std::ios::binary);
     const std::string policy(std::istreambuf_iterator<char>(policyFile), {});
     server.set_payload_max_length(1024 * 1024);
+    auto subscribers = std::make_shared<std::atomic<int>>(0);
     server.set_pre_routing_handler(
         [&](const httplib::Request &req, httplib::Response &res) {
           const auto suffix = ":" + std::to_string(port);
@@ -70,21 +87,53 @@ int main() {
             res.set_header("Content-Security-Policy", policy);
           return httplib::Server::HandlerResponse::Unhandled;
         });
+    server.Get("/events", [&, subscribers](const httplib::Request &,
+                                           httplib::Response &res) {
+      if (subscribers->fetch_add(1) >= 8) {
+        subscribers->fetch_sub(1);
+        res.status = 503;
+        res.set_content("Too many event subscribers", "text/plain");
+        return;
+      }
+      auto cursor = std::make_shared<std::uint64_t>(hub.tip());
+      auto hello = std::make_shared<bool>(false);
+      res.set_header("Cache-Control", "no-cache");
+      res.set_chunked_content_provider(
+          "text/event-stream",
+          [&hub, &stopped, cursor, hello](size_t, httplib::DataSink &sink) {
+            if (!*hello) {
+              *hello = true;
+              const char ready[] = ": ready\n\n";
+              return sink.write(ready, sizeof(ready) - 1);
+            }
+            if (stopped.requested() || (sink.is_writable && !sink.is_writable()))
+              return false;
+            auto chunk = hub.waitAfter(*cursor, 10000, &stopped);
+            if (!chunk) {
+              const char ping[] = ": ping\n\n";
+              return sink.write(ping, sizeof(ping) - 1);
+            }
+            return sink.write(chunk->data(), chunk->size());
+          },
+          [subscribers](bool) { subscribers->fetch_sub(1); });
+    });
     server.Post("/rpc", [&](const auto &req, auto &res) {
       if (req.get_header_value("Content-Type").find("application/json") != 0) {
         res.status = 415;
         res.set_content("Expected application/json", "text/plain");
         return;
       }
-      res.set_content(
-          app.dispatch(p::Json::parse(req.body, nullptr, false)).dump(),
-          "application/json; charset=utf-8");
+      auto slot = std::make_shared<std::promise<p::Json>>();
+      auto future = slot->get_future();
+      executor.submit(p::Json::parse(req.body, nullptr, false),
+                      [slot](p::Json reply) { slot->set_value(std::move(reply)); });
+      res.set_content(future.get().dump(), "application/json; charset=utf-8");
     });
     if (std::filesystem::exists(web / L"index.html")) {
       server.set_mount_point("/", web.u8string());
       server.set_error_handler([&](const auto &req, auto &res) {
         if (req.method == "GET" && res.status == 404 && req.path != "/rpc" &&
-            req.path.find('.') == std::string::npos) {
+            req.path != "/events" && req.path.find('.') == std::string::npos) {
           std::ifstream in(web / L"index.html", std::ios::binary);
           res.status = 200;
           res.set_content(std::string(std::istreambuf_iterator<char>(in), {}),
@@ -97,6 +146,7 @@ int main() {
               << std::flush;
     if (!server.listen("127.0.0.1", port))
       throw p::Error("NETWORK_ERROR", "Cannot bind loopback port");
+    stopped.request();
     return 0;
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';

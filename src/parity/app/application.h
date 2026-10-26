@@ -11,9 +11,8 @@ class Application {
 public:
   explicit Application(const std::filesystem::path &dbFile,
                        const Clock *clock = nullptr, EventSink sink = {});
-  Json dispatch(const Json &request) {
-    return router_.dispatch(request, context_);
-  }
+  Json dispatch(const Json &request, const Cancellation *cancellation = nullptr);
+  void emit(const std::string &event, const Json &payload);
   Json capabilities() const { return router_.capabilities(); }
   Database &database() { return database_; }
 };

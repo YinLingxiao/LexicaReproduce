@@ -58,12 +58,38 @@ export function invokeCommand<K extends keyof CommandMap>(command: K, args: Comm
   return invoke(command, args as Record<string, unknown>);
 }
 export type UnlistenFn = () => void;
+let eventSource: EventSource | undefined;
+function ensureHttpEvents() {
+  if (bridge() || eventSource || typeof EventSource === 'undefined') return;
+  eventSource = new EventSource('/events');
+  eventSource.onmessage = event => {
+    const data = JSON.parse(String(event.data)) as EventMessage;
+    if (typeof data.event !== 'string') return;
+    for (const fn of events.get(data.event) ?? []) fn({payload: data.payload});
+  };
+}
 export async function listen<T>(name: string, fn: (event: {payload: T}) => void): Promise<UnlistenFn> {
-  const native = bridge(); if (native) attach(native);
+  const native = bridge(); if (native) attach(native); else ensureHttpEvents();
   const handler = fn as (event: {payload: unknown}) => void;
   const handlers = events.get(name) ?? new Set(); handlers.add(handler); events.set(name, handlers);
   return () => {handlers.delete(handler); if (!handlers.size) events.delete(name);};
 }
+function hostCall(action: string, extra: Record<string, unknown> = {}): Promise<string | null> {
+  const native = bridge();
+  if (!native) return Promise.resolve(null);
+  attach(native);
+  const request = {protocol_version: 1, request_id: `host-${Date.now()}-${++sequence}`, kind: 'host', action, ...extra};
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {pending.delete(request.request_id); reject(new RpcError('TIMEOUT', 'Host timed out'));}, 120_000);
+    pending.set(request.request_id, {resolve: value => {
+      const path = value && typeof value === 'object' && 'path' in value ? (value as {path: string | null}).path : null;
+      resolve(path);
+    }, reject, timer});
+    try { native.postMessage(request); } catch (error) {clearTimeout(timer); pending.delete(request.request_id); reject(error);}
+  });
+}
+export const pickFile = () => hostCall('pick-file');
+export const pickDirectory = () => hostCall('pick-directory');
 export async function openUrl(url: string): Promise<void> {
   const parsed = new URL(url);
   if (!['https:', 'http:'].includes(parsed.protocol)) throw new RpcError('BAD_REQUEST', 'Unsupported external URL');
