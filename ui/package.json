@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test:e2e": "playwright test",
+    "test:e2e:fixture": "playwright test -c playwright.fixture.config.ts",
     "format": "prettier --write src tests playwright.config.ts"
   },
   "dependencies": {},
