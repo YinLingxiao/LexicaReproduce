@@ -482,7 +482,7 @@ struct Host {
                   return S_OK;
                 }
                 const wchar_t *script =
-                    LR"JS((()=>{let n=0;const timer=setInterval(async()=>{if(++n>100){clearInterval(timer);window.chrome.webview.postMessage({kind:'phase0-smoke',result:{ok:false,error:'UI transport did not initialize'}});return;}if(!window.__LEXICA_INVOKE__)return;clearInterval(timer);try{const invoke=window.__LEXICA_INVOKE__;const info=await invoke('app_info');const suggestions=await invoke('search_suggest',{query:'met',limit:8});const lookup=await invoke('lookup_word',{word:'meticulous'});const caps=await invoke('system_capabilities');const note=caps.commands.find(c=>c.name==='save_word_note');let write='skipped';if(!note.available){try{await invoke('save_word_note',{wordId:lookup.outcome.entry.id,bookmarked:true,note:'smoke'});write='unexpected-success';}catch(e){write=e.code;}}else write='implemented';const ok=info.fts_ok&&info.schema_version===5&&lookup.outcome.type==='hit'&&suggestions.length>0&&write!=='unexpected-success'&&(note.available||write==='NOT_IMPLEMENTED');setTimeout(()=>window.chrome.webview.postMessage({kind:'phase0-smoke',result:{ok,info,suggestions,lookup,write,contract_version:caps.contract_version,title:document.title,ui_rendered:document.body.textContent.includes('meticulous')}}),500);}catch(e){window.chrome.webview.postMessage({kind:'phase0-smoke',result:{ok:false,error:String(e)}});}},100);})())JS";
+                    LR"JS((()=>{let n=0;const timer=setInterval(async()=>{if(++n>100){clearInterval(timer);window.chrome.webview.postMessage({kind:'phase0-smoke',result:{ok:false,error:'UI transport did not initialize'}});return;}if(!window.__LEXICA_INVOKE__)return;clearInterval(timer);try{const invoke=window.__LEXICA_INVOKE__;const info=await invoke('app_info');const suggestions=await invoke('search_suggest',{query:'met',limit:8});const lookup=await invoke('lookup_word',{word:'meticulous'});const caps=await invoke('system_capabilities');const note=caps.commands.find(c=>c.name==='save_word_note');let write='skipped';if(!note.available){try{await invoke('save_word_note',{wordId:lookup.outcome.entry.id,bookmarked:true,note:'smoke'});write='unexpected-success';}catch(e){write=e.code;}}else write='implemented';const ok=info.fts_ok&&info.schema_version===6&&lookup.outcome.type==='hit'&&suggestions.length>0&&write!=='unexpected-success'&&(note.available||write==='NOT_IMPLEMENTED');setTimeout(()=>window.chrome.webview.postMessage({kind:'phase0-smoke',result:{ok,info,suggestions,lookup,write,contract_version:caps.contract_version,title:document.title,ui_rendered:document.body.textContent.includes('meticulous')}}),500);}catch(e){window.chrome.webview.postMessage({kind:'phase0-smoke',result:{ok:false,error:String(e)}});}},100);})())JS";
                 webview->ExecuteScript(script, nullptr);
                 return S_OK;
               })
@@ -636,6 +636,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int show) {
     wc.hInstance = instance;
     wc.lpszClassName = L"LexicaReproduceParity";
     wc.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
+    const auto iconFile = fs::path(exe).parent_path() / L"lexica.ico";
+    if (fs::exists(iconFile))
+      wc.hIcon = reinterpret_cast<HICON>(
+          LoadImageW(nullptr, iconFile.c_str(), IMAGE_ICON, 0, 0,
+                     LR_LOADFROMFILE | LR_DEFAULTSIZE));
     RegisterClassW(&wc);
     const auto dpi = GetDpiForSystem();
     RECT r{0, 0, MulDiv(1180, dpi, 96), MulDiv(820, dpi, 96)};

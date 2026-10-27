@@ -21,6 +21,11 @@ std::int64_t ecdictCount(sqlite3 *db) {
   query.step();
   return query.integer(0);
 }
+bool readyMarker(const std::filesystem::path &database) {
+  std::error_code error;
+  return std::filesystem::is_regular_file(database.parent_path() / "ecdict.ok",
+                                          error);
+}
 void writeReadyMarker(const std::filesystem::path &database) {
   const auto dir = database.parent_path();
   std::ofstream output(dir / "ecdict.ok", std::ios::binary);
@@ -54,7 +59,8 @@ void registerDictionary(Router &router) {
         fts = false;
       }
       return AppInfo{version.integer(0), count.integer(0), fts,
-                     ecdictCount(db) >= kDictionaryReadyMinEntries};
+                     readyMarker(context.db.path()) ||
+                         ecdictCount(db) >= kDictionaryReadyMinEntries};
     });
   });
   router.bind("dictionary", "search_suggest", [](const Json &args, Context &context) -> Json {

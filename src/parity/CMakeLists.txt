@@ -37,6 +37,11 @@ if(LEXICA_BUILD_DESKTOP)
   endif()
   add_executable(lexica_desktop WIN32 desktop/main.cpp)
   target_include_directories(lexica_desktop PRIVATE "${LEXICA_WEBVIEW2_ROOT}/build/native/include")
+  add_custom_command(TARGET lexica_desktop POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+      "${PROJECT_SOURCE_DIR}/resources/lexica.ico"
+      "$<TARGET_FILE_DIR:lexica_desktop>/lexica.ico"
+    VERBATIM)
   target_link_libraries(lexica_desktop PRIVATE lexica_parity
     "${LEXICA_WEBVIEW2_ROOT}/build/native/x64/WebView2LoaderStatic.lib"
     ole32 oleaut32 shlwapi shell32 user32 version advapi32)

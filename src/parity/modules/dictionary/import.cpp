@@ -187,7 +187,7 @@ OwnedConnection openConfiguredDatabase(const std::filesystem::path &path) {
         return token && token->requested() ? 1 : 0;
       },
       nullptr);
-  sqlite3_busy_timeout(db, 2000);
+  sqlite3_busy_timeout(db, 5000);
   execute(db, "PRAGMA foreign_keys=ON");
   execute(db, "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
   return owned;

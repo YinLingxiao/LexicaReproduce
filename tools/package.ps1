@@ -29,7 +29,7 @@ if ((Test-Path -LiteralPath $expectedParent) -and ((Get-Item -LiteralPath $expec
 if ((Test-Path -LiteralPath $stage) -and ((Get-Item -LiteralPath $stage -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Package directory cannot be a link' }
 if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
-Copy-Item -LiteralPath $desktop, $server -Destination $stage
+Copy-Item -LiteralPath $desktop, $server, (Join-Path $root 'resources\lexica.ico') -Destination $stage
 foreach ($script in @('install.ps1', 'uninstall.ps1', 'installation.ps1', 'check-runtime.ps1', 'dependencies.json')) {
   Copy-Item -LiteralPath (Join-Path $PSScriptRoot $script) -Destination $stage
 }

@@ -36,6 +36,8 @@ if (-not $NoShortcut) {
   $link.TargetPath = Join-Path $Destination 'lexica_desktop.exe'
   $link.WorkingDirectory = $Destination
   $link.Description = 'Lexica Reproduce'
+  $icon = Join-Path $Destination 'lexica.ico'
+  if (Test-Path -LiteralPath $icon) { $link.IconLocation = $icon }
   $link.Save()
 }
 Write-Output $Destination

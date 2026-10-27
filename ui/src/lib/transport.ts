@@ -39,6 +39,7 @@ export async function invoke<T>(command: string, args: Record<string, unknown> =
   const native = bridge();
   if (native) {
     attach(native);
+    installClipboardFallback();
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {pending.delete(request.request_id); reject(new RpcError('TIMEOUT', 'Command timed out'));}, timeout);
       pending.set(request.request_id, {resolve: value => resolve(value as T), reject, timer});
@@ -88,6 +89,21 @@ function hostCall(action: string, extra: Record<string, unknown> = {}): Promise<
     try { native.postMessage(request); } catch (error) {clearTimeout(timer); pending.delete(request.request_id); reject(error);}
   });
 }
+function installClipboardFallback() {
+	const native = bridge();
+	if (!native || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
+	const clipboard = navigator.clipboard as Clipboard & {__lexicaFallback?: boolean};
+	if (clipboard.__lexicaFallback) return;
+	clipboard.__lexicaFallback = true;
+	const original = clipboard.writeText.bind(clipboard);
+	clipboard.writeText = async (text: string) => {
+		try {
+			await original(text);
+		} catch {
+			await hostCall('clipboard-write', {text});
+		}
+	};
+}
 export const pickFile = () => hostCall('pick-file');
 export const pickDirectory = () => hostCall('pick-directory');
 export async function openUrl(url: string): Promise<void> {
@@ -99,3 +115,4 @@ export async function openUrl(url: string): Promise<void> {
 if (typeof window !== 'undefined' && (window as unknown as {__LEXICA_SMOKE__?: boolean}).__LEXICA_SMOKE__) {
   (window as unknown as {__LEXICA_INVOKE__: typeof invoke}).__LEXICA_INVOKE__ = invoke;
 }
+installClipboardFallback();

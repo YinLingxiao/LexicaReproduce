@@ -800,6 +800,23 @@ int main() {
               << " processors=" << system.dwNumberOfProcessors << "\n";
     check(call(perfApp, "app_info")["result"]["dictionary_ready"] == false,
           "partial corpus is not ready");
+    const auto markerDir = test_support::freshDirectory("parity", "marker");
+    {
+      p::Application marked(markerDir / "lexica.db", &clock);
+      {
+        std::ofstream marker(markerDir / "ecdict.ok", std::ios::binary);
+        marker << "1";
+      }
+      const auto info = call(marked, "app_info");
+      check(info["result"]["dictionary_ready"] == true &&
+                info["result"]["word_count"] == 55,
+            "completion marker reports the dictionary ready");
+      const auto ensured = call(marked, "ensure_dictionary");
+      check(ensured["ok"] == true && ensured["result"]["ready"] == true &&
+                ensured["result"]["skipped"] == true &&
+                ensured["result"]["imported"] == 0,
+            "completion marker skips another download");
+    }
     return 0;
   } catch (const std::exception &error) {
     std::cerr << error.what() << "\n";

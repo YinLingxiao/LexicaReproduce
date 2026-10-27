@@ -106,7 +106,7 @@ Database::Database(const std::filesystem::path &path) : path_(path) {
     throw Error("DB_ERROR", message);
   }
   try {
-    sqlite3_busy_timeout(db_, 2000);
+    sqlite3_busy_timeout(db_, 5000);
     execute(db_, "PRAGMA foreign_keys=ON");
     migrate(db_);
     execute(db_, "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
@@ -127,7 +127,7 @@ void Database::openSide() {
     side_ = nullptr;
     throw Error("DB_ERROR", message);
   }
-  sqlite3_busy_timeout(side_, 2000);
+  sqlite3_busy_timeout(side_, 5000);
   execute(side_, "PRAGMA foreign_keys=ON");
   execute(side_, "PRAGMA journal_mode=WAL");
 }

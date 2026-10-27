@@ -323,8 +323,12 @@ EnsureDictionaryResult ensureDictionary(Context &context,
     return std::pair<std::int64_t, std::int64_t>{words.integer(0),
                                                  ecdict.integer(0)};
   });
-  if (counts.second >= kDictionaryReadyMinEntries) {
-    writeMarker(dir);
+  std::error_code markerError;
+  const auto marked =
+      std::filesystem::is_regular_file(dir / "ecdict.ok", markerError);
+  if (marked || counts.second >= kDictionaryReadyMinEntries) {
+    if (counts.second >= kDictionaryReadyMinEntries)
+      writeMarker(dir);
     emit(SetupPhase::Ready, 1.0, "Dictionary ready");
     return {true, counts.first, 0, true};
   }
