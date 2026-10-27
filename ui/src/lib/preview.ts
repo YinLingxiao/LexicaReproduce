@@ -59,12 +59,14 @@ const seedEntries: WordEntry[] = (seed.words as RawSeedWord[]).map((w, i) => ({
 	display: w.word,
 	phonetic: w.phonetic,
 	frequency_rank: w.frequency_rank,
+	frequency_source: w.frequency_rank !== null && w.frequency_rank !== undefined ? 'seed_approx' : null,
 	senses: w.senses.map((s, j) => ({
 		id: i * 10 + j,
 		pos: s.pos,
 		english_definition: s.english,
 		chinese_definition: s.chinese,
 		level: s.level,
+		level_source: s.level ? 'seed' : null,
 		examples: s.examples.map((e, k) => ({ ...e, id: i * 100 + j * 10 + k }))
 	})),
 	collocations: w.collocations,
@@ -225,16 +227,6 @@ function tagsOf(entry: WordEntry): string[] {
 	return tags.length ? tags : ['核心词'];
 }
 
-function collinsOf(entry: WordEntry): number | null {
-	const rank = entry.frequency_rank;
-	if (rank === null) return null;
-	if (rank <= 4000) return 5;
-	if (rank <= 6000) return 4;
-	if (rank <= 8000) return 3;
-	if (rank <= 12000) return 2;
-	return 1;
-}
-
 function mnemonicOf(entry: WordEntry): string {
 	return (
 		MNEMONICS[entry.word] ??
@@ -292,8 +284,8 @@ function enrich(entry: WordEntry): WordEntry {
 	return {
 		...entry,
 		tags: entry.tags ?? tagsOf(entry),
-		collins: entry.collins ?? collinsOf(entry),
-		oxford: entry.oxford ?? (entry.frequency_rank !== null && entry.frequency_rank <= 7000),
+		collins: entry.collins ?? null,
+		oxford: entry.oxford ?? false,
 		mnemonic: entry.mnemonic ?? mnemonicOf(entry),
 		roots: entry.roots?.length ? entry.roots : rootsOf(entry),
 		derivatives: entry.derivatives ?? derivativesOf(entry),
@@ -372,7 +364,7 @@ export async function previewInvoke(
 		case 'app_info':
 			return {
 				word_count: 50,
-				schema_version: 5,
+				schema_version: 6,
 				fts_ok: true,
 				dictionary_ready: true
 			};

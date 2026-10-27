@@ -149,26 +149,30 @@ void Database::seed() {
         continue; // Idempotent; never overwrite user/imported content.
       Statement insert(
           db, "INSERT INTO "
-              "words(word,display,phonetic,frequency_rank,synonyms,antonyms,"
-              "word_family,source,created_at) VALUES(?,?,?,?,?,?,?,'seed',?)");
+              "words(word,display,phonetic,frequency_rank,frequency_source,"
+              "synonyms,antonyms,word_family,source,created_at) "
+              "VALUES(?,?,?,?,?,?,?,?,'seed',?)");
       const auto name = word.at("word").get<std::string>();
       insert.bind(1, name).bind(2, name).bind(
           3, word.value("phonetic", std::string{}));
-      if (word.contains("frequency_rank") && !word["frequency_rank"].is_null())
-        insert.bind(4, word["frequency_rank"].get<std::int64_t>());
-      else
-        insert.null(4);
-      insert.bind(5, word.value("synonyms", Json::array()).dump())
-          .bind(6, word.value("antonyms", Json::array()).dump())
-          .bind(7, word.value("word_family", Json::array()).dump())
-          .bind(8, "2026-10-21T00:00:00.000Z")
+      if (word.contains("frequency_rank") && !word["frequency_rank"].is_null()) {
+        insert.bind(4, word["frequency_rank"].get<std::int64_t>())
+            .bind(5, "seed_approx");
+      } else {
+        insert.null(4).null(5);
+      }
+      insert.bind(6, word.value("synonyms", Json::array()).dump())
+          .bind(7, word.value("antonyms", Json::array()).dump())
+          .bind(8, word.value("word_family", Json::array()).dump())
+          .bind(9, "2026-10-21T00:00:00.000Z")
           .step();
       const auto id = sqlite3_last_insert_rowid(db);
       int order = 0;
       for (const auto &sense : word.at("senses")) {
         Statement s(db, "INSERT INTO "
                         "senses(word_id,pos,english_definition,chinese_"
-                        "definition,level,order_idx) VALUES(?,?,?,?,?,?)");
+                        "definition,level,level_source,order_idx) "
+                        "VALUES(?,?,?,?,?,?,?)");
         s.bind(1, id);
         for (const auto &field :
              std::initializer_list<std::pair<int, const char *>>{
@@ -180,7 +184,12 @@ void Database::seed() {
           else
             s.null(field.first);
         }
-        s.bind(6, order++).step();
+        if (sense.contains("level") && !sense["level"].is_null() &&
+            !sense["level"].get<std::string>().empty())
+          s.bind(6, "seed");
+        else
+          s.null(6);
+        s.bind(7, order++).step();
         const auto sid = sqlite3_last_insert_rowid(db);
         int eo = 0;
         for (const auto &ex : sense.value("examples", Json::array())) {

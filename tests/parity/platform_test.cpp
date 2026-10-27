@@ -34,7 +34,7 @@ void writeSql(sqlite3 *db, const std::filesystem::path &file) {
 }
 int main() {
   try {
-    check(p::schemaVersion() == 5, "schema version drifted");
+    check(p::schemaVersion() == 6, "schema version drifted");
     check(std::string(p::kCredentialService) == "LexicaReproduce.parity-v1" &&
               std::string(p::kCredentialAccount) == "ai_api_key" &&
               std::string(p::kCredentialService) != "com.lexica.app",
@@ -126,17 +126,18 @@ int main() {
           "synthetic open failed");
     for (const auto *name :
          {"0001_init.sql", "0002_freq_rank_index.sql", "0003_word_notes.sql",
-          "0004_ai_examples.sql", "0005_study_system.sql"})
+          "0004_ai_examples.sql", "0005_study_system.sql",
+          "0006_lexicon_provenance.sql"})
       writeSql(raw, std::filesystem::u8path(LEXICA_SOURCE_DIR) /
                         "src/parity/storage/migrations" / name);
-    p::execute(raw, "PRAGMA user_version=5;INSERT INTO "
+    p::execute(raw, "PRAGMA user_version=6;INSERT INTO "
                     "words(word,display,source,created_at) VALUES('zzcompat',"
                     "'zzcompat','ecdict','2026-10-21T00:00:00.000Z')");
     sqlite3_close(raw);
     {
       p::Application app(synthetic);
       const auto caps = app.capabilities();
-      check(caps["contract_version"] == "1.1.0", "contract version mismatch");
+      check(caps["contract_version"] == "1.2.0", "contract version mismatch");
       check(call(app, "lookup_word",
                  {{"word", "zzcompat"}})["result"]["outcome"]["type"] == "hit",
             "upstream-shaped row was lost");
@@ -161,13 +162,16 @@ int main() {
       upgraded.withConnection([](sqlite3 *db) {
         p::Statement version(db, "PRAGMA user_version");
         version.step();
-        check(version.integer(0) == 5, "version 4 was not appended to 5");
+        check(version.integer(0) == 6, "version 4 was not appended to 6");
         p::Statement word(db, "SELECT source FROM words WHERE word='kept'");
         check(word.step() && word.text(0) == "ecdict",
               "version 4 row was lost");
         p::Statement table(
             db, "SELECT 1 FROM sqlite_master WHERE name='word_enrichments'");
         check(table.step(), "migration 5 was not appended");
+        p::Statement column(db, "SELECT 1 FROM pragma_table_info('words') "
+                               "WHERE name='frequency_source'");
+        check(column.step(), "migration 6 provenance column missing");
       });
     }
     {

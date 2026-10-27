@@ -35,7 +35,7 @@ int main() {
           readOnlySeed = command["implementation"] == "read_only_seed";
       const auto info = call(app, "app_info");
       check(info["ok"] == true, "app_info failed");
-      check(info["result"]["schema_version"] == 5 &&
+      check(info["result"]["schema_version"] == 6 &&
                 info["result"]["word_count"] == 55 &&
                 info["result"]["fts_ok"] == true,
             "schema/seed/FTS incorrect");

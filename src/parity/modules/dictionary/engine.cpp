@@ -58,37 +58,17 @@ bool equalsIgnoreCase(std::string left, const std::string &right) {
       ch = static_cast<char>(ch - 'A' + 'a');
   return left == right;
 }
-std::string inferCefr(const std::optional<std::int64_t> &frequency,
-                      const std::optional<std::int64_t> &collins, bool oxford,
-                      std::size_t index) {
-  if (index >= 2)
-    return "R";
-  if (collins) {
-    switch (*collins) {
-    case 5:
-      return "A2";
-    case 4:
-      return "B1";
-    case 3:
-      return "B2";
-    case 2:
-      return "C1";
-    default:
-      return "C2";
-    }
-  }
-  if (frequency && *frequency > 0) {
-    if (*frequency <= 1500)
-      return "A2";
-    if (*frequency <= 3500)
-      return "B1";
-    if (*frequency <= 7000)
-      return "B2";
-    if (*frequency <= 14000)
-      return "C1";
-    return "R";
-  }
-  return oxford ? "B1" : "B2";
+std::optional<std::string> normalizeCefr(const std::optional<std::string> &raw) {
+  if (!raw)
+    return std::nullopt;
+  auto value = trimCopy(*raw);
+  for (char &ch : value)
+    if (ch >= 'a' && ch <= 'z')
+      ch = static_cast<char>(ch - 'a' + 'A');
+  if (value == "A1" || value == "A2" || value == "B1" || value == "B2" ||
+      value == "C1" || value == "C2")
+    return value;
+  return std::nullopt;
 }
 std::string inferFormLabel(const std::string &headword, const std::string &form) {
   if (endsWith(form, "ing") && !endsWith(headword, "ing"))
@@ -328,8 +308,9 @@ std::string firstLine(const std::string &text) {
   return trimCopy(text.substr(0, end == std::string::npos ? text.size() : end));
 }
 std::optional<WordEntry> loadEntry(sqlite3 *db, std::int64_t id) {
-  Statement word(db, "SELECT word, display, phonetic, frequency_rank, synonyms, antonyms, "
-                     "word_family, tags, collins, oxford, source FROM words WHERE id=?");
+  Statement word(db, "SELECT word, display, phonetic, frequency_rank, frequency_source, "
+                     "synonyms, antonyms, word_family, tags, collins, oxford, source "
+                     "FROM words WHERE id=?");
   word.bind(1, id);
   if (!word.step())
     return std::nullopt;
@@ -340,14 +321,17 @@ std::optional<WordEntry> loadEntry(sqlite3 *db, std::int64_t id) {
   entry.phonetic = columnText(word, 2);
   if (!word.isNull(3))
     entry.frequency_rank = word.integer(3);
-  const auto synonyms = word.text(4);
-  const auto antonyms = word.text(5);
-  const auto family = word.text(6);
-  auto tagsRaw = word.text(7);
+  if (entry.frequency_rank && *entry.frequency_rank <= 0)
+    entry.frequency_rank.reset();
+  const auto storedFrequencySource = columnText(word, 4);
+  const auto synonyms = word.text(5);
+  const auto antonyms = word.text(6);
+  const auto family = word.text(7);
+  auto tagsRaw = word.text(8);
   std::optional<std::int64_t> collins =
-      word.isNull(8) ? std::nullopt : std::optional<std::int64_t>(word.integer(8));
-  auto oxfordRaw = word.isNull(9) ? std::int64_t{0} : word.integer(9);
-  const auto source = word.text(10);
+      word.isNull(9) ? std::nullopt : std::optional<std::int64_t>(word.integer(9));
+  auto oxfordRaw = word.isNull(10) ? std::int64_t{0} : word.integer(10);
+  const auto source = word.text(11);
   const SeedRecord *seed = source == "seed" ? findSeedRecord(entry.word) : nullptr;
   if (seed) {
     if (trimCopy(tagsRaw).empty())
@@ -365,8 +349,15 @@ std::optional<WordEntry> loadEntry(sqlite3 *db, std::int64_t id) {
   for (const auto &tag : entry.tags)
     if (equalsIgnoreCase(tag, "oxford"))
       entry.oxford = true;
-  Statement senses(db, "SELECT id, pos, english_definition, chinese_definition, level "
-                       "FROM senses WHERE word_id=? ORDER BY order_idx, id");
+  if (entry.frequency_rank) {
+    if (storedFrequencySource && !trimCopy(*storedFrequencySource).empty())
+      entry.frequency_source = trimCopy(*storedFrequencySource);
+    else if (source == "seed")
+      entry.frequency_source = "seed_approx";
+  }
+  Statement senses(db, "SELECT id, pos, english_definition, chinese_definition, "
+                       "level, level_source FROM senses WHERE word_id=? "
+                       "ORDER BY order_idx, id");
   senses.bind(1, id);
   while (senses.step()) {
     Sense sense;
@@ -374,7 +365,16 @@ std::optional<WordEntry> loadEntry(sqlite3 *db, std::int64_t id) {
     sense.pos = columnText(senses, 1);
     sense.english_definition = senses.text(2);
     sense.chinese_definition = columnText(senses, 3);
-    sense.level = columnText(senses, 4);
+    const auto level = normalizeCefr(columnText(senses, 4));
+    if (level) {
+      sense.level = *level;
+      const auto storedSource = columnText(senses, 5);
+      if (storedSource && !trimCopy(*storedSource).empty())
+        sense.level_source = trimCopy(*storedSource);
+      else
+        sense.level_source =
+            source == "seed" ? "seed" : "legacy_unverified";
+    }
     entry.senses.push_back(std::move(sense));
   }
   Statement examples(db, "SELECT e.id, e.sense_id, e.text, e.translation FROM examples e "
@@ -400,8 +400,6 @@ std::optional<WordEntry> loadEntry(sqlite3 *db, std::int64_t id) {
       if (!inferred.second.empty())
         sense.english_definition = inferred.second;
     }
-    if (!sense.level || trimCopy(*sense.level).empty())
-      sense.level = inferCefr(entry.frequency_rank, entry.collins, entry.oxford, i);
   }
   Statement collocations(db, "SELECT text, gloss FROM collocations WHERE word_id=? "
                              "ORDER BY order_idx, id");

@@ -11,6 +11,7 @@
 	import { speakText } from '$lib/tts';
 	import Icon from './Icon.svelte';
 	import HighlightedText from './HighlightedText.svelte';
+	import { describeLevel, displayPos } from '$lib/lexicon-display';
 
 	let {
 		card,
@@ -37,7 +38,8 @@
 	const s = $derived(preferences.study);
 	const entry = $derived(card.entry);
 	const primaryPos = $derived(
-		entry.senses.find((sense) => sense.pos?.trim())?.pos?.replace(/\.$/, '') ?? 'word'
+		entry.senses.map((sense) => displayPos(sense.pos)?.replace(/\.$/, '')).find((pos) => pos) ??
+			null
 	);
 	const chineseSummary = $derived.by(() => {
 		const parts: string[] = [];
@@ -189,13 +191,28 @@
 			{#if definitionsVisible}
 				<div class="senses-block">
 					<div class="pos-row">
-						<span class="pos-pill">{primaryPos}</span>
+						{#if primaryPos}<span class="pos-pill">{primaryPos}</span>{:else}<span
+								class="pos-pill missing">词性未标注</span
+							>{/if}
 					</div>
 					<div class="senses-scroll" class:has-fade={entry.senses.length > 3}>
 						{#each entry.senses as sense}
-							{@const lvl = sense.level?.trim() || 'R'}
+							{@const senseLevelInfo = describeLevel(sense)}
 							<div class="sense-item">
-								<span class="level-pill" class:rare={lvl === 'R'}>{lvl}</span>
+								<div class="level-cell">
+									{#if senseLevelInfo.level}
+										<span
+											class="level-pill"
+											class:estimated={senseLevelInfo.estimated}
+											title={`CEFR ${senseLevelInfo.level} · ${senseLevelInfo.sourceLabel}`}
+											>{senseLevelInfo.level}</span
+										>
+										{#if senseLevelInfo.estimated}<small class="level-source">估算</small
+											>{/if}
+									{:else}
+										<span class="level-pill missing">未标注</span>
+									{/if}
+								</div>
 								<p class="english reading">
 									{sense.english_definition || sense.chinese_definition || ''}
 								</p>
@@ -532,6 +549,11 @@
 		color: var(--fg);
 		font: italic 600 13px/1.4 var(--serif);
 	}
+	.pos-pill.missing {
+		font-style: normal;
+		font-weight: 500;
+		color: var(--muted);
+	}
 	.senses-scroll {
 		display: flex;
 		flex-direction: column;
@@ -547,9 +569,16 @@
 	}
 	.sense-item {
 		display: grid;
-		grid-template-columns: 42px minmax(0, 1fr);
+		grid-template-columns: 56px minmax(0, 1fr);
 		align-items: start;
 		gap: 12px;
+	}
+	.level-cell {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 3px;
+		margin-top: 2px;
 	}
 	.level-pill {
 		display: inline-flex;
@@ -564,12 +593,19 @@
 		background: var(--cefr-bg);
 		color: var(--cefr-fg);
 		border: 1px solid var(--cefr-border);
-		margin-top: 2px;
 	}
-	.level-pill.rare {
+	.level-pill.missing {
 		background: var(--soft);
 		color: var(--muted);
 		border-color: var(--line);
+		font-weight: 500;
+	}
+	.level-pill.estimated {
+		border-style: dashed;
+	}
+	.level-source {
+		font-size: 9px;
+		color: var(--muted);
 	}
 	.english {
 		font: 450 17px/1.62 var(--serif);

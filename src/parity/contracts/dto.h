@@ -56,9 +56,10 @@ struct Sense {
  std::string english_definition{};
  std::optional<std::string> chinese_definition{};
  std::optional<std::string> level{};
+ std::optional<std::string> level_source{};
  std::vector<Example> examples{};
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Sense,id,pos,english_definition,chinese_definition,level,examples)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Sense,id,pos,english_definition,chinese_definition,level,level_source,examples)
 struct WordFormEntry {
  std::string label{};
  std::string form{};
@@ -86,6 +87,7 @@ struct WordEntry {
  std::vector<std::string> antonyms{};
  std::vector<std::string> word_family{};
  std::optional<std::int64_t> frequency_rank{};
+ std::optional<std::string> frequency_source{};
  std::vector<std::string> tags{};
  std::optional<std::int64_t> collins{};
  bool oxford{};
@@ -98,7 +100,7 @@ struct WordEntry {
  std::vector<WordFormEntry> forms{};
  std::optional<Example> exam_example{};
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WordEntry,id,word,display,phonetic,senses,collocations,synonyms,antonyms,word_family,frequency_rank,tags,collins,oxford,mnemonic,roots,derivatives,synonyms_detailed,antonyms_detailed,lookalikes,forms,exam_example)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WordEntry,id,word,display,phonetic,senses,collocations,synonyms,antonyms,word_family,frequency_rank,frequency_source,tags,collins,oxford,mnemonic,roots,derivatives,synonyms_detailed,antonyms_detailed,lookalikes,forms,exam_example)
 struct Suggestion {
  std::string word{};
  std::string display{};

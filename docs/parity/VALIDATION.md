@@ -100,3 +100,19 @@ parity_foundation_test 验证 schema/FTS/外键、55 条种子幂等和稳定 ID
 C++ 测试新增跨数据库请求重放、Application 重开、同路径数据库重建后的种子补全和真实 WinHTTP 在途取消回归。初次合并的两项失败是查询准备数据附带学习写入引起的测试隔离问题，已保留只读测试原断言并修正准备方式。
 
 测试不写入原版数据目录；Windows 凭据回归使用带运行 ID 的临时 TargetName 并清理，不改用户生产凭据。安装测试不执行 DeleteData。最终 Release 包在 `dist/LexicaReproduce`；生成物不入 Git。
+
+
+## 词频、等级与短语显示修复（合同 1.2.0）
+
+本轮只纠正误导性展示与来源记录，不改排序、词本或学习调度查询。
+
+| 检查 | 结果 |
+|---|---|
+| 合同生成 | `node tools/generate-contracts.mjs --check` 通过 |
+| UI 类型检查 / 生产构建 | `npm run check` 0 错误 0 警告；`npm run build` 通过 |
+| MSVC Debug CTest | 10/10 通过，含真实 ECDICT 夹具中的 `inevitable hour`、Collins-only、frq/bnc、0/负值/空值和旧库等级 |
+| 界面夹具 | 22/22 通过，含查词页与学习页一致性、`R` 安全处理、短语/标点/关闭音节拆分 |
+| 真实 C++ 服务 | 3/3 通过；导入独立 `tests/data/ecdict-inevitable.db` 后页面显示 `in·ev·i·ta·ble hour`、暂无词频、暂无等级、中文释义“死期” |
+| 截图 | `docs/parity/evidence/inevitable-hour.png` |
+
+旧数据库中已经写入的 A1～C2 在 0006 迁移中标记为 `legacy_unverified`，界面显示“旧版推断 · 估算”；`R` 和任何非 A1～C2 值按无等级处理，不再生成 `CEFR-R` 或 88% 难度。原有排名保留，但旧 ECDICT 行的来源显示“来源未记录”；种子词库的近似排序值 `seed_approx` 不再画成词频。个人收藏、笔记、接触和复习记录不在此迁移中改写。

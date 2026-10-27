@@ -1,22 +1,24 @@
 <script lang="ts">
-	import { splitSyllables } from '$lib/syllables';
+	import { headwordPieces } from '$lib/syllables';
 
 	let { word, split = true }: { word: string; split?: boolean } = $props();
 
-	const parts = $derived(split ? splitSyllables(word) : [word]);
+	const pieces = $derived(headwordPieces(word, split));
+	const dots = $derived(pieces.map((piece) => (piece.dotBefore ? 1 : 0)));
 </script>
 
 {#key word}<span class="syllable-headword" aria-label={word}
-		>{#each parts as part, i}{#if i > 0}<span
+		>{#each pieces as piece, i}{#if piece.dotBefore}<span
 					class="syllable-dot"
-					style:--i={i - 1}
+					style:--i={pieces.slice(0, i).filter((item) => item.dotBefore).length}
 					aria-hidden="true">·</span
-				>{/if}<span aria-hidden="true">{part}</span>{/each}</span
+				>{/if}<span aria-hidden="true">{piece.text}</span>{/each}</span
 	>{/key}
 
 <style>
 	.syllable-headword {
 		display: inline;
+		white-space: pre-wrap;
 	}
 	.syllable-dot {
 		display: inline-block;

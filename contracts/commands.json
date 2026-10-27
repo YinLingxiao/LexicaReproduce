@@ -1,6 +1,6 @@
 {
   "protocol_version": 1,
-  "contract_version": "1.1.0",
+  "contract_version": "1.2.0",
   "upstream_sha": "c4b92a39402860566bf954f92efc8e59666aaa4a",
   "commands": [
     {"name":"app_info", "owner":"dictionary", "args":{}, "result":"AppInfo", "phase0":"implemented"},

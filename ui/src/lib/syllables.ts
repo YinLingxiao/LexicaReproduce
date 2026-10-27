@@ -259,10 +259,47 @@ function matchCase(input: string, parts: string[]): string[] {
 	return parts;
 }
 
-/** Splits an English word into syllables (without separators). */
+export interface HeadwordPiece {
+	text: string;
+	/** A middle dot belongs before this piece, inside a host word. */
+	dotBefore: boolean;
+}
+
+/**
+ * Splits display text while keeping every space, hyphen, apostrophe,
+ * punctuation mark and digit in place. Dots only separate syllables inside a
+ * contiguous run of letters, never across a word boundary.
+ */
+export function headwordPieces(word: string, autoSplit: boolean): HeadwordPiece[] {
+	if (!word) return [];
+	if (!autoSplit) return [{ text: word, dotBefore: false }];
+	const pieces: HeadwordPiece[] = [];
+	let index = 0;
+	while (index < word.length) {
+		const ch = word[index];
+		if (!/[A-Za-z]/.test(ch)) {
+			pieces.push({ text: ch, dotBefore: false });
+			index++;
+			continue;
+		}
+		let end = index + 1;
+		while (end < word.length && /[A-Za-z]/.test(word[end])) end++;
+		const parts = splitAlpha(word.slice(index, end));
+		for (let i = 0; i < parts.length; i++) {
+			if (!parts[i]) continue;
+			pieces.push({ text: parts[i], dotBefore: i > 0 });
+		}
+		index = end;
+	}
+	return pieces;
+}
+
+/** Splits a single English word into syllables (without separators). */
 export function splitSyllables(word: string): string[] {
 	const trimmed = word.trim();
 	if (!trimmed) return [];
+	if (/[^A-Za-z]/.test(trimmed))
+		return headwordPieces(trimmed, true).map((piece) => piece.text);
 	const runs = trimmed.match(/[A-Za-z]+(?:['’][A-Za-z]+)?/g);
 	if (!runs) return [trimmed];
 	const result: string[] = [];
@@ -281,15 +318,9 @@ export function splitSyllables(word: string): string[] {
 /** Returns the headword with middle-dot separators when autoSplit is on. */
 export function formatHeadword(word: string, autoSplit: boolean): string {
 	if (!autoSplit) return word;
-	const trimmed = word.trim();
-	if (!trimmed) return word;
-	if (/[\s-]/.test(trimmed)) {
-		return trimmed
-			.split(/(\s+|-)/)
-			.map((part) => (/^[A-Za-z]+$/.test(part) ? splitSyllables(part).join(DOT) : part))
-			.join('');
-	}
-	return splitSyllables(trimmed).join(DOT);
+	return headwordPieces(word, true)
+		.map((piece) => (piece.dotBefore ? DOT + piece.text : piece.text))
+		.join('');
 }
 
 export const SYLLABLE_SEPARATOR = DOT;

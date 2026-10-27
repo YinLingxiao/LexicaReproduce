@@ -30,9 +30,9 @@ function derivativesOf(word: string, family: string[]) {
 	return out;
 }
 
-type Sense = {id: number; pos: string | null; english_definition: string; chinese_definition: string | null; level: string | null; examples: {id: number; text: string; translation: string | null}[]};
+type Sense = {id: number; pos: string | null; english_definition: string; chinese_definition: string | null; level: string | null; level_source: string | null; examples: {id: number; text: string; translation: string | null}[]};
 export type FixtureEntry = {
-	id: number; word: string; display: string; phonetic: string | null; frequency_rank: number | null;
+	id: number; word: string; display: string; phonetic: string | null; frequency_rank: number | null; frequency_source: string | null;
 	senses: Sense[]; collocations: {text: string; gloss: string | null}[]; synonyms: string[]; antonyms: string[];
 	word_family: string[]; tags: string[]; collins: number | null; oxford: boolean; mnemonic: string | null;
 	roots: {part: string; meaning: string}[]; derivatives: {word: string; pos: string | null; gloss: string}[];
@@ -45,13 +45,15 @@ export type FixtureEntry = {
 export const entries: FixtureEntry[] = (seed.words as any[]).map((w, i) => {
 	const senses: Sense[] = w.senses.map((s: any, j: number) => ({
 		id: i * 10 + j, pos: s.pos ?? null, english_definition: s.english, chinese_definition: s.chinese ?? null, level: s.level ?? null,
+		level_source: s.level ? 'seed' : null,
 		examples: (s.examples ?? []).map((ex: any, k: number) => ({id: i * 100 + j * 10 + k, text: ex.text, translation: ex.translation ?? null}))
 	}));
 	const forms = formsOf(w.forms);
 	const pos = senses[0]?.pos ?? null;
 	const gloss = senses[0]?.chinese_definition ?? '';
 	return {
-		id: i + 1, word: w.word, display: w.word, phonetic: w.phonetic ?? null, frequency_rank: w.frequency_rank ?? null, senses,
+		id: i + 1, word: w.word, display: w.word, phonetic: w.phonetic ?? null, frequency_rank: w.frequency_rank ?? null,
+		frequency_source: w.frequency_rank === null || w.frequency_rank === undefined ? null : 'seed_approx', senses,
 		collocations: w.collocations ?? [], synonyms: w.synonyms ?? [], antonyms: w.antonyms ?? [], word_family: w.word_family ?? [],
 		tags: w.tags ?? [], collins: w.collins ?? null, oxford: !!w.oxford, mnemonic: w.mnemonic ?? null, roots: w.roots ?? [],
 		derivatives: derivativesOf(w.word, w.word_family ?? []),
@@ -61,6 +63,80 @@ export const entries: FixtureEntry[] = (seed.words as any[]).map((w, i) => {
 		exam_example: senses[0]?.examples[0] ? {text: senses[0].examples[0].text, translation: senses[0].examples[0].translation} : null
 	};
 });
+
+const EDGE_TEMPLATE = entries[0];
+function edgeEntry(
+	id: number,
+	word: string,
+	patch: Partial<FixtureEntry> & {sense?: Partial<Sense>}
+): FixtureEntry {
+	const sense: Sense = {
+		id: id * 10,
+		pos: null,
+		english_definition: '',
+		chinese_definition: null,
+		level: null,
+		level_source: null,
+		examples: [],
+		...patch.sense
+	};
+	const entryPatch = {...patch};
+	delete entryPatch.sense;
+	return {
+		...EDGE_TEMPLATE,
+		id,
+		word,
+		display: word,
+		phonetic: null,
+		frequency_rank: null,
+		frequency_source: null,
+		senses: [sense],
+		collocations: [],
+		synonyms: [],
+		antonyms: [],
+		word_family: [],
+		derivatives: [],
+		synonyms_detailed: [],
+		antonyms_detailed: [],
+		lookalikes: [],
+		forms: [],
+		exam_example: null,
+		tags: [],
+		collins: null,
+		oxford: false,
+		mnemonic: null,
+		roots: [],
+		...entryPatch
+	};
+}
+
+export const edgeEntries: FixtureEntry[] = [
+	edgeEntry(950, 'inevitable hour', {
+		sense: {chinese_definition: '死期', level: 'R', level_source: 'legacy_unverified'}
+	}),
+	edgeEntry(951, 'staronly', {
+		collins: 4,
+		sense: {chinese_definition: '只有柯林斯星级的词'}
+	}),
+	edgeEntry(952, 'rankedword', {
+		frequency_rank: 1234,
+		frequency_source: 'ecdict.frq',
+		sense: {chinese_definition: '有排名的词', level: 'B2', level_source: 'legacy_unverified'}
+	}),
+	edgeEntry(953, 'badlevel', {
+		frequency_rank: 5000,
+		frequency_source: 'ecdict.bnc',
+		sense: {chinese_definition: '非法等级的词', level: 'G9', level_source: 'legacy_unverified'}
+	}),
+	edgeEntry(954, "don't-stop, 42 apples!", {
+		sense: {chinese_definition: '标点与数字测试'}
+	}),
+	edgeEntry(955, 'bnconly', {
+		frequency_rank: 8765,
+		frequency_source: 'ecdict.bnc',
+		sense: {chinese_definition: '只有 BNC 排名的词'}
+	})
+];
 
 export function answerFor(prompt: string) {
 	for (const entry of entries) for (const sense of entry.senses)
@@ -79,7 +155,13 @@ const BOOKS = [
 export async function installContractFixture(page: Page) {
 	await page.addInitScript((packed) => {
 		const entries = packed.entries as any[];
+		const edgeEntries = packed.edgeEntries as any[];
 		const books = packed.books as any[];
+		const edgeById = new Map(edgeEntries.map((entry: any) => [entry.id, entry]));
+		const entryById = (id: number) => edgeById.get(id) ?? entries[id - 1];
+		const entryByWord = (word: string) =>
+			edgeEntries.find((entry: any) => entry.word === word) ??
+			entries.find((entry: any) => entry.word === word);
 		const win = window as any;
 		win.__calls = [];
 		win.__uttered = [];
@@ -127,12 +209,12 @@ export async function installContractFixture(page: Page) {
 				case 'system_capabilities': return {automatic_dictionary_setup: false, commands: []};
 				case 'app_info':
 					if (flag('test.app.fail')) fail('INTERNAL_ERROR', 'app_info failed');
-					return {word_count: entries.length, schema_version: 5, fts_ok: true, dictionary_ready: false};
+					return {word_count: entries.length, schema_version: 6, fts_ok: true, dictionary_ready: false};
 				case 'stats_summary':
 					if (flag('test.stats.fail')) fail('NOT_IMPLEMENTED', 'stats_summary is scheduled for the next development phase.');
 					return {encountered: visited.length, learning: visited.length, familiar: 0, stable: 0, ignored: 0, due_now: 2, high_priority: 0};
 				case 'recent_words':
-					return visited.slice(-6).reverse().map((id: number) => ({word: entries[id - 1].word, display: entries[id - 1].display, phonetic: entries[id - 1].phonetic, visited_at: '2026-10-26T08:00:00.000Z', comprehension_level: 'unknown'}));
+					return visited.slice(-6).reverse().filter((id: number) => entryById(id)).map((id: number) => ({word: entryById(id).word, display: entryById(id).display, phonetic: entryById(id).phonetic, visited_at: '2026-10-26T08:00:00.000Z', comprehension_level: 'unknown'}));
 				case 'search_suggest': {
 					await wait(args.query === 'm' ? 450 : args.query === 'slow' ? 700 : 25);
 					if (flag('test.suggest.fail')) fail('UNAVAILABLE', 'Suggestions unavailable');
@@ -141,9 +223,9 @@ export async function installContractFixture(page: Page) {
 				case 'lookup_word': {
 					if (flag('test.lookup.fail')) fail('NOT_IMPLEMENTED', 'lookup_word failed for this attempt');
 					if (args.word === 'meticulous' && flag('test.lookup.slow')) await wait(700);
-					if (args.word === 'longentry') return {outcome: {type: 'hit', entry: {...entries[0], id: 900, word: 'longentry', display: 'pneumonoultramicroscopicsilicovolcanoconiosis-extra', phonetic: '/ˌnjuːmənoʊˌʌltrəˌmaɪkrəˈskɒpɪk/', senses: [{id: 1, pos: 'n.', english_definition: 'A '.repeat(80) + 'very long definition that must wrap inside the column.', chinese_definition: '超长中文释义'.repeat(30), level: 'C2', examples: [{id: 1, text: 'This longentry sentence is intentionally long enough to wrap. '.repeat(6), translation: '超长例句译文'.repeat(12)}]}], synonyms: ['alpha', 'beta'], antonyms: [], word_family: [], collocations: [], roots: [], derivatives: [], synonyms_detailed: [], antonyms_detailed: [], lookalikes: [], forms: [], exam_example: null, tags: [], mnemonic: null, collins: null, oxford: false}}, encounter_id: 900, memory: {status: 'learning', visit_count: 1, high_priority: false}, comprehension_level: 'unknown'};
-					if (args.word === 'sparse') return {outcome: {type: 'hit', entry: {...entries[0], id: 901, word: 'sparse', display: 'sparse', phonetic: null, senses: [{id: 1, pos: null, english_definition: 'Only an English gloss.', chinese_definition: null, level: null, examples: []}], synonyms: [], antonyms: [], word_family: [], collocations: [], roots: [], derivatives: [], synonyms_detailed: [], antonyms_detailed: [], lookalikes: [], forms: [], exam_example: null, tags: [], mnemonic: null, collins: null, oxford: false}}, encounter_id: null, memory: null, comprehension_level: null};
-					let entry = entries.find((item) => item.word === args.word);
+					if (args.word === 'longentry') return {outcome: {type: 'hit', entry: {...entries[0], id: 900, frequency_rank: null, frequency_source: null, word: 'longentry', display: 'pneumonoultramicroscopicsilicovolcanoconiosis-extra', phonetic: '/ˌnjuːmənoʊˌʌltrəˌmaɪkrəˈskɒpɪk/', senses: [{id: 1, pos: 'n.', english_definition: 'A '.repeat(80) + 'very long definition that must wrap inside the column.', chinese_definition: '超长中文释义'.repeat(30), level: 'C2', level_source: 'legacy_unverified', examples: [{id: 1, text: 'This longentry sentence is intentionally long enough to wrap. '.repeat(6), translation: '超长例句译文'.repeat(12)}]}], synonyms: ['alpha', 'beta'], antonyms: [], word_family: [], collocations: [], roots: [], derivatives: [], synonyms_detailed: [], antonyms_detailed: [], lookalikes: [], forms: [], exam_example: null, tags: [], mnemonic: null, collins: null, oxford: false}}, encounter_id: 900, memory: {status: 'learning', visit_count: 1, high_priority: false}, comprehension_level: 'unknown'};
+					if (args.word === 'sparse') return {outcome: {type: 'hit', entry: {...entries[0], id: 901, frequency_rank: null, frequency_source: null, word: 'sparse', display: 'sparse', phonetic: null, senses: [{id: 1, pos: null, english_definition: 'Only an English gloss.', chinese_definition: null, level: null, level_source: null, examples: []}], synonyms: [], antonyms: [], word_family: [], collocations: [], roots: [], derivatives: [], synonyms_detailed: [], antonyms_detailed: [], lookalikes: [], forms: [], exam_example: null, tags: [], mnemonic: null, collins: null, oxford: false}}, encounter_id: null, memory: null, comprehension_level: null};
+					let entry = entryByWord(args.word);
 					if (entry && flag('test.lookup.noexamples')) entry = {...entry, senses: entry.senses.map((sense: any) => ({...sense, examples: []})), exam_example: null};
 					if (entry && !visited.includes(entry.id)) { visited.push(entry.id); save('test.visited', visited); }
 					return {outcome: entry ? {type: 'hit', entry} : {type: 'miss', suggestions: []}, encounter_id: entry?.id ?? null, memory: entry ? {status: 'learning', visit_count: 1, high_priority: false} : null, comprehension_level: entry ? 'unknown' : null};
@@ -183,7 +265,7 @@ export async function installContractFixture(page: Page) {
 					const raw = localStorage.getItem('test.study.ids');
 					const ids: number[] = raw ? JSON.parse(raw) : [];
 					const surgery = entries.find((entry) => entry.word === 'surgery');
-					const pool = ids.length ? ids.map((id) => entries[id - 1]).filter(Boolean) : [surgery, ...entries.filter((entry) => entry.word !== 'surgery')].filter(Boolean).slice(0, Math.max(1, Math.min(entries.length, Number(args.dailyNewLimit) || 20)));
+					const pool = ids.length ? ids.map((id) => entryById(id)).filter(Boolean) : [surgery, ...entries.filter((entry) => entry.word !== 'surgery')].filter(Boolean).slice(0, Math.max(1, Math.min(entries.length, Number(args.dailyNewLimit) || 20)));
 					const cards = pool.map((entry, index) => ({entry, item: studyItem(entry), is_new: index === 0, bookmarked: false, in_custom_wordbook: false}));
 					return {cards, due_count: cards.filter((card) => !card.is_new).length, new_count: cards.filter((card) => card.is_new).length, today_learned_new: 0};
 				}
@@ -206,7 +288,7 @@ export async function installContractFixture(page: Page) {
 					const defOnly = new Set(JSON.parse(localStorage.getItem('test.review.defonly') ?? '[]'));
 					const out = [];
 					for (const id of ids.slice(0, 10)) {
-						const original = entries[id - 1];
+						const original = entryById(id);
 						if (!original) continue;
 						const entry = defOnly.has(id) ? {...original, senses: original.senses.map((sense: any) => ({...sense, examples: []}))} : original;
 						const sense = entry.senses.find((item: any) => item.chinese_definition?.trim()) ?? entry.senses[0];
@@ -223,12 +305,12 @@ export async function installContractFixture(page: Page) {
 					return hintFor(command === 'practice_hint' ? args.wordId : args.reviewId, args.hintNo);
 				case 'submit_review': {
 					await wait(40);
-					const entry = entries[args.reviewId - 1];
+					const entry = entryById(args.reviewId);
 					const correct = args.answer === entry.word;
 					return {correct, quality: correct ? 'excellent' : 'forgotten', answer: entry.word, hints_used: 0, memory: {word_id: entry.id, strength_days: 1, difficulty: 5, review_count: 1, lapse_count: correct ? 0 : 1, visit_count: 1, weak_streak: 0, high_priority: !correct, first_visit_at: '2026-10-26T00:00:00.000Z', last_visit_at: null, last_review_at: '2026-10-26T00:00:00.000Z', last_reinforcement_at: null, next_review_at: '2026-10-27T00:00:00.000Z'}};
 				}
 				case 'practice_check':
-					return String(args.answer ?? '').trim().toLowerCase() === entries[args.wordId - 1].word;
+					return String(args.answer ?? '').trim().toLowerCase() === entryById(args.wordId).word;
 				case 'ai_config_get':
 					return {enabled: flag('test.ai.enabled'), base_url: localStorage.getItem('test.ai.base_url') ?? 'https://api.deepseek.com/v1', model: localStorage.getItem('test.ai.model') ?? 'deepseek-chat', has_key: flag('test.ai.has_key')};
 				case 'ai_config_save': {
@@ -253,7 +335,7 @@ export async function installContractFixture(page: Page) {
 						if (mode === 'fail') fail('NETWORK', 'mock: connection refused');
 						if (mode === 'hang') return new Promise(() => {});
 						if (mode !== 'invalid') {
-							for (const item of missing) cache[item.word_id] = blank(`The result was clearly ${entries[item.word_id - 1].word} in the final data.`, entries[item.word_id - 1].word);
+							for (const item of missing) cache[item.word_id] = blank(`The result was clearly ${entryById(item.word_id).word} in the final data.`, entryById(item.word_id).word);
 							localStorage.setItem('test.ai.cache', JSON.stringify(cache));
 						}
 					}
@@ -282,7 +364,7 @@ export async function installContractFixture(page: Page) {
 				return new Response(JSON.stringify({protocol_version: 1, request_id: request.request_id, ok: false, error: {code: coded.code ?? 'INTERNAL_ERROR', message: coded.message ?? 'Command failed'}}), {status: 200, headers: {'Content-Type': 'application/json'}});
 			}
 		};
-	}, {entries, books: BOOKS});
+	}, {entries, edgeEntries, books: BOOKS});
 }
 
 export function calls(page: Page) {

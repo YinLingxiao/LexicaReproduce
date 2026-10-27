@@ -153,18 +153,6 @@ extractSensePos(const std::string &english,
     return "conj.";
   return std::nullopt;
 }
-const char *defaultLevel(const std::optional<std::int64_t> &collins,
-                         std::int64_t oxford,
-                         const std::optional<std::int64_t> &rank) {
-  const auto value = collins.value_or(0);
-  if (value >= 4 || (oxford > 0 && rank && *rank > 0 && *rank <= 2000))
-    return "B1";
-  if (value == 3 || oxford > 0 || (rank && *rank > 0 && *rank <= 6000))
-    return "B2";
-  if (value >= 1 || (rank && *rank > 0 && *rank <= 15000))
-    return "C1";
-  return "R";
-}
 } // namespace
 OwnedConnection openConfiguredDatabase(const std::filesystem::path &path) {
   sqlite3 *db = nullptr;
@@ -224,12 +212,13 @@ std::int64_t importEcdictDatabase(sqlite3 *dest,
                          "DESC, id");
   Stmt insertWord(
       dest, "INSERT OR IGNORE INTO words(word, display, phonetic, "
-            "frequency_rank, synonyms, "
+            "frequency_rank, frequency_source, synonyms, "
             "antonyms, word_family, tags, collins, oxford, source, created_at) "
-            "VALUES(?,?,?,?,'[]','[]','[]',?,?,?,'ecdict',?)");
+            "VALUES(?,?,?,?,?,'[]','[]','[]',?,?,?,'ecdict',?)");
   Stmt insertSense(dest, "INSERT INTO senses(word_id, pos, english_definition, "
                          "chinese_definition, "
-                         "level, order_idx) VALUES(?,?,?,?,?,?)");
+                         "level, level_source, order_idx) "
+                         "VALUES(?,?,?,?,NULL,NULL,?)");
   Stmt insertForm(
       dest,
       "INSERT OR IGNORE INTO word_forms(form, word_id, kind) VALUES(?,?,?)");
@@ -257,10 +246,15 @@ std::int64_t importEcdictDatabase(sqlite3 *dest,
     }
     const auto frequency = select.maybeInt(4);
     const auto bnc = select.maybeInt(5);
-    const std::optional<std::int64_t> rank = frequency && *frequency > 0
-                                                 ? frequency
-                                             : bnc && *bnc > 0 ? bnc
-                                                               : std::nullopt;
+    std::optional<std::int64_t> rank;
+    std::optional<std::string> rankSource;
+    if (frequency && *frequency > 0) {
+      rank = frequency;
+      rankSource = "ecdict.frq";
+    } else if (bnc && *bnc > 0) {
+      rank = bnc;
+      rankSource = "ecdict.bnc";
+    }
     auto collins = select.maybeInt(8);
     if (collins && *collins <= 0)
       collins.reset();
@@ -277,13 +271,17 @@ std::int64_t importEcdictDatabase(sqlite3 *dest,
       insertWord.bindInt(4, *rank);
     else
       insertWord.bindNull(4);
-    insertWord.bindText(5, tags);
-    if (collins)
-      insertWord.bindInt(6, *collins);
+    if (rankSource)
+      insertWord.bindText(5, *rankSource);
     else
-      insertWord.bindNull(6);
-    insertWord.bindInt(7, oxford);
-    insertWord.bindText(8, createdAt);
+      insertWord.bindNull(5);
+    insertWord.bindText(6, tags);
+    if (collins)
+      insertWord.bindInt(7, *collins);
+    else
+      insertWord.bindNull(7);
+    insertWord.bindInt(8, oxford);
+    insertWord.bindText(9, createdAt);
     insertWord.run();
     if (sqlite3_changes(dest) == 0)
       continue;
@@ -313,7 +311,6 @@ std::int64_t importEcdictDatabase(sqlite3 *dest,
       }
       senses.emplace_back(std::move(english), std::move(chinese));
     }
-    const auto level = defaultLevel(collins, oxford, rank);
     const auto rawPos = select.maybe(7);
     for (std::size_t i = 0; i < senses.size(); ++i) {
       const auto pos =
@@ -328,8 +325,7 @@ std::int64_t importEcdictDatabase(sqlite3 *dest,
         insertSense.bindText(4, *senses[i].second);
       else
         insertSense.bindNull(4);
-      insertSense.bindText(5, level);
-      insertSense.bindInt(6, static_cast<std::int64_t>(i));
+      insertSense.bindInt(5, static_cast<std::int64_t>(i));
       insertSense.run();
     }
     if (const auto exchange = select.maybe(6)) {

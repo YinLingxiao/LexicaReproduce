@@ -1,5 +1,5 @@
 import {test, expect, type Page} from '@playwright/test';
-import {answerFor, calls, entries, installContractFixture} from './contract-fixture';
+import {answerFor, calls, edgeEntries, entries, installContractFixture} from './contract-fixture';
 
 const surgeryId = entries.find((entry) => entry.word === 'surgery')!.id;
 
@@ -475,4 +475,75 @@ test('long and sparse entries and themed screenshots stay inside the viewport', 
 	await expect(page.getByText('Only an English gloss.')).toBeVisible();
 	await page.getByRole('button', {name: 'Full entry', exact: true}).click();
 	await expect(page.getByRole('heading', {name: 'Definitions'})).toBeVisible();
+});
+
+
+test('unknown frequency and non-CEFR levels stay honest on lookup and study pages', async ({page}) => {
+	await page.goto('/?word=inevitable%20hour');
+	await expect(page.getByRole('heading', {name: 'inevitable hour', exact: true})).toBeVisible();
+	await expect(page.locator('.syllable-headword')).toHaveText('in·ev·i·ta·ble hour');
+	await expect(page.getByText('暂无词频数据')).toBeVisible();
+	await expect(page.locator('.freq-ticks')).toHaveCount(0);
+	await expect(page.getByText('暂无等级数据')).toBeVisible();
+	await expect(page.getByText('CEFR-R')).toHaveCount(0);
+	await expect(page.getByText('88%')).toHaveCount(0);
+	await expect(page.getByText('死期')).toBeVisible();
+	await expect(page.locator('.pos-pill')).toHaveText('词性未标注');
+	await page.screenshot({path: test.info().outputPath('inevitable-hour-lookup.png'), fullPage: true});
+
+	await onStudy(page, [950]);
+	await page.goto('/review');
+	await expect(page.getByRole('heading', {name: 'inevitable hour', exact: true})).toBeVisible();
+	await expect(page.locator('.headword .syllable-headword')).toHaveText('in·ev·i·ta·ble hour');
+	await expect(page.locator('.level-pill')).toHaveText('未标注');
+	await expect(page.getByText('CEFR-R')).toHaveCount(0);
+	await page.screenshot({path: test.info().outputPath('inevitable-hour-study.png'), fullPage: true});
+});
+
+test('frequency rank, source, Collins stars and estimated levels are not conflated', async ({page}) => {
+	await page.goto('/?word=staronly');
+	await expect(page.getByText('暂无词频数据')).toBeVisible();
+	await expect(page.locator('.freq-ticks')).toHaveCount(0);
+	await expect(page.getByText('Collins ★★★★☆')).toBeVisible();
+	await expect(page.getByText('星级，不是词频排名')).toBeVisible();
+	await expect(page.getByText('暂无等级数据')).toBeVisible();
+
+	await page.goto('/?word=rankedword');
+	await expect(page.locator('.freq-ticks')).toHaveCount(1);
+	await expect(page.locator('.freq-tick.on')).toHaveCount(14);
+	await expect(page.getByText(/第 1,234 名/)).toBeVisible();
+	await expect(page.locator('.freq-metric .metric-note')).toContainText('排名越小，越常见');
+	await expect(page.locator('.freq-metric .metric-note')).toContainText('ECDICT 当代语料库词频顺序');
+	await expect(page.locator('.level-metric .metric-note')).toContainText('旧版推断');
+	await expect(page.locator('.level-metric .metric-note')).toContainText('估算');
+	await expect(page.locator('.level-pill').first()).toHaveText('B2');
+
+	await page.goto('/?word=badlevel');
+	await expect(page.getByText('暂无等级数据')).toBeVisible();
+	await expect(page.getByText('G9')).toHaveCount(0);
+
+	await page.goto('/?word=bnconly');
+	await expect(page.locator('.freq-metric .metric-note')).toContainText('ECDICT 英国国家语料库词频顺序');
+});
+
+test('syllable splitting preserves spaces, hyphens, apostrophes, punctuation and digits', async ({page}) => {
+	await page.goto(`/?word=${encodeURIComponent("don't-stop, 42 apples!")}`);
+	await expect(page.getByRole('heading', {name: "don't-stop, 42 apples!", exact: true})).toBeVisible();
+	const headword = page.locator('.syllable-headword');
+	const text = await headword.textContent();
+	expect(text).toContain("don't-stop, 42");
+	expect(text).toContain('!');
+	expect(text).not.toMatch(/[·][\s\-',!0-9]|[\s\-',!0-9][·]/);
+
+	await page.addInitScript(() =>
+		localStorage.setItem('lexica.preferences', JSON.stringify({study: {autoSplitSyllables: false}}))
+	);
+	await page.reload();
+	await expect(page.locator('.syllable-headword')).toHaveText("don't-stop, 42 apples!");
+});
+
+test('edge fixtures are wired for lookup and study regressions', async ({page}) => {
+	expect(edgeEntries.map((entry) => entry.word)).toContain('inevitable hour');
+	await page.goto('/?word=staronly');
+	await expect(page.getByRole('heading', {name: 'staronly', exact: true})).toBeVisible();
 });

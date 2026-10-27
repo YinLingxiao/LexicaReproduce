@@ -8,6 +8,15 @@
 	import { speakText } from '$lib/tts';
 	import SyllableHeadword from './SyllableHeadword.svelte';
 	import {
+		CEFR_LEVELS,
+		FREQUENCY_TICKS,
+		NO_LEVEL_LABEL,
+		describeCollins,
+		describeFrequency,
+		describeLevel,
+		displayPos
+	} from '$lib/lexicon-display';
+	import {
 		setComprehension,
 		setWordIgnored,
 		wordNote,
@@ -51,45 +60,25 @@
 
 	const primary = $derived(entry?.senses[0]);
 	const primaryPos = $derived(
-		entry?.senses.find((s) => s.pos?.trim())?.pos?.replace(/\.$/, '') ?? 'word'
+		entry?.senses.map((sense) => displayPos(sense.pos)).find((pos) => pos) ?? null
 	);
-
-	// 词频刻度（18 格）与难度百分比（基于词频排名与 CEFR 等级计算）
-	const FREQ_TICKS = 18;
-	const freqFilled = $derived.by(() => {
-		if (!entry) return 8;
-		const r = entry.frequency_rank;
-		if (!r || r <= 0) return entry.collins ? entry.collins * 3 : 8;
-		if (r <= 1000) return 16;
-		if (r <= 2500) return 14;
-		if (r <= 5000) return 12;
-		if (r <= 8000) return 10;
-		if (r <= 12000) return 7;
-		if (r <= 20000) return 5;
-		return 3;
-	});
-
-	const difficultyPct = $derived.by(() => {
-		const lvl = primary?.level?.toUpperCase();
-		if (lvl === 'A1') return 18;
-		if (lvl === 'A2') return 28;
-		if (lvl === 'B1') return 42;
-		if (lvl === 'B2') return 58;
-		if (lvl === 'C1') return 76;
-		if (lvl === 'C2' || lvl === 'R') return 88;
-		const r = entry?.frequency_rank ?? 6000;
-		return Math.min(92, Math.max(20, Math.round((r / 15000) * 80)));
-	});
+	const frequency = $derived(describeFrequency(entry));
+	const collins = $derived(describeCollins(entry));
+	const level = $derived(describeLevel(primary));
 
 	// 词头标签胶囊（如 TOP3000 / Oxford3000 / CEFR-B1 / CET-4 / CET-6 / 考研）
 	const headerBadges = $derived.by(() => {
 		if (!entry) return [];
 		const list: string[] = [];
-		if (entry.frequency_rank && entry.frequency_rank <= 3000) list.push('TOP3000');
-		else if (entry.frequency_rank && entry.frequency_rank <= 5000) list.push('TOP5000');
+		if (frequency.isCorpusRank && frequency.rank) {
+			if (frequency.rank <= 3000) list.push('TOP3000');
+			else if (frequency.rank <= 5000) list.push('TOP5000');
+		}
 		if (entry.oxford || entry.tags?.includes('oxford')) list.push('Oxford3000');
-		const lvl = primary?.level?.trim();
-		if (lvl && lvl !== 'R') list.push(`CEFR-${lvl}`);
+		if (level.level)
+			list.push(
+				`CEFR-${level.level} · ${level.sourceLabel}${level.estimated ? '（估算）' : ''}`
+			);
 		const tagMap: Record<string, string> = {
 			cet4: 'CET-4',
 			cet6: 'CET-6',
@@ -103,7 +92,6 @@
 			const label = tagMap[t.toLowerCase()];
 			if (label && !list.includes(label) && list.length < 5) list.push(label);
 		}
-		if (!list.length && primary?.level) list.push(`CEFR-${primary.level}`);
 		return list;
 	});
 
@@ -393,19 +381,49 @@
 				</header>
 
 				<div class="metrics-bar">
-					<div class="metric-item">
+					<div class="metric-item freq-metric">
 						<span class="metric-label">词频</span>
-						<div class="freq-ticks" aria-label="Word frequency">
-							{#each { length: FREQ_TICKS } as _, idx}
-								<span class="freq-tick" class:on={idx < freqFilled}></span>
-							{/each}
-						</div>
+						{#if frequency.hasRank}
+							<div class="freq-ticks" aria-label={frequency.label}>
+								{#each { length: FREQUENCY_TICKS } as _, idx}
+									<span class="freq-tick" class:on={idx < frequency.ticks}></span>
+								{/each}
+							</div>
+							<span class="metric-value">{frequency.label}</span>
+							<span class="metric-note"
+								>{frequency.explanation} {frequency.sourceLabel}</span
+							>
+						{:else}
+							<span class="metric-empty">{frequency.label}</span>
+							<span class="metric-note">{frequency.explanation}</span>
+						{/if}
 					</div>
-					<div class="metric-item">
-						<span class="metric-label">难度</span>
-						<div class="diff-track" aria-label="Word difficulty">
-							<span class="diff-fill" style:width="{difficultyPct}%"></span>
+					{#if collins}
+						<div class="metric-item">
+							<span class="metric-label">Collins</span>
+							<span class="metric-value" aria-label={collins.label}>{collins.label}</span>
+							<span class="metric-note">星级，不是词频排名</span>
 						</div>
+					{/if}
+					<div class="metric-item level-metric">
+						<span class="metric-label">等级</span>
+						{#if level.level}
+							<div
+								class="cefr-scale"
+								role="img"
+								aria-label={`CEFR ${level.level}，${level.sourceLabel}`}
+							>
+								{#each CEFR_LEVELS as band}
+									<span class="cefr-step" class:active={band === level.level}>{band}</span>
+								{/each}
+							</div>
+							<span class="metric-value">{level.level}</span>
+							<span class="metric-note"
+								>{level.sourceLabel}{level.estimated ? ' · 估算' : ''}</span
+							>
+						{:else}
+							<span class="metric-empty">{NO_LEVEL_LABEL}</span>
+						{/if}
 					</div>
 				</div>
 
@@ -512,14 +530,29 @@
 				{/if}
 				<div class="definitions" class:spaced={!full}>
 					<div class="definitions-head">
-						<span class="pos-pill">{primaryPos}</span>
+						{#if primaryPos}<span class="pos-pill">{primaryPos}</span>{:else}<span
+								class="pos-pill missing">词性未标注</span
+							>{/if}
 						<h2 class="defs-title">Definitions</h2>
 					</div>
 					{#each entry.senses as sense, i}
-						{@const lvl = sense.level?.trim() || 'R'}
+						{@const senseLevelInfo = describeLevel(sense)}
 						<section class="sense-block">
 							<div class="sense-head">
-								<span class="level-pill" class:rare={lvl === 'R'}>{lvl}</span>
+								<div class="level-cell">
+									{#if senseLevelInfo.level}
+										<span
+											class="level-pill"
+											class:estimated={senseLevelInfo.estimated}
+											title={`CEFR ${senseLevelInfo.level} · ${senseLevelInfo.sourceLabel}`}
+											>{senseLevelInfo.level}</span
+										>
+										{#if senseLevelInfo.estimated}<small class="level-source">估算</small
+											>{/if}
+									{:else}
+										<span class="level-pill missing">未标注</span>
+									{/if}
+								</div>
 								<div class="sense-defs">
 									{#if sense.english_definition}<p class="reading english">
 											{sense.english_definition}
@@ -788,11 +821,23 @@
 	.metric-item {
 		display: inline-flex;
 		align-items: center;
-		gap: 10px;
+		gap: 8px;
+		flex-wrap: wrap;
+		max-width: 100%;
 	}
-	.metric-label {
+	.metric-value {
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--fg);
+	}
+	.metric-note {
+		font-size: 10px;
+		color: var(--muted);
+	}
+	.metric-empty {
 		font-size: 12px;
 		color: var(--muted);
+		font-style: italic;
 	}
 	.freq-ticks {
 		display: inline-flex;
@@ -808,19 +853,25 @@
 	.freq-tick.on {
 		background: var(--accent);
 	}
-	.diff-track {
-		width: 110px;
-		height: 8px;
-		border-radius: 999px;
-		background: var(--soft);
-		border: 1px solid var(--line);
-		overflow: hidden;
+	.cefr-scale {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
 	}
-	.diff-fill {
-		display: block;
-		height: 100%;
-		border-radius: inherit;
-		background: color-mix(in srgb, #d89620 45%, var(--accent));
+	.cefr-step {
+		font-size: 9px;
+		line-height: 1;
+		padding: 3px 4px;
+		border-radius: 3px;
+		color: var(--muted);
+		background: var(--soft);
+		border: 1px solid transparent;
+	}
+	.cefr-step.active {
+		color: var(--cefr-fg);
+		background: var(--cefr-bg);
+		border-color: var(--cefr-border);
+		font-weight: 700;
 	}
 
 	.tag-pills {
@@ -966,6 +1017,11 @@
 		color: var(--fg);
 		font: italic 600 13px/1.3 var(--serif);
 	}
+	.pos-pill.missing {
+		font-style: normal;
+		font-weight: 500;
+		color: var(--muted);
+	}
 	.defs-title {
 		font-size: 12px;
 		color: var(--muted);
@@ -981,9 +1037,16 @@
 	}
 	.sense-head {
 		display: grid;
-		grid-template-columns: 44px minmax(0, 1fr);
+		grid-template-columns: 58px minmax(0, 1fr);
 		align-items: start;
 		gap: 12px;
+	}
+	.level-cell {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 3px;
+		margin-top: 3px;
 	}
 	.level-pill {
 		display: inline-flex;
@@ -997,12 +1060,19 @@
 		background: var(--cefr-bg);
 		color: var(--cefr-fg);
 		border: 1px solid var(--cefr-border);
-		margin-top: 3px;
 	}
-	.level-pill.rare {
+	.level-pill.missing {
 		background: var(--soft);
 		color: var(--muted);
 		border-color: var(--line);
+		font-weight: 500;
+	}
+	.level-pill.estimated {
+		border-style: dashed;
+	}
+	.level-source {
+		font-size: 9px;
+		color: var(--muted);
 	}
 	.english {
 		font: 450 18px/1.65 var(--serif);

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "enums": {
     "ComprehensionLevel": ["context", "english", "chinese", "unknown"],
     "MemoryStatus": ["learning", "familiar", "stable"],
@@ -14,11 +14,11 @@
   "models": {
     "Example": {"id":"int", "text":"string", "translation":"string?"},
     "Collocation": {"text":"string", "gloss":"string?"},
-    "Sense": {"id":"int", "pos":"string?", "english_definition":"string", "chinese_definition":"string?", "level":"string?", "examples":"Example[]"},
+    "Sense": {"id":"int", "pos":"string?", "english_definition":"string", "chinese_definition":"string?", "level":"string?", "level_source":"string?", "examples":"Example[]"},
     "WordFormEntry": {"label":"string", "form":"string"},
     "RelatedWordItem": {"word":"string", "pos":"string?", "gloss":"string"},
     "RootPart": {"part":"string", "meaning":"string"},
-    "WordEntry": {"id":"int", "word":"string", "display":"string", "phonetic":"string?", "senses":"Sense[]", "collocations":"Collocation[]", "synonyms":"string[]", "antonyms":"string[]", "word_family":"string[]", "frequency_rank":"int?", "tags":"string[]", "collins":"int?", "oxford":"bool", "mnemonic":"string?", "roots":"RootPart[]", "derivatives":"RelatedWordItem[]", "synonyms_detailed":"RelatedWordItem[]", "antonyms_detailed":"RelatedWordItem[]", "lookalikes":"RelatedWordItem[]", "forms":"WordFormEntry[]", "exam_example":"Example?"},
+    "WordEntry": {"id":"int", "word":"string", "display":"string", "phonetic":"string?", "senses":"Sense[]", "collocations":"Collocation[]", "synonyms":"string[]", "antonyms":"string[]", "word_family":"string[]", "frequency_rank":"int?", "frequency_source":"string?", "tags":"string[]", "collins":"int?", "oxford":"bool", "mnemonic":"string?", "roots":"RootPart[]", "derivatives":"RelatedWordItem[]", "synonyms_detailed":"RelatedWordItem[]", "antonyms_detailed":"RelatedWordItem[]", "lookalikes":"RelatedWordItem[]", "forms":"WordFormEntry[]", "exam_example":"Example?"},
     "Suggestion": {"word":"string", "display":"string", "phonetic":"string?", "frequency_rank":"int?"},
     "MemorySummary": {"status":"MemoryStatus?", "visit_count":"int", "high_priority":"bool"},
     "LookupWordResult": {"outcome":"LookupOutcome", "encounter_id":"int?", "memory":"MemorySummary?", "comprehension_level":"ComprehensionLevel?"},

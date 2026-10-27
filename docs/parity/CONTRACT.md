@@ -1,4 +1,4 @@
-# 公共接口与数据合同 v1.1.0
+# 公共接口与数据合同 v1.2.0
 
 权威输入：`contracts/models.json`、`contracts/commands.json`。C++ 生成文件为 `src/parity/contracts/dto.h`、`catalog.h`；TypeScript 为 `ui/src/lib/generated/contracts.ts`。
 
@@ -7,7 +7,9 @@ node tools/generate-contracts.mjs
 node tools/generate-contracts.mjs --check
 ```
 
-生成器不依赖 npm 包。A 审核合同变更后修改 JSON 并重新生成；禁止直接改生成物。原版 API 快照保留在 `contracts/upstream-api.ts`。`tools/migrate-ui.mjs` 是一次性迁移工具，后续不要运行它覆盖人工修订。
+生成器不依赖 npm 包。A 审核合同变更后修改 JSON 并重新生成；禁止直接改生成物。
+
+1.2.0 增加 `WordEntry.frequency_source` 与 `Sense.level_source` 两个可空字段，用于区分 ECDICT 的 `frq` / `bnc` 排名、种子词库近似排序值、词表标注和旧版推断等级。字段缺失表示来源未记录；它们不改变命令参数、协议号或旧客户端读取的其他字段。原版 API 快照保留在 `contracts/upstream-api.ts`。`tools/migrate-ui.mjs` 是一次性迁移工具，后续不要运行它覆盖人工修订。
 
 ## 请求和响应
 

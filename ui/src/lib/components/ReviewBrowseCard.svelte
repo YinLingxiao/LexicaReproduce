@@ -1,10 +1,12 @@
 <script lang="ts">
 	import type { WordEntry } from '$lib/api';
 	import HighlightedText from './HighlightedText.svelte';
+	import { describeFrequency, describeLevel } from '$lib/lexicon-display';
 
 	/** Read-only review browse card. No learning side effects: unlike WordView it
 	 * never records encounters, comprehension levels, notes or bookmarks. */
 	let { entry }: { entry: WordEntry } = $props();
+	const frequency = $derived(describeFrequency(entry));
 </script>
 
 <article class="browse-card">
@@ -12,16 +14,22 @@
 		<h2>{entry.display}</h2>
 		<div class="meta">
 			{#if entry.phonetic}<span class="phonetic">{entry.phonetic}</span>{/if}
-			{#if entry.frequency_rank}<span class="rank">#{entry.frequency_rank}</span>{/if}
+			{#if frequency.hasRank}<span class="rank" title={frequency.sourceLabel}
+					>#{frequency.rank}</span
+				>{/if}
 		</div>
 	</header>
 	{#if entry.senses.length}
 		{#each entry.senses as sense, i}
+			{@const level = describeLevel(sense)}
 			<section class="sense">
 				<div class="sense-number">{String(i + 1).padStart(2, '0')}</div>
 				<div class="sense-body">
 					<div class="sense-tags">
-						{#if sense.pos}{sense.pos}{/if}{#if sense.level}<span class="badge">{sense.level}</span>{/if}
+						{#if sense.pos}{sense.pos}{/if}{#if level.level}<span
+								class="badge"
+								title={`CEFR ${level.level} · ${level.sourceLabel}`}>{level.level}</span
+							>{/if}
 					</div>
 					{#if sense.english_definition}<p class="reading english">{sense.english_definition}</p>{/if}
 					{#if sense.chinese_definition}<p class="chinese">{sense.chinese_definition}</p>{/if}

@@ -22,3 +22,6 @@ POST /api/import
 `test_words.csv` 是复习测试使用的三词 CSV，首次导入空库时编号为 apple=1、banana=2、run=3；与 SQLite 样本的编号顺序不同，测试中不要混用。
 
 测试源文件通过 CMake 配置的绝对路径读取这些数据；可写数据库另建在构建目录的 `test-output` 中，样本本身不修改。
+
+
+`ecdict-inevitable.db` 是独立的真实字段夹具，用于复现 `inevitable hour`：中文释义“死期”，英文释义、音标、例句为空，`frq`/`bnc` 为 0，无 Collins/Oxford。另含 `staronly`（仅 Collins 4）、`rankedword`（frq=1234）、`bnconly`（bnc=8765）。测试导入到独立数据目录，不依赖用户完整词库。

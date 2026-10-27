@@ -10,11 +10,11 @@ export type HintKind = "mask" | "english" | "chinese";
 export type SetupPhase = "checking" | "downloading" | "extracting" | "importing" | "ready" | "error";
 export interface Example {id: number; text: string; translation: string | null;}
 export interface Collocation {text: string; gloss: string | null;}
-export interface Sense {id: number; pos: string | null; english_definition: string; chinese_definition: string | null; level: string | null; examples: Array<Example>;}
+export interface Sense {id: number; pos: string | null; english_definition: string; chinese_definition: string | null; level: string | null; level_source: string | null; examples: Array<Example>;}
 export interface WordFormEntry {label: string; form: string;}
 export interface RelatedWordItem {word: string; pos: string | null; gloss: string;}
 export interface RootPart {part: string; meaning: string;}
-export interface WordEntry {id: number; word: string; display: string; phonetic: string | null; senses: Array<Sense>; collocations: Array<Collocation>; synonyms: Array<string>; antonyms: Array<string>; word_family: Array<string>; frequency_rank: number | null; tags: Array<string>; collins: number | null; oxford: boolean; mnemonic: string | null; roots: Array<RootPart>; derivatives: Array<RelatedWordItem>; synonyms_detailed: Array<RelatedWordItem>; antonyms_detailed: Array<RelatedWordItem>; lookalikes: Array<RelatedWordItem>; forms: Array<WordFormEntry>; exam_example: Example | null;}
+export interface WordEntry {id: number; word: string; display: string; phonetic: string | null; senses: Array<Sense>; collocations: Array<Collocation>; synonyms: Array<string>; antonyms: Array<string>; word_family: Array<string>; frequency_rank: number | null; frequency_source: string | null; tags: Array<string>; collins: number | null; oxford: boolean; mnemonic: string | null; roots: Array<RootPart>; derivatives: Array<RelatedWordItem>; synonyms_detailed: Array<RelatedWordItem>; antonyms_detailed: Array<RelatedWordItem>; lookalikes: Array<RelatedWordItem>; forms: Array<WordFormEntry>; exam_example: Example | null;}
 export interface Suggestion {word: string; display: string; phonetic: string | null; frequency_rank: number | null;}
 export interface MemorySummary {status: MemoryStatus | null; visit_count: number; high_priority: boolean;}
 export interface AppInfo {schema_version: number; word_count: number; fts_ok: boolean; dictionary_ready: boolean;}

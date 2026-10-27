@@ -46,3 +46,36 @@ test('completed modules persist learning, notes and pause state through the real
  await expect(page.getByRole('heading', {name: /No entry for “zzzzzzzz”/})).toBeVisible();
  expect(errors).toEqual([]);
 });
+
+
+test('real C++ service keeps inevitable hour honest', async ({page, request}) => {
+ const sourcePath = '../tests/data/ecdict-inevitable.db';
+ const response = await request.post('/rpc', {data: {protocol_version: 1, request_id: `import-${Date.now()}`, command: 'import_ecdict', args: {sourcePath}}});
+ expect(response.status()).toBe(200);
+ const imported = await response.json();
+ expect(imported.ok, JSON.stringify(imported)).toBe(true);
+ expect(imported.result).toBeGreaterThan(0);
+ const lookup = await request.post('/rpc', {data: {protocol_version: 1, request_id: `lookup-${Date.now()}`, command: 'lookup_word', args: {word: 'inevitable hour'}}});
+ const found = await lookup.json();
+ expect(found.ok, JSON.stringify(found)).toBe(true);
+ expect(found.result.outcome.type).toBe('hit');
+ expect(found.result.outcome.entry.display).toBe('inevitable hour');
+ expect(found.result.outcome.entry.frequency_rank).toBeNull();
+ expect(found.result.outcome.entry.frequency_source).toBeNull();
+ expect(found.result.outcome.entry.collins).toBeNull();
+ expect(found.result.outcome.entry.senses[0].level).toBeNull();
+ expect(found.result.outcome.entry.senses[0].level_source).toBeNull();
+ expect(found.result.outcome.entry.senses[0].chinese_definition).toBe('死期');
+ await page.goto(`/?word=${encodeURIComponent('inevitable hour')}`);
+ await expect(page.getByRole('heading', {name: 'inevitable hour', exact: true})).toBeVisible();
+ await expect(page.locator('.syllable-headword')).toHaveText('in·ev·i·ta·ble hour');
+ await expect(page.getByText('暂无词频数据')).toBeVisible();
+ await expect(page.locator('.freq-ticks')).toHaveCount(0);
+ await expect(page.getByText('暂无等级数据')).toBeVisible();
+ await expect(page.getByText('CEFR-R')).toHaveCount(0);
+ await expect(page.getByText('88%')).toHaveCount(0);
+ await expect(page.locator('.translation-text')).toHaveText('死期');
+ await expect(page.locator('.pos-pill')).toHaveText('词性未标注');
+ await page.waitForTimeout(1400);
+ await page.screenshot({path: test.info().outputPath('inevitable-hour-live.png'), fullPage: true});
+});

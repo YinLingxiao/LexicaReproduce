@@ -228,7 +228,7 @@ int main() {
                                {{"event", event}, {"payload", payload}});
                          });
       const auto info = call(app, "app_info");
-      check(info["ok"] == true && info["result"]["schema_version"] == 5 &&
+      check(info["ok"] == true && info["result"]["schema_version"] == 6 &&
                 info["result"]["word_count"] == 55 &&
                 info["result"]["fts_ok"] == true &&
                 info["result"]["dictionary_ready"] == false,
@@ -271,9 +271,10 @@ int main() {
       check(surgery.phonetic == "/ˈsɜːdʒəri/" && surgery.oxford &&
                 surgery.senses.size() == 4 && surgery.senses[0].pos == "noun" &&
                 surgery.senses[0].level == "B2" &&
+                surgery.senses[0].level_source == "seed" &&
                 surgery.senses[1].level == "B2" &&
-                surgery.senses[2].level == "R" &&
-                surgery.senses[3].level == "R" && surgery.forms.size() == 1 &&
+                !surgery.senses[2].level && !surgery.senses[2].level_source &&
+                !surgery.senses[3].level && surgery.forms.size() == 1 &&
                 surgery.forms[0].label == "Plural" &&
                 surgery.forms[0].form == "surgeries" && surgery.exam_example &&
                 surgery.derivatives.size() == 1 &&
@@ -423,13 +424,24 @@ int main() {
           "water', 'n. 银行\nn. 河岸', NULL, NULL, NULL, NULL, NULL, NULL, "
           "NULL),"
           "('fast', NULL, 'adj. moving quickly\nadv. firmly fixed', 'adj. "
-          "快的', NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
+          "快的', NULL, NULL, NULL, NULL, NULL, NULL, NULL),"
+          "('inevitable hour', NULL, NULL, '死期', NULL, NULL, 0, NULL, 0, 0, "
+          "NULL),"
+          "('staronly', NULL, NULL, '星标词', NULL, 4, 0, NULL, 0, 0, NULL),"
+          "('rankedword', NULL, 'n. ranked', 'n. 排名词', NULL, NULL, 0, NULL, "
+          "4321, 1234, NULL),"
+          "('bnconly', NULL, 'n. bnc', 'n. bnc 词', NULL, NULL, 0, NULL, "
+          "8765, 0, NULL),"
+          "('negrank', NULL, 'n. negative', 'n. 负值词', NULL, NULL, 0, NULL, "
+          "-2, -5, NULL),"
+          "('nullrank', NULL, 'n. null', 'n. 空值词', NULL, NULL, 0, NULL, "
+          "NULL, NULL, NULL)");
     }
     {
       p::Application app(root / "lexica.db", &clock);
       const auto first =
           call(app, "import_ecdict", {{"sourcePath", sourcePath.u8string()}});
-      check(first["ok"] == true && first["result"] == 4,
+      check(first["ok"] == true && first["result"] == 10,
             "ecdict imported new rows");
       app.database().withConnection([&](sqlite3 *db) {
         check(scalar(db, "SELECT id FROM words WHERE word='meticulous'") ==
@@ -447,13 +459,13 @@ int main() {
               "go metadata");
         const auto goId = scalar(db, "SELECT id FROM words WHERE word='go'");
         p::Statement senses(
-            db, "SELECT english_definition, chinese_definition, pos, level "
-                "FROM senses WHERE word_id=? ORDER BY order_idx, id");
+            db, "SELECT english_definition, chinese_definition, pos, level, "
+                "level_source FROM senses WHERE word_id=? ORDER BY order_idx, id");
         senses.bind(1, goId);
         check(senses.step() && senses.text(0) == "v. move away" &&
                   senses.text(1) == "vi. 去" && senses.text(2) == "v." &&
-                  !senses.isNull(3),
-              "paired sense");
+                  senses.isNull(3) && senses.isNull(4),
+              "paired sense has no invented CEFR level");
         check(senses.step() && senses.text(0) == "v. proceed" &&
                   senses.text(1) == "vt. 进行",
               "second sense");
@@ -483,11 +495,62 @@ int main() {
                   fast.text(0) == "adj. moving quickly\nadv. firmly fixed" &&
                   fast.text(1) == "adj. 快的",
               "unbalanced lines collapse");
+        const auto inevitable = *p::dictionaryFind(db, "inevitable hour");
+        check(inevitable.display == "inevitable hour" &&
+                  !inevitable.phonetic && !inevitable.frequency_rank &&
+                  !inevitable.frequency_source && !inevitable.collins &&
+                  !inevitable.oxford && inevitable.senses.size() == 1 &&
+                  inevitable.senses[0].english_definition.empty() &&
+                  inevitable.senses[0].chinese_definition &&
+                  *inevitable.senses[0].chinese_definition == "死期" &&
+                  inevitable.senses[0].examples.empty() &&
+                  !inevitable.senses[0].level &&
+                  !inevitable.senses[0].level_source,
+              "inevitable hour keeps only the real Chinese gloss");
+        const auto starred = *p::dictionaryFind(db, "staronly");
+        check(!starred.frequency_rank && !starred.frequency_source &&
+                  starred.collins && *starred.collins == 4 &&
+                  !starred.senses[0].level && !starred.senses[0].level_source,
+              "Collins stars never become frequency or CEFR");
+        const auto ranked = *p::dictionaryFind(db, "rankedword");
+        check(ranked.frequency_rank && *ranked.frequency_rank == 1234 &&
+                  ranked.frequency_source &&
+                  *ranked.frequency_source == "ecdict.frq" &&
+                  !ranked.senses[0].level,
+              "frq rank and source are recorded without a CEFR guess");
+        const auto bncOnly = *p::dictionaryFind(db, "bnconly");
+        check(bncOnly.frequency_rank && *bncOnly.frequency_rank == 8765 &&
+                  bncOnly.frequency_source &&
+                  *bncOnly.frequency_source == "ecdict.bnc",
+              "bnc fallback records its own source");
+        const auto negative = *p::dictionaryFind(db, "negrank");
+        check(!negative.frequency_rank && !negative.frequency_source,
+              "negative ranks are not treated as data");
+        const auto nullRank = *p::dictionaryFind(db, "nullrank");
+        check(!nullRank.frequency_rank && !nullRank.frequency_source,
+              "null ranks are not treated as data");
+        sql(db, "INSERT INTO words(word,display,frequency_rank,frequency_source,"
+                "synonyms,antonyms,word_family,tags,collins,oxford,source,"
+                "created_at) VALUES('legacyprobe','legacyprobe',4321,NULL,"
+                "'[]','[]','[]','',NULL,0,'ecdict','2026-01-01T00:00:00.000Z')");
+        sql(db, "INSERT INTO senses(word_id,english_definition,level,level_source,"
+                "order_idx) VALUES((SELECT id FROM words WHERE "
+                "word='legacyprobe'),'old data','B2',NULL,0)");
+        sql(db, "INSERT INTO senses(word_id,english_definition,level,level_source,"
+                "order_idx) VALUES((SELECT id FROM words WHERE "
+                "word='legacyprobe'),'old rare','R',NULL,1)");
         check(scalar(db,
                      "SELECT COUNT(*) FROM word_notes WHERE note='keep-me'") ==
                   1,
               "import kept note");
       });
+      const auto legacy = hit(app, "legacyprobe");
+      check(legacy.frequency_rank && *legacy.frequency_rank == 4321 &&
+                !legacy.frequency_source && legacy.senses.size() == 2 &&
+                legacy.senses[0].level == "B2" &&
+                legacy.senses[0].level_source == "legacy_unverified" &&
+                !legacy.senses[1].level && !legacy.senses[1].level_source,
+            "legacy levels stay conservative and R is not CEFR");
       const auto again =
           call(app, "import_ecdict", {{"sourcePath", sourcePath.u8string()}});
       check(again["ok"] == true && again["result"] == 0, "idempotent import");
