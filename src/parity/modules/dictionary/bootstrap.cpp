@@ -346,7 +346,8 @@ EnsureDictionaryResult ensureDictionary(Context &context,
        "Importing entries \xE2\x80\x94 this can take several "
        "minutes\xE2\x80\xA6");
   auto connection = openConfiguredDatabase(context.db.path());
-  const auto imported = importEcdictDatabase(connection.get(), stardict, now);
+  const auto imported = importEcdictDatabase(connection.get(), stardict, now,
+                                            interactiveImportHooks(context));
   Statement words(connection.get(), "SELECT COUNT(*) FROM words");
   words.step();
   Statement ecdict(connection.get(),

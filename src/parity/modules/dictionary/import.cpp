@@ -1,4 +1,5 @@
 #include "parity/modules/dictionary/api.h"
+#include <chrono>
 #include <memory>
 #include <optional>
 namespace lexica::parity {
@@ -226,8 +227,25 @@ std::int64_t importEcdictDatabase(sqlite3 *dest,
       hooks.batchSize == 0 ? kEcdictImportBatch : hooks.batchSize;
   std::int64_t imported = 0;
   std::size_t inChunk = 0;
-  auto tx = std::make_unique<Transaction>(dest);
+  std::unique_ptr<Transaction> tx;
+  auto batchStarted = std::chrono::steady_clock::now();
+  const auto flushBatch = [&] {
+    if (hooks.beforeCommit)
+      hooks.beforeCommit();
+    throwIfCancelled(currentCancellation());
+    tx->commit();
+    tx.reset();
+    inChunk = 0;
+    if (hooks.betweenBatches)
+      hooks.betweenBatches();
+  };
   while (select.next()) {
+    // Preparing/sorting the source must not hold the destination write lock.
+    // A count-only limit can hold it for many seconds on slower machines.
+    if (tx && (inChunk >= batchSize ||
+               std::chrono::steady_clock::now() - batchStarted >=
+                   std::chrono::milliseconds(200)))
+      flushBatch();
     const auto raw = trimCopy(select.maybe(0).value_or(""));
     if (raw.empty())
       continue;
@@ -282,6 +300,10 @@ std::int64_t importEcdictDatabase(sqlite3 *dest,
       insertWord.bindNull(7);
     insertWord.bindInt(8, oxford);
     insertWord.bindText(9, createdAt);
+    if (!tx) {
+      tx = std::make_unique<Transaction>(dest);
+      batchStarted = std::chrono::steady_clock::now();
+    }
     insertWord.run();
     if (sqlite3_changes(dest) == 0)
       continue;
@@ -352,20 +374,23 @@ std::int64_t importEcdictDatabase(sqlite3 *dest,
         index = end + 1;
       }
     }
-    if (inChunk >= batchSize) {
-      if (hooks.beforeCommit)
-        hooks.beforeCommit();
-      throwIfCancelled(currentCancellation());
-      tx->commit();
-      tx.reset();
-      inChunk = 0;
-      if (hooks.betweenBatches)
-        hooks.betweenBatches();
-      tx = std::make_unique<Transaction>(dest);
-    }
+    if (inChunk >= batchSize)
+      flushBatch();
   }
   throwIfCancelled(currentCancellation());
-  tx->commit();
+  if (tx)
+    tx->commit();
   return imported;
+}
+EcdictImportHooks interactiveImportHooks(Context &context) {
+  EcdictImportHooks hooks;
+  hooks.betweenBatches = [&context] {
+    checkCancelled(context);
+    // Foreground callbacks already holding this mutex may be waiting for our
+    // SQLite writer. Acquire it only after COMMIT, so they can finish first.
+    context.db.withConnection([](sqlite3 *) { return 0; });
+    checkCancelled(context);
+  };
+  return hooks;
 }
 } // namespace lexica::parity

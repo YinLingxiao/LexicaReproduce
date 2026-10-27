@@ -643,6 +643,38 @@ int main() {
       });
     }
 
+    // A count-only 20,000-row batch can block learning writes for seconds on
+    // slow machines. Force slow inserts and verify time-bounded commits allow
+    // a real lookup (including its encounter write) before import completes.
+    {
+      p::Application app(root / "slow-import.db", &clock);
+      auto connection = p::openConfiguredDatabase(app.database().path());
+      check(sqlite3_create_function(
+                connection.get(), "slow_import", 0, SQLITE_UTF8, nullptr,
+                [](sqlite3_context *context, int, sqlite3_value **) {
+                  std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                  sqlite3_result_null(context);
+                }, nullptr, nullptr) == SQLITE_OK,
+            "register slow import function");
+      p::execute(connection.get(),
+                 "CREATE TEMP TRIGGER slow_import_row AFTER INSERT ON words "
+                 "WHEN NEW.source='ecdict' BEGIN SELECT slow_import(); END");
+      p::EcdictImportHooks hooks;
+      int foregroundWrites = 0;
+      hooks.betweenBatches = [&] {
+        const auto lookup = call(app, "lookup_word", {{"word", "meticulous"}});
+        check(lookup["ok"] == true &&
+                  lookup["result"]["outcome"]["type"] == "hit",
+              "foreground learning write blocked by import transaction");
+        ++foregroundWrites;
+      };
+      check(p::importEcdictDatabase(connection.get(), root / "batch.db",
+                                   "2026-10-21T00:00:00.000Z", hooks) == 25,
+            "slow import lost rows");
+      check(foregroundWrites >= 1,
+            "slow import kept the writer until its count limit");
+    }
+
     const auto ensureDir = test_support::freshDirectory("parity", "ensure");
     {
       const auto pack = ensureDir / "pack";

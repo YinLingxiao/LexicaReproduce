@@ -116,3 +116,23 @@ C++ 测试新增跨数据库请求重放、Application 重开、同路径数据�
 | 截图 | `docs/parity/evidence/inevitable-hour.png` |
 
 旧数据库中已经写入的 A1～C2 在 0006 迁移中标记为 `legacy_unverified`，界面显示“旧版推断 · 估算”；`R` 和任何非 A1～C2 值按无等级处理，不再生成 `CEFR-R` 或 88% 难度。原有排名保留，但旧 ECDICT 行的来源显示“来源未记录”；种子词库的近似排序值 `seed_approx` 不再画成词频。个人收藏、笔记、接触和复习记录不在此迁移中改写。
+
+## 联合修复后的最终验证（2026-10-27）
+
+当前合同 1.2.0、schema 6。机器可读汇总见 [final-validation.json](evidence/final-validation.json)，真实页面截图见 [inevitable-hour-verified.png](evidence/inevitable-hour-verified.png)。
+
+| 验证 | 结果 | 日志 |
+|---|---|---|
+| MSVC Debug | 构建及 CTest 10/10 通过，含新增慢速导入回归 | `build-parity-msvc/final-acceptance-debug-build.log` |
+| MSVC Release | 构建、CTest 10/10、HTTP 和 WebView2 通过 | `final-acceptance-complete.log` |
+| UI | 类型检查 0 错误 0 警告；真实页面 3/3；夹具 22/22 | `final-acceptance-ui.log` |
+| 最终分发包 | 浏览器 3/3、HTTP 18 项、原生 WebView2 通过 | `final-acceptance-packaged-ui.log`、`final-acceptance-packaged-rpc.log`、`test-output/package-final` |
+| 安装、升级、卸载 | 中文目录、保留其他文件和拒绝非法目标通过 | `final-acceptance-install.log` |
+| 全量 ECDICT | 导入 3,401,132 条，总词数 3,401,187；1,010 次并发查词全命中，最大 382 ms；重启正常 | `final-acceptance-import-fixed.log` |
+| 真实库副本迁移 5→6 | 340 万词和各学习事实计数不变，笔记哈希一致，integrity_check=ok | `test-output/migration-live` |
+
+上表未写目录前缀的日志均位于 build-parity-msvc。完整导入读取已有原始 ECDICT 文件，本轮没有重复公网下载。所有压力测试和迁移验证写独立目录。
+
+本轮追加修复了两处真实问题：服务没有关闭 csp.txt 句柄导致 Windows 阻止重新构建；导入写事务长时间占用 SQLite 写锁导致前台查词保存接触记录失败。现在会关闭策略文件、延迟创建导入事务、按条数和约 200 ms 双重边界提交，并在批次间让前台回调完成。HTTP 测试读取源合同和迁移版本，另验证运行中的策略文件可被替换。
+
+原版逐像素对照、真实发音听感、付费 AI 和全新 Windows 机器验收仍未完成；词根/助记中的启发式内容不在本轮权威语言资料验收范围内。不得把自动测试通过等同于所有内容或所有场景已达 1:1。

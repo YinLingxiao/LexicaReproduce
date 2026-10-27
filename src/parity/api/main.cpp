@@ -72,6 +72,8 @@ int main() {
     server.set_write_timeout(600, 0);
     std::ifstream policyFile(web / L"csp.txt", std::ios::binary);
     const std::string policy(std::istreambuf_iterator<char>(policyFile), {});
+    // Do not keep a Windows handle open while build tools replace ui/build.
+    policyFile.close();
     server.set_payload_max_length(1024 * 1024);
     auto subscribers = std::make_shared<std::atomic<int>>(0);
     server.set_pre_routing_handler(

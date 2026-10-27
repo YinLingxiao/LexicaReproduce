@@ -79,6 +79,8 @@ struct EcdictImportHooks {
   std::function<void()> beforeCommit;
   std::function<void()> betweenBatches;
 };
+// Let a pending foreground callback finish between import transactions.
+EcdictImportHooks interactiveImportHooks(Context &context);
 struct EnsureOptions {
   std::vector<std::string> urls;
 };

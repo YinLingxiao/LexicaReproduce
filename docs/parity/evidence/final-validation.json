@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-27",
+  "contract_version": "1.2.0",
+  "schema_version": 6,
+  "msvc_debug_ctest": {
+    "passed": 10,
+    "total": 10
+  },
+  "msvc_release_ctest": {
+    "passed": 10,
+    "total": 10
+  },
+  "production_browser": {
+    "passed": 3,
+    "total": 3
+  },
+  "fixture_browser": {
+    "passed": 22,
+    "total": 22
+  },
+  "packaged_http": {
+    "checks": 18,
+    "policy_file_replacement": true
+  },
+  "packaged_webview2": true,
+  "install_upgrade_uninstall": true,
+  "full_import": {
+    "ok": true,
+    "lookups": 1010,
+    "hits": 1010,
+    "failures": [],
+    "max_lookup_ms": 382,
+    "import_ms": 295207,
+    "imported": 3401132,
+    "info": {
+      "dictionary_ready": true,
+      "fts_ok": true,
+      "schema_version": 6,
+      "word_count": 3401187
+    },
+    "restart_verified": true
+  },
+  "migration": {
+    "ok": true,
+    "from_schema": 5,
+    "to_schema": 6,
+    "counts": {
+      "words": 3401187,
+      "senses": 3411648,
+      "encounters": 8,
+      "word_notes": 0,
+      "reviews": 1,
+      "review_attempts": 1,
+      "memory_states": 9
+    },
+    "notes_preserved": true,
+    "integrity_check": "ok"
+  }
+}

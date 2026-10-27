@@ -76,7 +76,8 @@ void registerDictionary(Router &router) {
     auto database = openConfiguredDatabase(context.db.path());
     backfillSeedMetadata(database.get(), now);
     const auto imported = importEcdictDatabase(
-        database.get(), std::filesystem::u8path(input.sourcePath), now);
+        database.get(), std::filesystem::u8path(input.sourcePath), now,
+        interactiveImportHooks(context));
     if (ecdictCount(database.get()) >= kDictionaryReadyMinEntries)
       writeReadyMarker(context.db.path());
     return Json(imported);

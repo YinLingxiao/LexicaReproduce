@@ -5,18 +5,25 @@ import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const contract=JSON.parse(fs.readFileSync(path.join(root,'contracts/commands.json'),'utf8'));
+const schema=fs.readdirSync(path.join(root,'src/parity/storage/migrations')).filter(name=>/^\d+_.*\.sql$/.test(name)).length;
 const exe=path.resolve(root,process.argv[2]??'build-parity-msvc/src/parity/Debug/lexica_parity_server.exe');
 const data=path.join(root,'build-parity-msvc/test-output/rpc',`${process.pid}-${Date.now()}`,'中文数据库');
 fs.mkdirSync(data,{recursive:true});
+const ui=path.join(data,'ui');
+fs.mkdirSync(ui,{recursive:true});
+for(const name of ['index.html','csp.txt'])fs.copyFileSync(path.join(root,'ui/build',name),path.join(ui,name));
 const port=await new Promise(resolve=>{const server=net.createServer();server.listen(0,'127.0.0.1',()=>{const p=server.address().port;server.close(()=>resolve(p));});});
-const child=spawn(exe,['--port',String(port),'--data-dir',data,'--ui-dir',path.join(root,'ui/build')],{cwd:root,windowsHide:true,stdio:['ignore','pipe','pipe']});
+const child=spawn(exe,['--port',String(port),'--data-dir',data,'--ui-dir',ui],{cwd:root,windowsHide:true,stdio:['ignore','pipe','pipe']});
 let errors='';child.stderr.on('data',chunk=>errors+=chunk);
 try{
   await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Backend startup timeout: '+errors)),10000);child.on('error',reject);child.once('exit',code=>{clearTimeout(timer);reject(Error(`Backend exited ${code}: ${errors}`));});child.stdout.on('data',chunk=>{if(String(chunk).includes('development server')){clearTimeout(timer);resolve();}});});
   const base=`http://127.0.0.1:${port}`;let sequence=0;
+  fs.renameSync(path.join(ui,'csp.txt'),path.join(ui,'csp.probe'));
+  fs.renameSync(path.join(ui,'csp.probe'),path.join(ui,'csp.txt'));
   const rpc=async(command,args={})=>{const request_id=`rpc-${++sequence}`;const r=await fetch(base+'/rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({protocol_version:1,request_id,command,args})});assert.equal(r.status,200);const result=await r.json();assert.equal(result.request_id,request_id);return result;};
-  const info=await rpc('app_info');assert.equal(info.ok,true);assert.equal(info.result.word_count,55);assert.equal(info.result.schema_version,5);assert.equal(info.result.fts_ok,true);
-  const caps=await rpc('system_capabilities');assert.equal(caps.ok,true);assert.equal(caps.result.contract_version,'1.1.0');
+  const info=await rpc('app_info');assert.equal(info.ok,true);assert.equal(info.result.word_count,55);assert.equal(info.result.schema_version,schema);assert.equal(info.result.fts_ok,true);
+  const caps=await rpc('system_capabilities');assert.equal(caps.ok,true);assert.equal(caps.result.contract_version,contract.contract_version);
   const note=caps.result.commands.find(command=>command.name==='save_word_note');
   assert.equal(note.available,true);
   assert.equal(caps.result.commands.filter(command=>command.available).length,31);
@@ -39,6 +46,6 @@ try{
   const during=await Promise.race([rpc('lookup_word',{word:'meticulous'}),new Promise((_,reject)=>setTimeout(()=>reject(Error('SSE subscriptions starved RPC workers')),4000))]);assert.equal(during.ok,true);assert.equal(during.result.outcome.type,'hit');
   for(const response of extraStreams) await response.body.cancel();
   await reader.cancel();
-  const result={ok:true,checks:17,transport:'real HTTP / C++ / SQLite',schema_version:info.result.schema_version,seed_words:info.result.word_count,unicode_path:true,events:true,concurrent_event_subscriptions:8,available_commands:31,contract_version:caps.result.contract_version};
+  const result={ok:true,checks:18,policy_file_replacement:true,transport:'real HTTP / C++ / SQLite',schema_version:info.result.schema_version,seed_words:info.result.word_count,unicode_path:true,events:true,concurrent_event_subscriptions:8,available_commands:31,contract_version:caps.result.contract_version};
   fs.writeFileSync(path.join(data,'report.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
 }finally{child.kill();}
