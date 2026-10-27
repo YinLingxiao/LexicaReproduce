@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 # 编译 C 的 SQLite 和 C++ 的业务代码。
-project(lexica LANGUAGES C CXX)
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" LEXICA_VERSION LIMIT_COUNT 1)
+project(lexica VERSION ${LEXICA_VERSION} LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,7 +13,7 @@ add_compile_definitions(NOMINMAX)
 if(MINGW)
   add_compile_options(-finput-charset=UTF-8 -fexec-charset=UTF-8 -Wall -Wextra)
 elseif(MSVC)
-  add_compile_options(/utf-8)
+  add_compile_options("$<$<COMPILE_LANGUAGE:C,CXX>:/utf-8>")
 endif()
 
 # 先把 SQLite 编译成公共库，词库、个人词汇和复习模块都连接它。

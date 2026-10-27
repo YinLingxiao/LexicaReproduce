@@ -47,6 +47,15 @@ if(LEXICA_BUILD_DESKTOP)
     ole32 oleaut32 shlwapi shell32 user32 version advapi32)
 endif()
 
+if(MSVC)
+  enable_language(RC)
+  configure_file(desktop/version.rc.in "${CMAKE_CURRENT_BINARY_DIR}/generated/version.rc" @ONLY)
+  target_sources(lexica_parity_server PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/version.rc")
+  if(TARGET lexica_desktop)
+    target_sources(lexica_desktop PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/version.rc")
+  endif()
+endif()
+
 find_program(LEXICA_NPM NAMES npm.cmd npm HINTS "C:/Program Files/nodejs")
 if(LEXICA_NPM)
   add_custom_target(lexica_ui

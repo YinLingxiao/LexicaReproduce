@@ -2,6 +2,8 @@
 
 Windows 上的本地词汇学习程序，提供词库导入、查词、个人词汇、复习、统计和可选 AI 例句。项目按功能组织，不再按开发人员分目录。
 
+Windows 程序下载：[0.1.0 Release](https://github.com/YinLingxiao/LexicaReproduce/releases/tag/v0.1.0)。解压完整程序包后运行 `lexica_desktop.exe`，环境要求及说明见 [0.1.0 使用说明](docs/parity/RELEASE-0.1.0.md)。
+
 ## C++ / WebView2 复刻版
 
 原版 Lexica 0.2.0 的 C++/WebView2 + Svelte 基座已放在 `src/parity` 和 `ui`，与下文的旧版业务和数据库隔离。公共接口、模型和并行开发边界见 [Phase 0 交接入口](docs/parity/README.md)，六个 Agent 的任务提示词见 [任务入口](docs/agents/README.md)。
