@@ -83,6 +83,7 @@ void testGrader() {
   check(l::isCorrect("Subtl", "subtle"), "distance one");
   check(l::isCorrect(" meticulous ", "meticulous"), "trim");
   check(l::isCorrect("ｍｅｔｉｃｕｌｏｕｓ", "meticulous"), "fullwidth");
+  check(l::isCorrect("ﬁnish", "finish"), "nfkc ligature");
   check(!l::isCorrect("Meticulosu", "meticulous"), "transpose");
   check(l::editDistance("kitten", "sitting") == 3, "edit");
   check(l::qualityFor(true, 0) == p::RecallQuality::Excellent, "q0");

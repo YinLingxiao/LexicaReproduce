@@ -1,4 +1,5 @@
 #include "parity/modules/learning/grader.h"
+#include "parity/modules/dictionary/normalize.h"
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -108,50 +109,7 @@ std::size_t distance(const std::vector<char32_t> &left,
 }
 } // namespace
 std::string normalizeWord(const std::string &input) {
-  auto chars = decode(input).data;
-  for (auto &cp : chars)
-    if (cp >= 0xFF01 && cp <= 0xFF5E)
-      cp -= 0xFEE0;
-  std::size_t begin = 0, end = chars.size();
-  while (begin < end && isSpace(chars[begin]))
-    ++begin;
-  while (end > begin && isSpace(chars[end - 1]))
-    --end;
-  std::string lowered = encode(chars, begin, end);
-  auto wide = std::wstring();
-  if (!lowered.empty()) {
-    const int size = MultiByteToWideChar(CP_UTF8, 0, lowered.data(),
-                                         static_cast<int>(lowered.size()), nullptr, 0);
-    wide.resize(size);
-    MultiByteToWideChar(CP_UTF8, 0, lowered.data(), static_cast<int>(lowered.size()),
-                        wide.data(), size);
-    if (!wide.empty())
-      CharLowerBuffW(wide.data(), static_cast<DWORD>(wide.size()));
-    const int bytes = WideCharToMultiByte(CP_UTF8, 0, wide.data(),
-                                          static_cast<int>(wide.size()), nullptr, 0,
-                                          nullptr, nullptr);
-    lowered.resize(bytes);
-    WideCharToMultiByte(CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()),
-                        lowered.data(), bytes, nullptr, nullptr);
-  }
-  std::string quotes;
-  quotes.reserve(lowered.size());
-  auto cps = decode(lowered).data;
-  for (auto cp : cps) {
-    if (cp == 0x2018 || cp == 0x2019 || cp == '`' || cp == 0x00B4)
-      cp = '\'';
-    else if (cp == 0x201C || cp == 0x201D)
-      cp = '"';
-    append(quotes, cp);
-  }
-  auto trimmed = decode(quotes).data;
-  begin = 0;
-  end = trimmed.size();
-  while (begin < end && (trimmed[begin] == '\'' || trimmed[begin] == '"'))
-    ++begin;
-  while (end > begin && (trimmed[end - 1] == '\'' || trimmed[end - 1] == '"'))
-    --end;
-  return encode(trimmed, begin, end);
+  return lexica::parity::normalizeWord(input);
 }
 std::optional<std::string> blankWord(const std::string &text, const std::string &word) {
   auto wordChars = decode(word).data;
