@@ -15,10 +15,42 @@ test.beforeEach(async ({page}) => {
 	await installContractFixture(page);
 });
 
+test('motion respects reduced motion and keeps navigation usable on compact screens', async ({page}) => {
+	await page.emulateMedia({reducedMotion: 'no-preference'});
+	await page.goto('/stats');
+	await expect(page.locator('.metric').first()).toBeVisible();
+	await expect(page.locator('.page')).toHaveCSS('animation-name', 'lexica-enter');
+	await expect(page.locator('.chart .bar').first()).toHaveCSS('animation-name', 'lexica-grow');
+	await page.emulateMedia({reducedMotion: 'reduce'});
+	await expect(page.locator('.page')).toHaveCSS('animation-name', 'none');
+	await expect(page.locator('.chart .bar').first()).toHaveCSS('animation-name', 'none');
+	await page.setViewportSize({width: 480, height: 820});
+	await page.getByRole('navigation', {name: 'Main (compact)', exact: true}).getByRole('link', {name: 'Settings', exact: true}).click();
+	await expect(page).toHaveURL(/\/settings/);
+	await expect(page.locator('.page')).toHaveCSS('animation-name', 'none');
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('study settings disclosure opens and closes without changing the card', async ({page}) => {
+	await onStudy(page, [1, 2]);
+	await page.goto('/review');
+	const heading = page.getByRole('heading', {name: 'meticulous', exact: true});
+	await expect(heading).toBeVisible();
+	for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+		await page.emulateMedia({reducedMotion});
+		await page.locator('.settings-btn').click();
+		await expect(page.locator('#study-settings')).toBeVisible();
+		await page.getByRole('button', {name: '关闭学习设置'}).click();
+		await expect(page.locator('#study-settings')).toHaveCount(0);
+		await expect(heading).toBeVisible();
+	}
+	expect((await calls(page)).filter(call => call.command === 'study_grade')).toHaveLength(0);
+});
+
 test('home hit, miss, load, error retry, keyboard and deep link', async ({page}) => {
 	await page.goto('/');
 	await expect(page.getByText(`${entries.length} entries · offline`)).toBeVisible();
-	await page.screenshot({path: test.info().outputPath('home-1180.png'), fullPage: true});
+	await page.screenshot({path: test.info().outputPath('home-1180.png'), fullPage: true, animations: 'disabled'});
 	await expect(page.locator('body')).toHaveCSS('font-family', /Lexica Sans/);
 	const input = page.getByRole('combobox', {name: 'Search for a word'});
 	await input.fill('met');
@@ -28,7 +60,7 @@ test('home hit, miss, load, error retry, keyboard and deep link', async ({page})
 	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toBeVisible();
 	await expect(page).toHaveURL(/word=meticulous/);
 	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toHaveCSS('font-family', /Newsreader/);
-	await page.screenshot({path: test.info().outputPath('word-1180.png'), fullPage: true});
+	await page.screenshot({path: test.info().outputPath('word-1180.png'), fullPage: true, animations: 'disabled'});
 	await page.locator('a.back').click();
 	await expect(input).toBeVisible();
 	await page.keyboard.press('Control+k');
@@ -267,8 +299,9 @@ test('study card browse is read-only until graded, and forgot returns to the end
 	await page.keyboard.press('3');
 	await expect(page.getByText(/Browse · /)).toContainText('2');
 	await page.getByRole('button', {name: '认识', exact: true}).click();
-	await expect(page.getByText('忘记')).toBeVisible();
-	await expect(page.getByText('认识')).toBeVisible();
+	await expect(page.getByRole('heading', {name: 'Group complete'})).toBeVisible();
+	await expect(page.locator('.summary').getByText('忘记')).toBeVisible();
+	await expect(page.locator('.summary').getByText('认识')).toBeVisible();
 	const grades = (await calls(page)).filter((call) => call.command === 'study_grade').map((call) => call.args.grade);
 	expect(grades).toEqual(['forgot', 'know']);
 });

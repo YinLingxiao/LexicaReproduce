@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { disclosure } from '$lib/motion';
 	import { goto } from '$app/navigation';
 	import {
 		studyGroup,
@@ -510,7 +511,7 @@
 		</div>
 		<progress max={queue.length} value={browseIdx + 1} aria-label="Browse progress"></progress>
 		{#if showSettings}
-			<div class="settings-drawer" id="study-settings">
+			<div class="settings-drawer" id="study-settings" transition:disclosure>
 				<StudySettingsPanel onClose={() => (showSettings = false)} />
 			</div>
 		{/if}

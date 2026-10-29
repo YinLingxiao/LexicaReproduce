@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '../app.css';
+	import '../motion.css';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import Icon from '$lib/components/Icon.svelte';

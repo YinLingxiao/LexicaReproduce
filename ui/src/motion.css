@@ -1,0 +1,55 @@
+/* Presentation-only motion: no delayed interaction or animated numeric data. */
+@keyframes lexica-enter {
+	from { opacity: 0; transform: translateY(10px); }
+	to { opacity: 1; transform: none; }
+}
+@keyframes lexica-grow {
+	from { transform: scaleY(0); }
+	to { transform: scaleY(1); }
+}
+@keyframes lexica-confirm {
+	from { opacity: 0; transform: scale(.82); }
+	to { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: no-preference) {
+	.page { animation: lexica-enter 280ms var(--ease) both; }
+	.metric, .word-row, .extra-card, .hints li, .save-message,
+	.translation-summary, .empty, .error {
+		animation: lexica-enter 300ms var(--ease) both;
+	}
+	/* Cap stagger at 120ms: long lists should never make users wait. */
+	.word-row:nth-child(2), .metric:nth-child(2) { animation-delay: 30ms; }
+	.word-row:nth-child(3), .metric:nth-child(3) { animation-delay: 60ms; }
+	.word-row:nth-child(4), .metric:nth-child(4) { animation-delay: 90ms; }
+	.word-row:nth-child(n+5) { animation-delay: 120ms; }
+	.chart .bar {
+		transform-origin: bottom;
+		animation: lexica-grow 520ms var(--ease) both;
+		animation-delay: calc(var(--bar-index, 0) * 18ms);
+	}
+	.feedback .answer-icon, .empty-icon {
+		animation: lexica-confirm 320ms var(--ease) both;
+	}
+	.word-row, .book, .metric {
+		transition: background-color 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+	}
+	:is(.sidebar, .bottom-nav) nav a, .bottom-nav a {
+		transition: background-color 180ms ease, color 180ms ease;
+	}
+	:is(.sidebar, .bottom-nav) a svg {
+		transition: transform 220ms var(--ease);
+	}
+	:is(.sidebar, .bottom-nav) a[aria-current='page'] svg { transform: scale(1.08); }
+	.book-bar > span { transition: width 350ms var(--ease); }
+	progress::-webkit-progress-value { transition: width 300ms var(--ease); }
+	progress::-moz-progress-bar { transition: width 300ms var(--ease); }
+	button[aria-pressed='true'] > svg { animation: lexica-confirm 240ms var(--ease); }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+	.word-row:hover, .book:hover { background-color: var(--soft); }
+	.metric:hover { box-shadow: 0 6px 20px -10px color-mix(in srgb, var(--accent) 25%, transparent); }
+	:is(.sidebar, .bottom-nav) a:hover svg { transform: translateY(-2px); }
+	.button { transition: transform 160ms var(--ease), background-color 160ms ease; }
+	.button:hover { transform: translateY(-1px); }
+	.button:active { transform: translateY(1px); }
+}

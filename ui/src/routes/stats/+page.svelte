@@ -67,6 +67,7 @@
 			>
 				{#each days as d, i}<div
 						class="chart-column"
+						style:--bar-index={i}
 						title={`${d.date}: ${d.lookups} lookups, ${d.reviews} reviews`}
 					>
 						<div class="bar-track">
