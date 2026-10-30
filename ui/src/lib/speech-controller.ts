@@ -77,23 +77,23 @@ interface Job {
 const REPEAT_GAP_MS = 350;
 
 function accentName(accent: string, language: string): string {
-	if (accent === 'US') return '美式英语';
-	if (accent === 'UK') return '英式英语';
+	if (accent === 'US') return 'American English';
+	if (accent === 'UK') return 'British English';
 	return language;
 }
 
 function noticeFor(job: Job, audio: SynthesisAudio): string {
-	const actual = `${audio.voiceLabel}（${accentName(audio.actualAccent, audio.language)}）`;
-	if (!audio.substituted) return `当前音色：${actual}`;
-	if (job.voiceId)
-		return `所选音色是 ${actual}，不是请求的${job.accent === 'US' ? '美式英语' : '英式英语'}。`;
+	const actual = `${audio.voiceLabel} (${accentName(audio.actualAccent, audio.language)})`;
+	if (!audio.substituted) return `Voice: ${actual}`;
 	const wanted =
 		job.accent === 'US'
-			? '美式英语'
+			? 'American English'
 			: job.accent === 'UK'
-				? '英式英语'
-				: '所选口音';
-	return `请求的${wanted}不可用，实际使用 ${actual}。`;
+				? 'British English'
+				: 'preferred accent';
+	if (job.voiceId)
+		return `Selected voice: ${actual}. Your accent preference is ${wanted}.`;
+	return `${wanted} is unavailable. Using ${actual}.`;
 }
 
 function blocked(error: unknown): boolean {
@@ -204,12 +204,12 @@ export function createSpeechController(deps: SpeechDeps) {
 						.catch((error: unknown) =>
 							fail(
 								blocked(error)
-									? '自动播放被拦截，请点击按钮手动朗读。'
-									: '播放失败',
+									? 'Autoplay was blocked. Click the speaker to play.'
+									: 'Audio playback failed.',
 							),
 						);
 				} catch {
-					fail('播放失败');
+					fail('Audio playback failed.');
 				}
 			};
 			element.onended = () => {
@@ -227,7 +227,7 @@ export function createSpeechController(deps: SpeechDeps) {
 					start();
 				}, REPEAT_GAP_MS);
 			};
-			element.onerror = () => fail('播放失败');
+			element.onerror = () => fail('Audio playback failed.');
 			start();
 		});
 	}
@@ -258,7 +258,9 @@ export function createSpeechController(deps: SpeechDeps) {
 							? error
 							: new SpeechError(
 									'RESOURCE_ERROR',
-									error instanceof Error ? error.message : '朗读失败',
+									error instanceof Error
+										? error.message
+										: 'Pronunciation failed.',
 								);
 					if (speech.code === 'CANCELLED') {
 						set({ phase: 'idle', error: '' });
@@ -277,7 +279,11 @@ export function createSpeechController(deps: SpeechDeps) {
 					await playRepeats(job, audio);
 				} catch {
 					if (job.token === epoch)
-						set({ phase: 'error', error: '播放失败', notice: '' });
+						set({
+							phase: 'error',
+							error: 'Audio playback failed.',
+							notice: '',
+						});
 				}
 			}
 		} finally {
@@ -297,7 +303,7 @@ export function createSpeechController(deps: SpeechDeps) {
 			queued = null;
 			set({
 				phase: 'error',
-				error: '没有可朗读的文本',
+				error: 'No text to read.',
 				notice: '',
 				playKey,
 				token,
@@ -306,7 +312,13 @@ export function createSpeechController(deps: SpeechDeps) {
 		}
 		if (new TextEncoder().encode(text).byteLength > 2000) {
 			queued = null;
-			set({ phase: 'error', error: '文本过长', notice: '', playKey, token });
+			set({
+				phase: 'error',
+				error: 'Text is too long.',
+				notice: '',
+				playKey,
+				token,
+			});
 			return;
 		}
 		const job: Job = {

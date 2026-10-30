@@ -200,11 +200,11 @@ int main() {
     scripted->listed.message.clear();
     const auto none = synth(app, "hello", 10, {{"accent", "US"}});
     check(none["ok"] == false && none["error"]["code"] == "RESOURCE_ERROR" &&
-              std::string(none["error"]["message"]).find("文字转语音") != std::string::npos,
+              std::string(none["error"]["message"]).find("Text-to-speech") != std::string::npos,
           none.dump());
     const auto listed = call(app, "tts_voices", p::Json::object());
     check(listed["result"]["supported"] == true && listed["result"]["voices"].empty() &&
-              std::string(listed["result"]["message"]).find("文字转语音") != std::string::npos,
+              std::string(listed["result"]["message"]).find("Text-to-speech") != std::string::npos,
           listed.dump());
     scripted->listed.voices = {{"us", "Zira", "en-US", "US"}};
     scripted->fail = true;
@@ -249,7 +249,7 @@ int main() {
     if (liveVoices["result"]["voices"].empty()) {
       const auto denied = synth(app, "hello", 30, {{"accent", "US"}, {"rate", 1}});
       check(denied["error"]["code"] == "RESOURCE_ERROR", denied.dump());
-      check(std::string(denied["error"]["message"]).find("文字转语音") != std::string::npos,
+      check(std::string(denied["error"]["message"]).find("Text-to-speech") != std::string::npos,
             denied.dump());
       report << "platform=no-english-voice\n";
       std::cout << "tts has no English voice\n";

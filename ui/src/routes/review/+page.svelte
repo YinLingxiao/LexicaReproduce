@@ -49,14 +49,14 @@
 	const BOOK_LABELS: Record<string, string> = {
 		cet4: 'CET-4',
 		cet6: 'CET-6',
-		ky: '考研',
+		ky: "Postgraduate",
 		toefl: 'TOEFL',
 		ielts: 'IELTS',
 		gre: 'GRE',
-		gk: '高考',
+		gk: "Gaokao",
 		oxford: 'Oxford 3000',
-		custom: '自定义词库',
-		encountered: '查词记录'
+		custom: "Custom wordbook",
+		encountered: "Search history"
 	};
 
 	let phase = $state<Phase>('loading');
@@ -127,7 +127,7 @@
 	const newCount = $derived(group.filter((c, i) => c.is_new && !ignored[i]).length);
 	const reviewCount = $derived(group.filter((c, i) => !c.is_new && !ignored[i]).length);
 	const bookLabel = $derived(
-		fromStudy ? (BOOK_LABELS[preferences.study.wordbook] ?? preferences.study.wordbook) : '复习'
+		fromStudy ? (BOOK_LABELS[preferences.study.wordbook] ?? preferences.study.wordbook) : "Review"
 	);
 
 	const current = $derived(order[pos] !== undefined ? group[order[pos]] : undefined);
@@ -572,26 +572,26 @@
 	{#if phase === 'loading'}<div class="skeleton" role="status" aria-label="Loading review"></div>
 	{:else if phase === 'error'}<section class="panel empty">
 			{#if activeMode === 'due'}
-				<h2>到期复习暂时无法加载</h2>
+				<h2>Due reviews unavailable</h2>
 			{:else if activeMode === 'new'}
-				<h2>新词学习暂时无法加载</h2>
+				<h2>New words unavailable</h2>
 			{:else}
 				<h2>Review unavailable</h2>
 			{/if}
 			<p class="error" role="alert">{error}</p>
-			<button onclick={() => load(activeMode)}>{activeMode === 'default' ? 'Reload' : '重试'}</button>
+			<button onclick={() => load(activeMode)}>{activeMode === 'default' ? 'Reload' : "Try again"}</button>
 		</section>
 	{:else if phase === 'empty'}<section class="panel empty">
 			{#if activeMode === 'due'}
-				<h2>{showRoundDone ? '本轮已完成' : '当前暂无到期复习'}</h2>
-				<p>{showRoundDone ? '本轮已完成。当前暂无到期复习。' : '到期队列是空的。'}</p>
-				<a href="/" class="button primary">继续查词</a>
-				<a class="button" href="/review?mode=new">学习新词</a>
+				<h2>{showRoundDone ? "Round complete" : "Nothing due"}</h2>
+				<p>{showRoundDone ? "Round complete. No more words are due." : "No words are due for review."}</p>
+				<a href="/" class="button primary">Continue searching</a>
+				<a class="button" href="/review?mode=new">Learn new words</a>
 			{:else if activeMode === 'new'}
-				<h2>当前没有新词</h2>
-				<p>这是当前词书的新词学习，不是到期复习。</p>
-				<a href="/" class="button primary">继续查词</a>
-				<a class="button" href="/review?mode=due">查看到期复习</a>
+				<h2>No new words available</h2>
+				<p>New words from your selected wordbook.</p>
+				<a href="/" class="button primary">Continue searching</a>
+				<a class="button" href="/review?mode=due">View due reviews</a>
 			{:else}
 				<div class="empty-icon"><Icon name="check" size={28} /></div>
 				<h2>Nothing due</h2>
@@ -602,10 +602,10 @@
 	{:else if phase === 'browse' && browseCard}
 		<div class="session-top">
 			<span>Browse · <strong>{browseIdx + 1}</strong> / {queue.length}</span>
-			{#if activeMode === 'due'}<span class="counts">到期复习</span>{:else if activeMode === 'new'}<span
-					class="counts">新词学习 · {bookLabel}</span
+			{#if activeMode === 'due'}<span class="counts">Due reviews</span>{:else if activeMode === 'new'}<span
+					class="counts">New words · {bookLabel}</span
 				>{/if}
-			{#if fromStudy}<span class="counts">{bookLabel} · 新词 {newCount} · 复习 {reviewCount}</span
+			{#if fromStudy}<span class="counts">{bookLabel} · New {newCount} · Review {reviewCount}</span
 				>{/if}
 			<div class="top-actions">
 				<button
@@ -613,7 +613,7 @@
 					aria-expanded={showSettings}
 					aria-controls="study-settings"
 					onclick={() => (showSettings = !showSettings)}
-					><Icon name="settings" size={14} />设置</button
+					><Icon name="settings" size={14} />Settings</button
 				>
 				<a href="/">Exit <Icon name="close" size={14} /></a>
 			</div>
@@ -656,7 +656,7 @@
 				>
 			</div>
 		</div>
-		<p class="key-hint muted small">← → 切换 · Space / Enter 认识 · 1 / 2 / 3 认识 / 模糊 / 忘记</p>
+		<p class="key-hint muted small">← → Switch words · Space / Enter Know · 1 / 2 / 3 Know / Not sure / Forgot</p>
 	{:else if phase === 'practice' && current && currentPrompt}
 		<div class="session-top">
 			<span><strong>{solvedCount}</strong> / {practiceTotal} recalled</span>
@@ -761,24 +761,24 @@
 	{:else if phase === 'done' && activeMode === 'due'}
 		<section class="panel empty">
 			<div class="empty-icon"><Icon name="check" size={28} /></div>
-			<h2>本轮已完成</h2>
+			<h2>Round complete</h2>
 			<div class="summary">
 				{#if practiced}
 					<div><span>{mastered}</span>recalled first try</div>
 					<div><span>{retried}</span>needed practice</div>
 					<div><span>{practiceTotal}</span>in group</div>
 				{:else}
-					<div><span>{gradeCounts.know}</span>认识</div>
-					<div><span>{gradeCounts.hazy}</span>模糊</div>
-					<div><span>{gradeCounts.forgot}</span>忘记</div>
+					<div><span>{gradeCounts.know}</span>Know</div>
+					<div><span>{gradeCounts.hazy}</span>Not sure</div>
+					<div><span>{gradeCounts.forgot}</span>Forgot</div>
 				{/if}
 			</div>
-			{#if followUp === 'loading'}<p role="status">正在读取剩余到期数量</p>
-			{:else if followUp === 'error'}<p class="error" role="alert">剩余数量暂时读不出来。可以继续获取下一组。</p>
-			{:else if followUp === 0}<p>统计显示当前没有剩余到期词。如果和队列不一致，可以再获取一次。</p>
-			{:else if typeof followUp === 'number'}<p>统计显示仍有 {followUp.toLocaleString()} 个到期。这个数字和下一组可能不一致。</p>{/if}
-			<button class="primary" onclick={() => load('due')}>继续获取到期词</button>
-			<a href="/" class="button">返回首页</a>
+			{#if followUp === 'loading'}<p role="status">Checking remaining due words…</p>
+			{:else if followUp === 'error'}<p class="error" role="alert">Could not load the remaining count. You can still fetch the next group.</p>
+			{:else if followUp === 0}<p>No words are currently due. Refresh the queue to check again.</p>
+			{:else if typeof followUp === 'number'}<p> {followUp.toLocaleString()} words are still due. Fetch the next group to refresh the queue.</p>{/if}
+			<button class="primary" onclick={() => load('due')}>Get next due group</button>
+			<a href="/" class="button">Back to search</a>
 		</section>
 	{:else if phase === 'done'}
 		<section class="panel empty">
@@ -790,9 +790,9 @@
 					<div><span>{retried}</span>needed practice</div>
 					<div><span>{practiceTotal}</span>in group</div>
 				{:else}
-					<div><span>{gradeCounts.know}</span>认识</div>
-					<div><span>{gradeCounts.hazy}</span>模糊</div>
-					<div><span>{gradeCounts.forgot}</span>忘记</div>
+					<div><span>{gradeCounts.know}</span>Know</div>
+					<div><span>{gradeCounts.hazy}</span>Not sure</div>
+					<div><span>{gradeCounts.forgot}</span>Forgot</div>
 				{/if}
 			</div>
 			<a href="/" class="button primary">Done <Icon name="arrow" size={16} /></a><button

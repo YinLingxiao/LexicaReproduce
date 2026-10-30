@@ -3,8 +3,8 @@ import type { Sense, WordEntry } from '$lib/api';
 export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
 export type CefrLevel = (typeof CEFR_LEVELS)[number];
 
-export const NO_LEVEL_LABEL = '暂无等级数据';
-export const NO_FREQUENCY_LABEL = '暂无词频数据';
+export const NO_LEVEL_LABEL = "Level unavailable";
+export const NO_FREQUENCY_LABEL = "Frequency unavailable";
 
 const KNOWN_FREQUENCY_SOURCES = new Set(['ecdict.frq', 'ecdict.bnc']);
 
@@ -21,15 +21,15 @@ export function senseLevel(sense: Sense | null | undefined): CefrLevel | null {
 export function levelSourceLabel(source: string | null | undefined): string {
 	switch (source?.trim()) {
 		case 'seed':
-			return '词表标注';
+			return "Wordlist label";
 		case 'ecdict_inferred':
-			return '估算';
+			return "Estimated";
 		case 'legacy_unverified':
-			return '旧版推断';
+			return "Legacy estimate";
 		case 'official':
-			return '官方分级';
+			return "Official level";
 		default:
-			return '来源未记录';
+			return "Source not recorded";
 	}
 }
 
@@ -66,7 +66,7 @@ export function describeLevel(sense: Sense | null | undefined): LevelDisplay {
 		source,
 		sourceLabel,
 		estimated,
-		label: estimated ? `${level} · 估算` : `${level} · ${sourceLabel}`
+		label: estimated ? `${level} · Estimated` : `${level} · ${sourceLabel}`
 	};
 }
 
@@ -107,16 +107,16 @@ export function describeFrequency(entry: WordEntry | null | undefined): Frequenc
 		rank !== null && source !== null && KNOWN_FREQUENCY_SOURCES.has(source);
 	const sourceLabel =
 		source === 'ecdict.frq'
-			? 'ECDICT 当代语料库词频顺序'
+			? "ECDICT contemporary corpus rank"
 			: source === 'ecdict.bnc'
-				? 'ECDICT 英国国家语料库词频顺序'
+				? "ECDICT British National Corpus rank"
 				: source === 'seed_approx'
-					? '种子词库近似排序值'
+					? "Approximate seed ordering"
 					: source && KNOWN_FREQUENCY_SOURCES.has(source)
 						? source
 						: rank
-							? '来源未记录'
-							: '暂无来源';
+							? "Source not recorded"
+							: "Source unavailable";
 	if (!rank || source === 'seed_approx') {
 		return {
 			rank: source === 'seed_approx' ? null : rank,
@@ -128,8 +128,8 @@ export function describeFrequency(entry: WordEntry | null | undefined): Frequenc
 			label: NO_FREQUENCY_LABEL,
 			explanation:
 				source === 'seed_approx'
-					? '种子词库只有近似排序值，不作为词频展示。'
-					: '没有可用的词频排名。'
+					? "The seed ordering is approximate and is not shown as corpus frequency."
+					: "No frequency rank is available."
 		};
 	}
 	return {
@@ -139,8 +139,8 @@ export function describeFrequency(entry: WordEntry | null | undefined): Frequenc
 		hasRank: true,
 		isCorpusRank,
 		ticks: frequencyTicks(rank),
-		label: `第 ${rank.toLocaleString('zh-CN')} 名`,
-		explanation: '排名越小，越常见。'
+		label: `#${rank.toLocaleString('en-US')}`,
+		explanation: "A lower rank means a more common word."
 	};
 }
 

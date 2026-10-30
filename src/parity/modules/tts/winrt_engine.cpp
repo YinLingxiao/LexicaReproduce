@@ -123,16 +123,16 @@ void appendSapiVoices(TtsCatalog &result) {
 TtsAudio synthesizeSapi(const TtsVoiceInfo &voice, const std::string &text, double rate,
                         const std::function<bool()> &cancelled) {
   if (cancelled())
-    throw Error("CANCELLED", "朗读已取消");
+    throw Error("CANCELLED", "Playback cancelled.");
   IEnumSpObjectTokens *tokens = nullptr;
   ISpObjectTokenCategory *category = nullptr;
   if (FAILED(CoCreateInstance(CLSID_SpObjectTokenCategory, nullptr, CLSCTX_ALL,
                               IID_ISpObjectTokenCategory, reinterpret_cast<void **>(&category))))
-    throw Error("RESOURCE_ERROR", "所选英语音色已不可用。");
+    throw Error("RESOURCE_ERROR", "The selected English voice is unavailable.");
   if (FAILED(category->SetId(SPCAT_VOICES, FALSE)) ||
       FAILED(category->EnumTokens(nullptr, nullptr, &tokens))) {
     category->Release();
-    throw Error("RESOURCE_ERROR", "所选英语音色已不可用。");
+    throw Error("RESOURCE_ERROR", "The selected English voice is unavailable.");
   }
   category->Release();
   ISpObjectToken *selected = nullptr;
@@ -150,7 +150,7 @@ TtsAudio synthesizeSapi(const TtsVoiceInfo &voice, const std::string &text, doub
   }
   tokens->Release();
   if (!selected)
-    throw Error("RESOURCE_ERROR", "所选英语音色已不可用。");
+    throw Error("RESOURCE_ERROR", "The selected English voice is unavailable.");
   ISpVoice *speaker = nullptr;
   IStream *base = nullptr;
   ISpStream *stream = nullptr;
@@ -169,7 +169,7 @@ TtsAudio synthesizeSapi(const TtsVoiceInfo &voice, const std::string &text, doub
       FAILED(CoCreateInstance(CLSID_SpStream, nullptr, CLSCTX_ALL, IID_ISpStream,
                               reinterpret_cast<void **>(&stream)))) {
     release();
-    throw Error("RESOURCE_ERROR", "语音合成失败。");
+    throw Error("RESOURCE_ERROR", "Speech synthesis failed.");
   }
   WAVEFORMATEX format{};
   format.wFormatTag = WAVE_FORMAT_PCM;
@@ -181,32 +181,32 @@ TtsAudio synthesizeSapi(const TtsVoiceInfo &voice, const std::string &text, doub
   if (FAILED(stream->SetBaseStream(base, SPDFID_WaveFormatEx, &format)) ||
       FAILED(speaker->SetVoice(selected)) || FAILED(speaker->SetOutput(stream, TRUE))) {
     release();
-    throw Error("RESOURCE_ERROR", "语音合成失败。");
+    throw Error("RESOURCE_ERROR", "Speech synthesis failed.");
   }
   const long sapiRate = rate <= 0.9 ? -2 : rate >= 1.1 ? 2 : 0;
   speaker->SetRate(sapiRate);
   const auto spoken = speaker->Speak(widen(text).c_str(), SPF_ASYNC | SPF_IS_NOT_XML, nullptr);
   if (FAILED(spoken)) {
     release();
-    throw Error("RESOURCE_ERROR", "语音合成失败。");
+    throw Error("RESOURCE_ERROR", "Speech synthesis failed.");
   }
   for (;;) {
     if (cancelled()) {
       speaker->Speak(nullptr, SPF_PURGEBEFORESPEAK, nullptr);
       release();
-      throw Error("CANCELLED", "朗读已取消");
+      throw Error("CANCELLED", "Playback cancelled.");
     }
     const auto waited = speaker->WaitUntilDone(50);
     if (waited == S_OK)
       break;
     if (FAILED(waited)) {
       release();
-      throw Error("RESOURCE_ERROR", "语音合成失败。");
+      throw Error("RESOURCE_ERROR", "Speech synthesis failed.");
     }
   }
   if (cancelled()) {
     release();
-    throw Error("CANCELLED", "朗读已取消");
+    throw Error("CANCELLED", "Playback cancelled.");
   }
   stream->Close();
   stream->Release();
@@ -217,14 +217,14 @@ TtsAudio synthesizeSapi(const TtsVoiceInfo &voice, const std::string &text, doub
   if (FAILED(base->Stat(&stat, STATFLAG_NONAME)) || stat.cbSize.QuadPart <= 0 ||
       static_cast<std::uint64_t>(stat.cbSize.QuadPart) > kMaxAudio) {
     release();
-    throw Error("RESOURCE_ERROR", stat.cbSize.QuadPart <= 0 ? "合成结果为空" : "合成音频超过大小限制");
+    throw Error("RESOURCE_ERROR", stat.cbSize.QuadPart <= 0 ? "Speech synthesis returned no audio." : "Synthesized audio exceeds the size limit.");
   }
   std::vector<std::uint8_t> bytes(static_cast<std::size_t>(stat.cbSize.QuadPart));
   ULONG read = 0;
   const auto copied = base->Read(bytes.data(), static_cast<ULONG>(bytes.size()), &read);
   release();
   if (FAILED(copied) || read == 0)
-    throw Error("RESOURCE_ERROR", "合成结果为空");
+    throw Error("RESOURCE_ERROR", "Speech synthesis returned no audio.");
   bytes.resize(read);
   if (bytes.size() < 12 || std::memcmp(bytes.data(), "RIFF", 4) != 0 ||
       std::memcmp(bytes.data() + 8, "WAVE", 4) != 0) {
@@ -289,7 +289,7 @@ public:
         return synthesizeOnWorker(voice, text, rate, shouldStop);
       } catch (...) {
         if (!cancelled() && std::chrono::steady_clock::now() >= deadline)
-          throw Error("RESOURCE_ERROR", "语音合成超时");
+          throw Error("RESOURCE_ERROR", "Speech synthesis timed out.");
         throw;
       }
     }));
@@ -312,9 +312,9 @@ private:
     {
       std::lock_guard<std::mutex> lock(queueMu);
       if (stop)
-        throw Error("CANCELLED", "朗读已取消");
+        throw Error("CANCELLED", "Playback cancelled.");
       if (jobs.size() >= 2)
-        throw Error("BUSY", "语音任务过多");
+        throw Error("BUSY", "Too many speech requests.");
       jobs.push_back([task] { (*task)(); });
     }
     cv.notify_one();
@@ -324,7 +324,7 @@ private:
     if (future.wait_for(std::chrono::seconds(30)) != std::future_status::ready) {
       cancel();
       if (future.wait_for(std::chrono::seconds(3)) != std::future_status::ready)
-        throw Error("RESOURCE_ERROR", "语音合成超时");
+        throw Error("RESOURCE_ERROR", "Speech synthesis timed out.");
     }
     return future.get();
   }
@@ -333,10 +333,10 @@ private:
       winrt::init_apartment(winrt::apartment_type::multi_threaded);
       ready = true;
     } catch (const winrt::hresult_error &error) {
-      initMessage = "当前环境不支持 Windows 系统语音合成。（" +
-                    clip(winrt::to_string(error.message())) + "）";
+      initMessage = "System speech synthesis is not supported in this environment. (" +
+                    clip(winrt::to_string(error.message())) + ")";
     } catch (...) {
-      initMessage = "当前环境不支持 Windows 系统语音合成。";
+      initMessage = "System speech synthesis is not supported in this environment.";
     }
     for (;;) {
       std::function<void()> job;
@@ -357,7 +357,7 @@ private:
     TtsCatalog result;
     result.supported = ready;
     if (!ready)
-      result.message = initMessage.empty() ? "当前环境不支持 Windows 系统语音合成。" : initMessage;
+      result.message = initMessage.empty() ? "System speech synthesis is not supported in this environment." : initMessage;
     try {
       if (!ready)
         throw winrt::hresult_error(E_FAIL);
@@ -387,8 +387,8 @@ private:
     } catch (const winrt::hresult_error &error) {
       if (ready) {
         result.voices.clear();
-        result.message = ttsInstallMessage() + "（" +
-                         clip(winrt::to_string(error.message())) + "）";
+        result.message = ttsInstallMessage() + " (" +
+                         clip(winrt::to_string(error.message())) + ")";
       }
     }
     try {
@@ -409,18 +409,18 @@ private:
       try {
         return synthesizeSapi(voice, text, rate, cancelled);
       } catch (const Error &error) {
-        if (error.code == "RESOURCE_ERROR" && error.what() == std::string("所选英语音色已不可用。"))
+        if (error.code == "RESOURCE_ERROR" && error.what() == std::string("The selected English voice is unavailable."))
           throw Error("NOT_SUPPORTED", initMessage.empty()
-                                           ? "当前环境不支持 Windows 系统语音合成。"
+                                           ? "System speech synthesis is not supported in this environment."
                                            : initMessage);
         throw;
       }
     }
     if (cancelled())
-      throw Error("CANCELLED", "朗读已取消");
+      throw Error("CANCELLED", "Playback cancelled.");
     cancelFlag.store(false);
     if (cancelled())
-      throw Error("CANCELLED", "朗读已取消");
+      throw Error("CANCELLED", "Playback cancelled.");
     media::SpeechSynthesizer speaker;
     bool found = false;
     const auto all = media::SpeechSynthesizer::AllVoices();
@@ -446,26 +446,26 @@ private:
     try {
       stream = started.get();
     } catch (const winrt::hresult_canceled &) {
-      throw Error("CANCELLED", "朗读已取消");
+      throw Error("CANCELLED", "Playback cancelled.");
     } catch (const winrt::hresult_error &error) {
       throw Error("RESOURCE_ERROR",
-                  "语音合成失败：" + clip(winrt::to_string(error.message())));
+                  "Speech synthesis failed: " + clip(winrt::to_string(error.message())));
     }
     {
       std::lock_guard<std::mutex> lock(opMu);
       operation = nullptr;
     }
     if (cancelled())
-      throw Error("CANCELLED", "朗读已取消");
+      throw Error("CANCELLED", "Playback cancelled.");
     const auto size = stream.Size();
     if (size == 0)
-      throw Error("RESOURCE_ERROR", "合成结果为空");
+      throw Error("RESOURCE_ERROR", "Speech synthesis returned no audio.");
     if (size > kMaxAudio)
-      throw Error("RESOURCE_ERROR", "合成音频超过大小限制");
+      throw Error("RESOURCE_ERROR", "Synthesized audio exceeds the size limit.");
     streams::DataReader reader{stream.GetInputStreamAt(0)};
     const auto loaded = reader.LoadAsync(static_cast<std::uint32_t>(size)).get();
     if (loaded == 0)
-      throw Error("RESOURCE_ERROR", "合成结果为空");
+      throw Error("RESOURCE_ERROR", "Speech synthesis returned no audio.");
     std::vector<std::uint8_t> bytes(loaded);
     reader.ReadBytes(winrt::array_view<std::uint8_t>(
         bytes.data(), bytes.data() + bytes.size()));

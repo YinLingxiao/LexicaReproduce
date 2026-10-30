@@ -40,7 +40,7 @@ test('study settings disclosure opens and closes without changing the card', asy
 		await page.emulateMedia({reducedMotion});
 		await page.locator('.settings-btn').click();
 		await expect(page.locator('#study-settings')).toBeVisible();
-		await page.getByRole('button', {name: '关闭学习设置'}).click();
+		await page.getByRole('button', {name: "Close study settings"}).click();
 		await expect(page.locator('#study-settings')).toHaveCount(0);
 		await expect(heading).toBeVisible();
 	}
@@ -192,7 +192,7 @@ test('settings styles, illegal study values, extension order and dictionary erro
 	await page.goto('/settings');
 	await expect(page.getByText('Seed only')).toBeVisible();
 	await expect(page.getByText(String(entries.length), {exact: true}).first()).toBeVisible();
-	for (const [label, accent] of [['留白沙龙', '#7a541d'], ['极地群青', '#284c82'], ['牛津辞书', '#9e3324']] as const) {
+	for (const [label, accent] of [["Obsidian", '#7a541d'], ["Cobalt", '#284c82'], ["Vermilion", '#9e3324']] as const) {
 		await page.getByRole('button', {name: label, exact: true}).click();
 		await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())).toBe(accent);
 	}
@@ -211,18 +211,18 @@ test('settings styles, illegal study values, extension order and dictionary erro
 	await page.reload();
 	await expect(page.locator('html')).toHaveAttribute('data-theme', 'system');
 	await expect(page.locator('html')).toHaveAttribute('data-edition', 'obsidian');
-	await page.locator('summary').filter({hasText: '学习设置'}).click();
-	await expect(page.getByRole('radio', {name: /大学英语四级/})).toHaveAttribute('aria-checked', 'true');
+	await page.locator('summary').filter({hasText: "Study settings"}).click();
+	await expect(page.getByRole('radio', {name: /CET-4/})).toHaveAttribute('aria-checked', 'true');
 	await expect(page.getByRole('button', {name: '40', exact: true})).toHaveAttribute('aria-pressed', 'true');
-	await expect(page.getByRole('checkbox', {name: '词根词缀'})).toHaveAttribute('aria-checked', 'false');
+	await expect(page.getByRole('checkbox', {name: "Roots and affixes"})).toHaveAttribute('aria-checked', 'false');
 	const order = () => page.locator('.tab-list .handle').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label')));
-	expect((await order())[0]).toContain('词形变化');
+	expect((await order())[0]).toContain("Word forms");
 	await page.locator('.tab-list .handle').first().focus();
 	await page.keyboard.press('ArrowDown');
-	expect((await order())[0]).toContain('词根词缀');
+	expect((await order())[0]).toContain("Roots and affixes");
 	await page.reload();
-	await page.locator('summary').filter({hasText: '学习设置'}).click();
-	expect((await order())[0]).toContain('词根词缀');
+	await page.locator('summary').filter({hasText: "Study settings"}).click();
+	expect((await order())[0]).toContain("Roots and affixes");
 	await page.evaluate(() => ((window as any).__ensureLeft = 1));
 	await page.getByRole('button', {name: /Download dictionary|Re-check dictionary/}).click();
 	await expect(page.getByRole('dialog')).toContainText('Dictionary setup failed');
@@ -289,7 +289,7 @@ test('study card browse is read-only until graded, and forgot returns to the end
 	expect((await calls(page)).filter((call) => call.command === 'study_grade')).toHaveLength(0);
 	await page.getByRole('button', {name: 'Previous'}).click();
 	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toBeVisible();
-	await page.getByRole('button', {name: '认识', exact: true}).click();
+	await page.getByRole('button', {name: "Know", exact: true}).click();
 	await expect(page.getByRole('heading', {name: 'elaborate', exact: true})).toBeVisible();
 	await page.keyboard.press('2');
 	await expect(page.getByRole('heading', {name: 'Group complete'})).toBeVisible();
@@ -298,10 +298,10 @@ test('study card browse is read-only until graded, and forgot returns to the end
 	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toBeVisible();
 	await page.keyboard.press('3');
 	await expect(page.getByText(/Browse · /)).toContainText('2');
-	await page.getByRole('button', {name: '认识', exact: true}).click();
+	await page.getByRole('button', {name: "Know", exact: true}).click();
 	await expect(page.getByRole('heading', {name: 'Group complete'})).toBeVisible();
-	await expect(page.locator('.summary').getByText('忘记')).toBeVisible();
-	await expect(page.locator('.summary').getByText('认识')).toBeVisible();
+	await expect(page.locator('.summary').getByText("Forgot")).toBeVisible();
+	await expect(page.locator('.summary').getByText("Know")).toBeVisible();
 	const grades = (await calls(page)).filter((call) => call.command === 'study_grade').map((call) => call.args.grade);
 	expect(grades).toEqual(['forgot', 'know']);
 });
@@ -310,7 +310,7 @@ test('study grade failure keeps the card and a second click does not double-writ
 	await onStudy(page, [1]);
 	await page.evaluate(() => localStorage.setItem('test.grade.fail', '1'));
 	await page.goto('/review');
-	await page.getByRole('button', {name: '认识', exact: true}).click();
+	await page.getByRole('button', {name: "Know", exact: true}).click();
 	await expect(page.getByRole('alert')).toContainText('评分没有写入');
 	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toBeVisible();
 	await page.evaluate(() => {
@@ -318,7 +318,7 @@ test('study grade failure keeps the card and a second click does not double-writ
 		localStorage.setItem('test.grade.slow', '1');
 		(window as any).__calls = [];
 	});
-	await page.getByRole('button', {name: '认识', exact: true}).dblclick();
+	await page.getByRole('button', {name: "Know", exact: true}).dblclick();
 	await expect(page.getByRole('heading', {name: 'Group complete'})).toBeVisible();
 	expect((await calls(page)).filter((call) => call.command === 'study_grade' && call.args.grade === 'know')).toHaveLength(1);
 });
@@ -331,9 +331,9 @@ test('bookmark does not overwrite notes when reading them fails', async ({page})
 		(window as any).__calls = [];
 		(window as any).__failNext = {command: 'word_note', message: 'notes unavailable'};
 	});
-	await page.getByRole('button', {name: '收藏', exact: true}).click();
+	await page.getByRole('button', {name: "Bookmark", exact: true}).click();
 	await expect(page.getByRole('alert')).toContainText('notes unavailable');
-	await expect(page.getByRole('button', {name: '收藏', exact: true})).toHaveAttribute('aria-pressed', 'false');
+	await expect(page.getByRole('button', {name: "Bookmark", exact: true})).toHaveAttribute('aria-pressed', 'false');
 	expect((await calls(page)).filter(call => call.command === 'save_word_note')).toHaveLength(0);
 });
 
@@ -351,30 +351,30 @@ test('study card content, context mode, syllables, speech and example preference
 	await expect(page.getByText('He needs surgery to repair his broken leg.')).toBeVisible();
 	await expect(page.getByText('他需要手术来修复骨折的腿。')).toBeVisible();
 	await expect(page.locator('.translation-zh')).toContainText('外科手术');
-	await page.getByRole('tab', {name: '助记'}).click();
+	await page.getByRole('tab', {name: "Mnemonic"}).click();
 	await expect(page.locator('.mnemonic-text')).toContainText('cheirourgia');
-	await page.getByRole('tab', {name: '词根词缀'}).click();
+	await page.getByRole('tab', {name: "Roots and affixes"}).click();
 	await expect(page.locator('.root-part').first()).toHaveText('surg');
-	await page.getByRole('tab', {name: '派生'}).click();
+	await page.getByRole('tab', {name: "Derivatives"}).click();
 	await expect(page.getByText('microsurgery')).toBeVisible();
 	await expect(page.getByText('显微外科')).toBeVisible();
-	await page.getByRole('tab', {name: '形近词'}).click();
+	await page.getByRole('tab', {name: "Similar words"}).click();
 	await expect(page.getByText('sugary')).toBeVisible();
 	await expect(page.getByText('surely')).toBeVisible();
 	await expect(page.getByText('surety')).toBeVisible();
-	await page.getByRole('tab', {name: '词形变化'}).click();
+	await page.getByRole('tab', {name: "Word forms"}).click();
 	await expect(page.getByText('Plural')).toBeVisible();
 	await expect(page.getByText('surgeries')).toBeVisible();
 	await expect.poll(async () => (await calls(page)).some((item) => item.command === 'tts_synthesize' && item.args.text === 'surgery' && item.args.accent === 'UK')).toBe(true);
 	await page.locator('.dots-btn').click();
-	await page.getByRole('switch', {name: '自动拆分音节'}).click();
+	await page.getByRole('switch', {name: "Split syllables"}).click();
 	await expect(page.locator('.headword')).toHaveText('surgery');
-	await page.getByRole('button', {name: '真题例句'}).click();
-	await page.getByRole('button', {name: '语境卡片'}).click();
+	await page.getByRole('button', {name: "Exam examples"}).click();
+	await page.getByRole('button', {name: "Context card"}).click();
 	await page.reload();
 	await expect(page.locator('.context-card')).toBeVisible();
 	await expect(page.locator('.pos-pill')).toHaveCount(0);
-	await page.getByRole('button', {name: '点击显示完整释义'}).click();
+	await page.getByRole('button', {name: "Show full definition"}).click();
 	await expect(page.locator('.pos-pill')).toBeVisible();
 	await page.screenshot({path: test.info().outputPath('study-card.png'), fullPage: true});
 });
@@ -515,52 +515,52 @@ test('unknown frequency and non-CEFR levels stay honest on lookup and study page
 	await page.goto('/?word=inevitable%20hour');
 	await expect(page.getByRole('heading', {name: 'inevitable hour', exact: true})).toBeVisible();
 	await expect(page.locator('.syllable-headword')).toHaveText('in·ev·i·ta·ble hour');
-	await expect(page.getByText('暂无词频数据')).toBeVisible();
+	await expect(page.getByText("Frequency unavailable")).toBeVisible();
 	await expect(page.locator('.freq-ticks')).toHaveCount(0);
-	await expect(page.getByText('暂无等级数据')).toBeVisible();
+	await expect(page.getByText("Level unavailable")).toBeVisible();
 	await expect(page.getByText('CEFR-R')).toHaveCount(0);
 	await expect(page.getByText('88%')).toHaveCount(0);
 	await expect(page.locator('.definition-preview')).toContainText('死期');
 	await page.getByRole('button', {name:'Full entry',exact:true}).click();
-	await expect(page.locator('.pos-pill')).toHaveText('词性未标注');
+	await expect(page.locator('.pos-pill')).toHaveText("Part of speech unavailable");
 	await page.screenshot({path: test.info().outputPath('inevitable-hour-lookup.png'), fullPage: true});
 
 	await onStudy(page, [950]);
 	await page.goto('/review');
 	await expect(page.getByRole('heading', {name: 'inevitable hour', exact: true})).toBeVisible();
 	await expect(page.locator('.headword .syllable-headword')).toHaveText('in·ev·i·ta·ble hour');
-	await expect(page.locator('.level-pill')).toHaveText('未标注');
+	await expect(page.locator('.level-pill')).toHaveText("Unrated");
 	await expect(page.getByText('CEFR-R')).toHaveCount(0);
 	await page.screenshot({path: test.info().outputPath('inevitable-hour-study.png'), fullPage: true});
 });
 
 test('frequency rank, source, Collins stars and estimated levels are not conflated', async ({page}) => {
 	await page.goto('/?word=staronly');
-	await expect(page.getByText('暂无词频数据')).toBeVisible();
+	await expect(page.getByText("Frequency unavailable")).toBeVisible();
 	await expect(page.locator('.freq-ticks')).toHaveCount(0);
 	await expect(page.getByText('Collins ★★★★☆')).toBeVisible();
 	await page.locator('.metadata-details summary').click();
-	await expect(page.getByText('Collins 星级，不是词频排名')).toBeVisible();
-	await expect(page.getByText('暂无等级数据')).toBeVisible();
+	await expect(page.getByText("Collins stars are a rating, not a frequency rank.")).toBeVisible();
+	await expect(page.getByText("Level unavailable")).toBeVisible();
 
 	await page.goto('/?word=rankedword');
 	await expect(page.locator('.freq-ticks')).toHaveCount(1);
 	await expect(page.locator('.freq-tick.on')).toHaveCount(14);
-	await expect(page.getByText(/第 1,234 名/)).toBeVisible();
+	await expect(page.getByText(/#1,234/)).toBeVisible();
 	await page.locator('.metadata-details summary').click();
-	await expect(page.locator('.metadata-panel')).toContainText('排名越小，越常见');
-	await expect(page.locator('.metadata-panel')).toContainText('ECDICT 当代语料库词频顺序');
-	await expect(page.locator('.metadata-panel')).toContainText('旧版推断');
-	await expect(page.locator('.metadata-panel')).toContainText('估算');
+	await expect(page.locator('.metadata-panel')).toContainText('A lower rank means a more common word.');
+	await expect(page.locator('.metadata-panel')).toContainText("ECDICT contemporary corpus rank");
+	await expect(page.locator('.metadata-panel')).toContainText("Legacy estimate");
+	await expect(page.locator('.metadata-panel')).toContainText("Estimated");
 	await expect(page.locator('.level-metric')).toContainText('B2');
 
 	await page.goto('/?word=badlevel');
-	await expect(page.getByText('暂无等级数据')).toBeVisible();
+	await expect(page.getByText("Level unavailable")).toBeVisible();
 	await expect(page.getByText('G9')).toHaveCount(0);
 
 	await page.goto('/?word=bnconly');
 	await page.locator('.metadata-details summary').click();
-	await expect(page.locator('.metadata-panel')).toContainText('ECDICT 英国国家语料库词频顺序');
+	await expect(page.locator('.metadata-panel')).toContainText("ECDICT British National Corpus rank");
 });
 
 test('syllable splitting preserves spaces, hyphens, apostrophes, punctuation and digits', async ({page}) => {

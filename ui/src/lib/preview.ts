@@ -277,7 +277,7 @@ function lookalikesOf(word: string): RelatedWordItem[] {
 	const manual = LOOKALIKES[word];
 	if (manual) return manual.map((item) => ({ ...item }));
 	const bucket = SUFFIX_LOOKALIKES.find(([suffix]) => word.endsWith(suffix));
-	return (bucket?.[1] ?? []).map((item) => ({ word: item, pos: null, gloss: '形近词' }));
+	return (bucket?.[1] ?? []).map((item) => ({ word: item, pos: null, gloss: "Similar words" }));
 }
 
 function enrich(entry: WordEntry): WordEntry {
@@ -289,8 +289,8 @@ function enrich(entry: WordEntry): WordEntry {
 		mnemonic: entry.mnemonic ?? mnemonicOf(entry),
 		roots: entry.roots?.length ? entry.roots : rootsOf(entry),
 		derivatives: entry.derivatives ?? derivativesOf(entry),
-		synonyms_detailed: entry.synonyms_detailed ?? detailList(entry.synonyms, entry, '近义词'),
-		antonyms_detailed: entry.antonyms_detailed ?? detailList(entry.antonyms, entry, '反义词'),
+		synonyms_detailed: entry.synonyms_detailed ?? detailList(entry.synonyms, entry, "Synonyms"),
+		antonyms_detailed: entry.antonyms_detailed ?? detailList(entry.antonyms, entry, "Antonyms"),
 		lookalikes: entry.lookalikes ?? lookalikesOf(entry.word),
 		forms: entry.forms ?? [],
 		exam_example: entry.exam_example ?? firstExample(entry)
@@ -467,11 +467,11 @@ export async function previewInvoke(
 				has_key: false
 			};
 		case 'tts_voices':
-			return {supported: false, voices: [], message: '浏览器预览没有连接系统语音。请启动 C++ 后端或桌面应用使用发音功能。'};
+			return {supported: false, voices: [], message: "Speech is unavailable in browser preview. Start the C++ service or desktop app to use pronunciation."};
 		case 'tts_cancel':
 			return null;
 		case 'tts_synthesize':
-			throw new Error('浏览器预览没有连接系统语音。请启动 C++ 后端或桌面应用使用发音功能。');
+			throw new Error("Speech is unavailable in browser preview. Start the C++ service or desktop app to use pronunciation.");
 		default:
 			throw new Error('Browser preview is read-only. Use the desktop app for this action.');
 	}

@@ -112,13 +112,13 @@ test('synthesis and playback failures stay visible', async () => {
     playback.audios[0].onerror?.();
     await flush();
     assert.equal(playback.controller.snapshot().phase, 'error');
-    assert.equal(playback.controller.snapshot().error, '播放失败');
+    assert.equal(playback.controller.snapshot().error, "Audio playback failed.");
     const blocked = harness();
     blocked.setPlay(() => Promise.reject(Object.assign(new Error('play'), { name: 'NotAllowedError' })));
     blocked.controller.speak({ text: 'hello', playKey: 'word' });
     await flush();
     assert.equal(blocked.controller.snapshot().phase, 'error');
-    assert.match(blocked.controller.snapshot().error, /自动播放被拦截/);
+    assert.match(blocked.controller.snapshot().error, /Autoplay was blocked/);
     assert.equal(blocked.controller.snapshot().phase === 'playing', false);
 });
 test('a late result cannot replace the newer playback', async () => {
@@ -189,7 +189,7 @@ test('rate, voice and repeat are applied once per utterance', async () => {
     assert.equal(h.requests[0].text, 'meticulous');
     assert.equal(h.requests[0].rate, 1.2);
     assert.equal(h.requests[0].voiceId, null);
-    assert.match(h.controller.snapshot().notice, /请求的英式英语不可用/);
+    assert.match(h.controller.snapshot().notice, /British English is unavailable/);
     assert.match(h.controller.snapshot().notice, /Zira/);
     assert.equal(h.controller.snapshot().actualAccent, 'US');
     const fire = async () => {

@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "word_count": 3401187,
+  "server_startup_ms": 191,
+  "hero_height": 381.28125,
+  "definitions_top": 587.28125,
+  "definition_visible_without_example": true,
+  "fallback_comprehension_chinese": true,
+  "paused_schedule_correct": true,
+  "real_audio_played": true,
+  "errors": []
+}

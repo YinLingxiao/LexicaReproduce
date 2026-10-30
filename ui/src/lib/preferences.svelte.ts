@@ -44,13 +44,13 @@ export interface StudyPreferences {
 export const DAILY_NEW_LIMITS = [10, 20, 40, 60, 100] as const;
 
 const DEFAULT_EXTENSION_TABS: ExtensionTabConfig[] = [
-	{ id: 'mnemonic', label: '助记', enabled: true },
-	{ id: 'roots', label: '词根词缀', enabled: true },
-	{ id: 'derivatives', label: '派生', enabled: true },
-	{ id: 'synonyms', label: '近义词', enabled: true },
-	{ id: 'antonyms', label: '反义词', enabled: true },
-	{ id: 'lookalikes', label: '形近词', enabled: true },
-	{ id: 'forms', label: '词形变化', enabled: true }
+	{ id: 'mnemonic', label: "Mnemonic", enabled: true },
+	{ id: 'roots', label: "Roots and affixes", enabled: true },
+	{ id: 'derivatives', label: "Derivatives", enabled: true },
+	{ id: 'synonyms', label: "Synonyms", enabled: true },
+	{ id: 'antonyms', label: "Antonyms", enabled: true },
+	{ id: 'lookalikes', label: "Similar words", enabled: true },
+	{ id: 'forms', label: "Word forms", enabled: true }
 ];
 
 export function defaultExtensionTabs(): ExtensionTabConfig[] {

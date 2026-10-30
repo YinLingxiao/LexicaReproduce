@@ -67,9 +67,9 @@
 
 	const accessible = $derived(
 		phase === 'loading'
-			? `正在合成${label}`
+			? 'Preparing audio'
 			: phase === 'playing'
-				? `停止${label}`
+				? 'Stop playback'
 				: label,
 	);
 	const noticeId = $derived(`speech-info-${playKey.replace(/[^A-Za-z0-9_-]/g, '_')}`);
@@ -92,14 +92,14 @@
 	{#if message}<details class="speech-details" use:fitPopover>
 			<summary
 				class:error={Boolean(message)}
-				aria-label="查看发音错误"
+				aria-label="Pronunciation error details"
 				title={message}
 			>
 				!
 			</summary>
 			<span class="speech-popover" data-popover>
 				<span role="alert">{message}</span>
-				<a href="/settings#pronunciation">发音设置</a>
+				<a href="/settings#pronunciation">Pronunciation settings</a>
 			</span>
 		</details>{/if}
 </span>

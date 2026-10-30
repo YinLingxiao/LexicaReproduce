@@ -45,19 +45,24 @@ try {
  });
  const page=await context.newPage();
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(base+'/');
+ await page.getByRole('heading',{name:'Recent searches'}).waitFor();
+ await page.waitForFunction(count=>document.querySelector('.search-note')?.textContent.includes(count),info.word_count.toLocaleString('en-US'));
+ assert(!/\p{Script=Han}/u.test(await page.locator('main').innerText()),'Homepage interface must be English');
+ assert((await page.getByLabel('Dictionary search').boundingBox()).y<150,'Search must lead the homepage');
+ await page.screenshot({path:path.join(data,'dictionary-home-english.png')});
  await page.goto(base+'/?word=happy');
- await page.getByText('已暂停复习',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Resume review',exact:true}).waitFor();
  await page.evaluate(()=>document.fonts.ready);
- await page.getByRole('button',{name:'朗读单词',exact:true}).click();
+ await page.getByRole('button',{name:'Pronounce word',exact:true}).click();
  await page.waitForFunction(()=>window.__playing>0);
- const hint=await page.getByLabel('查词学习记录').boundingBox();
+ assert.equal(await page.locator('.hint').count(),0,'Learning banner must not appear above a dictionary entry');
  const hero=await page.locator('.hero-card').boundingBox();
  const definition=await page.locator('.word-card').boundingBox();
- assert(hint.height<65,`Learning hint too large: ${hint.height}`);
  assert(hero.height<390,`Hero too large: ${hero.height}`);
  assert(definition.y<700,`Definitions pushed below the first viewport: ${definition.y}`);
  const meaning=await page.locator('.definition-preview p').textContent();
- assert(meaning.trim().length>2 && !meaning.includes('暂无释义'),'A word without examples must show its available definition');
+ assert(meaning.trim().length>2 && !meaning.includes('No definition available'),'A word without examples must show its available definition');
  assert.equal(await page.getByText(/下次复习/).count(),0,'Paused word displays a stale review date');
  assert.equal(await page.locator('.speech-popover').isVisible(),false);
  assert.equal(await page.locator('.metadata-panel').isVisible(),false);
@@ -65,7 +70,7 @@ try {
  assert.equal((await speaker.innerText()).trim(),'','Pronunciation must remain an icon-only control');
  const speakerBox=await speaker.boundingBox();
  assert(speakerBox.width<=30&&speakerBox.height<=30,'Speaker control is no longer compact');
- assert((await speaker.getAttribute('title')).includes('英语'),'Actual voice details must remain available on hover');
+ assert((await speaker.getAttribute('title')).includes('English'),'Actual voice details must remain available on hover');
  await page.evaluate(()=>window.scrollTo(0,0));
  await page.screenshot({path:path.join(data,'happy-dark-desktop.png')});
  await page.locator('.phonetic-row').screenshot({path:path.join(data,'speaker-icon.png')});
@@ -85,7 +90,7 @@ try {
  if(feedback) assert.equal((await feedback).postDataJSON().args.level,'chinese','Visible Chinese fallback must not be recorded as English-only comprehension');
  await page.locator('.definitions').waitFor();
  assert.deepEqual(errors,[]);
- const result={ok:true,word_count:info.word_count,server_startup_ms:startupMs,hint_height:hint.height,hero_height:hero.height,definitions_top:definition.y,definition_visible_without_example:true,fallback_comprehension_chinese:true,paused_schedule_correct:true,real_audio_played:true,errors};
+ const result={ok:true,word_count:info.word_count,server_startup_ms:startupMs,hero_height:hero.height,definitions_top:definition.y,definition_visible_without_example:true,fallback_comprehension_chinese:true,paused_schedule_correct:true,real_audio_played:true,errors};
  fs.writeFileSync(path.join(data,'layout-report.json'),JSON.stringify(result,null,2));
  console.log(JSON.stringify({...result,data}));
 } finally { try { await browser?.close(); } finally { child.kill(); } }

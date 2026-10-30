@@ -3,7 +3,10 @@
 	import { openUrl } from '$lib/transport';
 	import { applyPreferences, preferences } from '$lib/preferences.svelte';
 	import { dictionaryImport } from '$lib/import-state.svelte';
-	import { dictionarySetup, runDictionarySetup } from '$lib/dictionary-setup.svelte';
+	import {
+		dictionarySetup,
+		runDictionarySetup,
+	} from '$lib/dictionary-setup.svelte';
 	import {
 		appInfo,
 		importEcdict,
@@ -13,12 +16,16 @@
 		errorMessage,
 		isPreview,
 		type AppInfo,
-		type TtsVoiceList
+		type TtsVoiceList,
 	} from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
 	import SpeakButton from '$lib/components/SpeakButton.svelte';
 	import StudySettingsPanel from '$lib/components/StudySettingsPanel.svelte';
-	import { getPreferredVoiceId, loadTtsVoices, setPreferredVoiceId } from '$lib/tts';
+	import {
+		getPreferredVoiceId,
+		loadTtsVoices,
+		setPreferredVoiceId,
+	} from '$lib/tts';
 	let info = $state<AppInfo | null>(null);
 	let error = $state('');
 	let logoError = $state('');
@@ -41,7 +48,7 @@
 		baseUrl: 'https://api.deepseek.com/v1',
 		model: 'deepseek-chat',
 		key: '',
-		hasKey: false
+		hasKey: false,
 	});
 	let aiSaving = $state(false);
 	let aiTesting = $state(false);
@@ -67,7 +74,8 @@
 		aiMessage = '';
 		aiError = '';
 		try {
-			const key = keyAction === 'set' ? ai.key : keyAction === 'delete' ? '' : null;
+			const key =
+				keyAction === 'set' ? ai.key : keyAction === 'delete' ? '' : null;
 			const cfg = await aiConfigSave(ai.enabled, ai.baseUrl, ai.model, key);
 			ai.enabled = cfg.enabled;
 			ai.baseUrl = cfg.base_url;
@@ -109,25 +117,38 @@
 	let voiceError = $state('');
 	let selectedVoiceId = $state<string | null>(getPreferredVoiceId());
 	const accentLabel = (accent: string) =>
-		accent === 'US' ? '美式英语' : accent === 'UK' ? '英式英语' : accent;
+		accent === 'US'
+			? 'American English'
+			: accent === 'UK'
+				? 'British English'
+				: accent;
 	const voiceMismatch = $derived.by(() => {
 		if (!voiceState?.supported || !voiceState.voices.length) return '';
 		const preferred = preferences.study.accent;
-		const selected = voiceState.voices.find((voice) => voice.id === selectedVoiceId);
+		const selected = voiceState.voices.find(
+			(voice) => voice.id === selectedVoiceId,
+		);
 		if (selected && selected.accent !== preferred)
-			return `学习设置里的口音是${accentLabel(preferred)}，所选音色是 ${selected.label}（${selected.language}）。朗读会使用这个音色，不会再标成${accentLabel(preferred)}。`;
-		if (!selected && !voiceState.voices.some((voice) => voice.accent === preferred))
-			return `没有${accentLabel(preferred)}音色。跟随口音时会改用其他英语音色，并在朗读后写明实际音色。`;
+			return `Your accent preference is ${accentLabel(preferred)}. Pronunciation uses ${selected.label} (${selected.language}).`;
+		if (
+			!selected &&
+			!voiceState.voices.some((voice) => voice.accent === preferred)
+		)
+			return `${accentLabel(preferred)} is not installed. Another English voice will be used and identified in the speaker tooltip.`;
 		return '';
 	});
 	async function loadVoices() {
 		voiceError = '';
 		try {
 			voiceState = await loadTtsVoices();
-			if (selectedVoiceId && !voiceState.voices.some((voice) => voice.id === selectedVoiceId)) {
+			if (
+				selectedVoiceId &&
+				!voiceState.voices.some((voice) => voice.id === selectedVoiceId)
+			) {
 				selectedVoiceId = null;
 				setPreferredVoiceId(null);
-				voiceError = '已保存的英语音色不在当前系统中，已改回按口音选择。';
+				voiceError =
+					'The saved voice is unavailable. Voice selection now follows your accent preference.';
 			}
 		} catch (cause) {
 			voiceState = null;
@@ -184,18 +205,21 @@
 				{#each [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']] as [key, label]}<button
 						aria-pressed={preferences.theme === key}
 						class:chosen={preferences.theme === key}
-						onclick={() => (preferences.theme = key as 'light' | 'dark' | 'system')}>{label}</button
+						onclick={() =>
+							(preferences.theme = key as 'light' | 'dark' | 'system')}
+						>{label}</button
 					>{/each}
 			</div>
 		</div>
 		<div class="setting-row">
 			<h3>Style theme</h3>
 			<div class="segmented">
-				{#each [['obsidian', '留白沙龙'], ['cobalt', '极地群青'], ['vermilion', '牛津辞书']] as [key, label]}<button
+				{#each [['obsidian', 'Obsidian'], ['cobalt', 'Cobalt'], ['vermilion', 'Vermilion']] as [key, label]}<button
 						aria-pressed={preferences.edition === key}
 						class:chosen={preferences.edition === key}
-						onclick={() => (preferences.edition = key as 'obsidian' | 'cobalt' | 'vermilion')}
-						>{label}</button
+						onclick={() =>
+							(preferences.edition = key as
+								'obsidian' | 'cobalt' | 'vermilion')}>{label}</button
 					>{/each}
 			</div>
 		</div>
@@ -221,34 +245,51 @@
 		</div>
 	</section>
 	<details class="study-section" id="study">
-		<summary><h2>学习设置</h2><Icon name="chevron-right" size={16} /></summary>
+		<summary
+			><h2>Study settings</h2>
+			<Icon name="chevron-right" size={16} /></summary
+		>
 		<div class="study-body"><StudySettingsPanel /></div>
 	</details>
 	<section class="panel" id="pronunciation">
-		<div class="section-heading"><h2>发音</h2></div>
+		<div class="section-heading"><h2>Pronunciation</h2></div>
 		{#if voiceError}<p class="error" role="alert">{voiceError}</p>{/if}
-		{#if !voiceState && !voiceError}<p class="muted small">正在读取系统英语语音…</p>
+		{#if !voiceState && !voiceError}<p class="muted small">
+				Loading system English voices…
+			</p>
 		{:else if voiceState && !voiceState.supported}<p class="error" role="alert">
-				{voiceState.message || '当前环境不支持 Windows 系统语音合成。'}
+				{voiceState.message ||
+					'System speech synthesis is not supported in this environment.'}
 			</p>
 		{:else if voiceState && voiceState.voices.length === 0}
-			<p class="error" role="alert">{voiceState.message || '没有可用的英语语音。'}</p>
+			<p class="error" role="alert">
+				{voiceState.message || 'No English voice is installed.'}
+			</p>
 			<ol class="install-steps">
-				<li>打开「设置 → 时间和语言 → 语言和区域」。</li>
-				<li>选择「添加语言」，安装「英语(美国)」或「英语(英国)」。</li>
-				<li>在「安装语言功能」中勾选「文字转语音 / Text-to-speech」。</li>
-				<li>如果语言已经安装，点该语言旁的「…」→「语言选项」，下载「文字转语音」。</li>
-				<li>安装后可在「设置 → 时间和语言 → 语音」里查看和试听。</li>
+				<li>Open Settings → Time & language → Language & region.</li>
+				<li>Add English (United States) or English (United Kingdom).</li>
+				<li>Select Text-to-speech when installing language features.</li>
+				<li>
+					For an installed language, open Language options and download
+					Text-to-speech.
+				</li>
+				<li>
+					View and preview installed voices in Settings → Time & language →
+					Speech.
+				</li>
 			</ol>
 		{:else if voiceState}
 			<div class="setting-row">
-				<h3>英语音色</h3>
+				<h3>English voice</h3>
 				<div class="voice-list">
 					<button
 						type="button"
 						aria-pressed={selectedVoiceId === null}
 						class:chosen={selectedVoiceId === null}
-						onclick={() => chooseVoice(null)}>跟随口音偏好（{accentLabel(preferences.study.accent)}）</button
+						onclick={() => chooseVoice(null)}
+						>Follow accent preference ({accentLabel(
+							preferences.study.accent,
+						)})</button
 					>
 					{#each voiceState.voices as voice (voice.id)}<button
 							type="button"
@@ -259,10 +300,12 @@
 						>{/each}
 				</div>
 			</div>
-			{#if voiceMismatch}<p class="import-note" role="status">{voiceMismatch}</p>{/if}
+			{#if voiceMismatch}<p class="import-note" role="status">
+					{voiceMismatch}
+				</p>{/if}
 		{/if}
 		<div class="setting-row">
-			<h3>语速</h3>
+			<h3>Playback speed</h3>
 			<div class="segmented">
 				{#each [[0.8, '0.8×'], [1, '1×'], [1.2, '1.2×']] as [key, label]}<button
 						type="button"
@@ -273,18 +316,16 @@
 			</div>
 		</div>
 		<p class="muted small">
-			口音现在是{accentLabel(preferences.study.accent)}，重复次数是{preferences.study.pronounceRepeat ===
-			'thrice'
-				? '3 次'
-				: '1 次'}。自动朗读单词{preferences.study.autoPronounceWord ? '开' : '关'}，自动朗读例句{preferences
-				.study.autoPronounceExample
-				? '开'
-				: '关'}，语境卡片自动朗读{preferences.study.autoPronounceContext ? '开' : '关'}。这些仍在上方学习设置中修改。
+			Accent: {accentLabel(preferences.study.accent)}. Repeat: {preferences
+				.study.pronounceRepeat === 'thrice'
+				? '3 times'
+				: 'once'}. Auto-play settings are available in Study settings above.
 		</p>
+
 		<SpeakButton
 			text="Hello. This is an English pronunciation preview."
 			playKey="settings-preview"
-			label="试听"
+			label="Preview voice"
 			accent={preferences.study.accent}
 			rate={preferences.study.speechRate}
 			repeat={1}
@@ -296,7 +337,10 @@
 		{#if error}<p class="error" role="alert">{error}</p>
 			<button onclick={refresh}>Retry</button>
 		{:else if info}<div class="dictionary-info">
-				<div><strong>{info.word_count.toLocaleString()}</strong><span>entries</span></div>
+				<div>
+					<strong>{info.word_count.toLocaleString()}</strong><span>entries</span
+					>
+				</div>
 				<span class="badge"
 					>{isPreview()
 						? 'Preview · read-only'
@@ -309,7 +353,8 @@
 			</div>
 		{:else}<p class="muted small">Loading…</p>{/if}
 		<p class="muted small dict-blurb">
-			Free ECDICT corpus (~3.4M entries, MIT). Downloaded to the app data folder on first launch.
+			Free ECDICT corpus (~3.4M entries, MIT). Downloaded to the app data folder
+			on first launch.
 			<a
 				href="https://github.com/skywind3000/ECDICT/releases/tag/1.0.28"
 				target="_blank"
@@ -341,13 +386,18 @@
 					spellcheck="false"
 				/><button
 					class="primary"
-					disabled={!dictionaryImport.sourcePath.trim() || dictionaryImport.running || isPreview()}
+					disabled={!dictionaryImport.sourcePath.trim() ||
+						dictionaryImport.running ||
+						isPreview()}
 					>{dictionaryImport.running ? 'Importing…' : 'Import'}</button
 				>
 			</form>
 			{#if dictionaryImport.running}<p class="import-note" role="status">
 					Writing entries — keep the app open.
-				</p>{/if}{#if dictionaryImport.message}<p class="import-note" role="status">
+				</p>{/if}{#if dictionaryImport.message}<p
+					class="import-note"
+					role="status"
+				>
 					{dictionaryImport.message}
 				</p>{/if}{#if dictionaryImport.error}<p class="error" role="alert">
 					{dictionaryImport.error}
@@ -357,10 +407,11 @@
 	<section class="panel ai" id="ai-examples">
 		<div class="section-heading"><h2>DeepSeek example sentences</h2></div>
 		<p class="muted small ai-blurb">
-			DeepSeek is preconfigured and remains off until you add an API key and enable it. When you look
-			up a word with no dictionary example, it generates a short sentence immediately. In review,
-			AI supplies the fill-in-the-blank sentences. Only the word and one
-			definition are sent — notes and learning history stay local. The key is stored in the Windows
+			DeepSeek is preconfigured and remains off until you add an API key and
+			enable it. When you look up a word with no dictionary example, it
+			generates a short sentence immediately. In review, AI supplies the
+			fill-in-the-blank sentences. Only the word and one definition are sent —
+			notes and learning history stay local. The key is stored in the Windows
 			credential manager, never in the database.
 		</p>
 		<div class="setting-row">
@@ -398,20 +449,29 @@
 					/>
 				</label>
 				<label>
-					<span>API key{#if ai.hasKey}<em class="muted"> · stored</em>{/if}</span>
+					<span
+						>API key{#if ai.hasKey}<em class="muted"> · stored</em>{/if}</span
+					>
 					<input
 						type="password"
 						bind:value={ai.key}
-						placeholder={ai.hasKey ? 'Leave empty to keep the stored key' : 'Paste API key'}
+						placeholder={ai.hasKey
+							? 'Leave empty to keep the stored key'
+							: 'Paste API key'}
 						spellcheck="false"
 						autocomplete="off"
 						disabled={aiSaving}
 					/>
 				</label>
 				<div class="ai-actions">
-					<button disabled={aiSaving} onclick={() => saveAi(ai.key.trim() ? 'set' : 'keep')}
+					<button
+						disabled={aiSaving}
+						onclick={() => saveAi(ai.key.trim() ? 'set' : 'keep')}
 						>{aiSaving ? 'Saving…' : 'Save'}</button
-					><button class="ghost" disabled={aiTesting || aiSaving} onclick={testAi}
+					><button
+						class="ghost"
+						disabled={aiTesting || aiSaving}
+						onclick={testAi}
 						>{aiTesting ? 'Testing…' : 'Test connection'}</button
 					>{#if ai.hasKey}<button
 							class="ghost"
@@ -437,8 +497,8 @@
 		</dl>
 	</section>
 	<p class="about">
-		Dictionary, bookmarks, notes and learning records stay on this device. Pronunciation uses an
-		installed Windows English voice.
+		Dictionary, bookmarks, notes and learning records stay on this device.
+		Pronunciation uses an installed Windows English voice.
 	</p>
 	<div class="credit">
 		<a
@@ -451,7 +511,9 @@
 			onclick={openGithub}
 		>
 			<span class="credit-mark" aria-hidden="true"></span>
-			<span class="tooltip" id="credit-tip" role="tooltip">Designed by Y.I.A.</span>
+			<span class="tooltip" id="credit-tip" role="tooltip"
+				>Designed by Y.I.A.</span
+			>
 		</a>
 	</div>
 	{#if logoError}<p class="logo-error" role="alert">{logoError}</p>{/if}

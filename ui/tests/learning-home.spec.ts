@@ -11,7 +11,7 @@ function entry(id: number, word: string, gloss: string): {
 } {
 	return {
 		id, word, display: word, phonetic: null, frequency_rank: null, frequency_source: null,
-		senses: [{id: id * 10, pos: 'adj.', english_definition: `Definition of ${word}`, chinese_definition: gloss, level: null, level_source: null, examples: [{id: id * 100, text: `${word} sits in a short example.`, translation: '例句'}]}],
+		senses: [{id: id * 10, pos: 'adj.', english_definition: `Definition of ${word}`, chinese_definition: gloss, level: null, level_source: null, examples: [{id: id * 100, text: `${word} sits in a short example.`, translation: "Examples"}]}],
 		collocations: [], synonyms: [], antonyms: [], word_family: [], tags: [], collins: null, oxford: false, mnemonic: null, roots: [],
 		derivatives: [], synonyms_detailed: [], antonyms_detailed: [], lookalikes: [], forms: [], exam_example: null
 	};
@@ -156,101 +156,47 @@ test.beforeEach(async ({page}) => {
 	await install(page);
 });
 
-test('new user sees a first lookup, not an empty review victory', async ({page}) => {
-	await boot(page, {stats: emptyStats, recent: [], wordCount: 55});
-	await expect(page.getByRole('heading', {name: '让查过的词真正被记住。'})).toBeVisible();
-	await expect(page.getByRole('heading', {name: '先查一个词'})).toBeVisible();
-	await expect(page.getByText('当前待复习')).toHaveCount(0);
-	await expect(page.getByText('当前暂无到期复习')).toHaveCount(0);
-	await expect(page.getByText('55 entries · offline')).toBeVisible();
-	await page.getByRole('button', {name: '去查第一个词'}).click();
-	await expect(page.getByRole('combobox', {name: 'Search for a word'})).toBeFocused();
-	await page.screenshot({path: `${evidence}/home-new.png`, fullPage: true, animations: 'disabled'});
+
+test('dictionary home starts with search in English, even when reviews are due', async ({page}) => {
+ for (const state of [
+  {statsFail:true,recent:[],wordCount:55},
+  {stats:{...emptyStats,encountered:4,due_now:4},recent:[{word:'meticulous',display:'meticulous',phonetic:null,visited_at:'2026-10-30T00:00:00.000Z'}]}
+ ]) {
+  await boot(page,state);
+  await expect(page.getByRole('combobox',{name:'Search for a word'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Recent searches'})).toBeVisible();
+  await expect(page.locator('main h1')).toHaveCount(0);
+  expect((await page.getByLabel('Dictionary search').boundingBox())!.y).toBeLessThan(150);
+  expect(await page.locator('main').innerText()).not.toMatch(/\p{Script=Han}/u);
+  expect((await calls(page)).some(item=>item.command==='stats_summary')).toBe(false);
+  await page.setViewportSize({width:480,height:820});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.setViewportSize({width:1180,height:820});
+ }
 });
 
-test('due reviews are the primary action and open the due queue', async ({page}) => {
-	await boot(page, {
-		stats: {...emptyStats, encountered: 4, learning: 4, due_now: 4},
-		recent: [{word: 'meticulous', display: 'meticulous', phonetic: null, visited_at: '2026-10-30T00:00:00.000Z', comprehension_level: 'unknown'}],
-		reviewBatches: [[1, 2]],
-		newIds: [4]
-	});
-	await expect(page.getByRole('heading', {name: '当前待复习 4 个'})).toBeVisible();
-	await expect(page.getByText('今日已完成')).toHaveCount(0);
-	await expect(page.getByRole('heading', {name: '最近查过的词'})).toBeVisible();
-	await expect(page.getByRole('button', {name: 'meticulous'})).toBeVisible();
-	for (const width of [1180, 760, 480]) {
-		await page.setViewportSize({width, height: 820});
-		expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-	}
-	await page.setViewportSize({width: 480, height: 820});
-	await page.screenshot({path: `${evidence}/home-due-480.png`, fullPage: true, animations: 'disabled'});
-	await page.setViewportSize({width: 1180, height: 820});
-	await page.screenshot({path: `${evidence}/home-due.png`, fullPage: true, animations: 'disabled'});
-	const start = page.getByRole('link', {name: '开始复习'});
-	await start.focus();
-	await expect(start).toBeFocused();
-	await page.keyboard.press('Enter');
-	await expect(page).toHaveURL(/\/review\?mode=due$/);
-	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toBeVisible();
-	await expect(page.getByText('到期复习', {exact: true})).toBeVisible();
-	await expect(page.getByText('新词学习')).toHaveCount(0);
-	const names = (await calls(page)).map((call) => call.command);
-	expect(names).toContain('review_group');
-	expect(names).not.toContain('study_group');
-	expect(names).not.toContain('study_grade');
-	expect(names).not.toContain('submit_review');
-	expect(names).not.toContain('start_review_item');
+test('recent-search failures do not block lookup and can be retried', async ({page}) => {
+ await boot(page,{recentFail:true});
+ await expect(page.getByRole('combobox',{name:'Search for a word'})).toBeEnabled();
+ await expect(page.getByRole('alert')).toContainText('recent_words failed');
+ await page.evaluate(()=>localStorage.setItem('test.home.state',JSON.stringify({recent:[]})));
+ await page.getByRole('button',{name:'Retry recent searches'}).click();
+ await expect(page.getByText('Words you look up will appear here.')).toBeVisible();
 });
 
-test('recorded words with nothing due offer lookup, library, and separate new-word study', async ({page}) => {
-	await boot(page, {
-		stats: {...emptyStats, encountered: 2, learning: 2, due_now: 0},
-		recent: [{word: 'subtle', display: 'subtle', phonetic: null, visited_at: '2026-10-30T00:00:00.000Z', comprehension_level: 'unknown'}],
-		newIds: [4],
-		reviewBatches: [[1]]
-	});
-	await expect(page.getByRole('heading', {name: '当前暂无到期复习'})).toBeVisible();
-	await expect(page.getByText('学习新词来自当前词书，不是到期复习。')).toBeVisible();
-	await page.screenshot({path: `${evidence}/home-clear.png`, fullPage: true, animations: 'disabled'});
-	await page.getByRole('link', {name: '学习新词'}).click();
-	await expect(page).toHaveURL(/mode=new/);
-	await expect(page.getByRole('heading', {name: 'profound', exact: true})).toBeVisible();
-	await expect(page.getByText('新词学习')).toBeVisible();
-	const names = (await calls(page)).map((call) => call.command);
-	expect(names).toContain('study_group');
-	expect(names).not.toContain('review_group');
+test('lookup keeps dictionary content and unsaved notes without a learning banner', async ({page}) => {
+ await boot(page,{stats:emptyStats});
+ await page.goto('/?word=meticulous');
+ const notes=page.getByLabel('Word notes');
+ await expect(notes).toBeEnabled();
+ await notes.fill('Keep this draft');
+ await page.getByRole('combobox',{name:'Search for a word'}).press('Enter');
+ await expect(notes).toHaveValue('Keep this draft');
+ expect((await calls(page)).filter(item=>item.command==='lookup_word')).toHaveLength(1);
+ expect((await calls(page)).some(item=>item.command==='library_words')).toBe(false);
+ await expect(page.locator('.hint')).toHaveCount(0);
+ await expect(page.locator('.hero-card')).toBeVisible();
 });
-
-test('a failed summary stays failed until retry', async ({page}) => {
-	await boot(page, {statsSlow: true, stats: {...emptyStats, encountered: 2, learning: 2, due_now: 2}, recent: []});
-	await expect(page.getByRole('heading', {name: '正在读取学习记录'})).toBeVisible();
-	await expect(page.getByText('当前待复习')).toHaveCount(0);
-	await expect(page.getByText('当前暂无到期复习')).toHaveCount(0);
-	await page.screenshot({path: `${evidence}/home-loading.png`, fullPage: true, animations: 'disabled'});
-	await page.evaluate(() => localStorage.setItem('test.home.release', '1'));
-	await expect(page.getByRole('heading', {name: '当前待复习 2 个'})).toBeVisible();
-	await page.evaluate(() => {
-		const state = JSON.parse(localStorage.getItem('test.home.state') ?? '{}');
-		state.statsFail = true;
-		state.statsSlow = false;
-		localStorage.setItem('test.home.state', JSON.stringify(state));
-	});
-	await page.reload();
-	await expect(page.getByRole('alert')).toContainText('stats_summary failed');
-	await expect(page.getByText('当前待复习')).toHaveCount(0);
-	await expect(page.getByText('当前暂无到期复习')).toHaveCount(0);
-	await page.screenshot({path: `${evidence}/home-error.png`, fullPage: true, animations: 'disabled'});
-	await page.evaluate(() => {
-		const state = JSON.parse(localStorage.getItem('test.home.state') ?? '{}');
-		state.statsFail = false;
-		state.stats = {encountered: 3, learning: 3, familiar: 0, stable: 0, ignored: 0, due_now: 2, high_priority: 0};
-		localStorage.setItem('test.home.state', JSON.stringify(state));
-	});
-	await page.getByRole('button', {name: '重试'}).click();
-	await expect(page.getByRole('heading', {name: '当前待复习 2 个'})).toBeVisible();
-});
-
 test('finishing one due group still loads the remaining due words', async ({page}) => {
 	await boot(page, {
 		stats: {...emptyStats, encountered: 3, learning: 3, due_now: 3},
@@ -259,12 +205,12 @@ test('finishing one due group still loads the remaining due words', async ({page
 	});
 	await page.goto('/review?mode=due');
 	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toBeVisible();
-	await page.getByRole('button', {name: '认识', exact: true}).click();
+	await page.getByRole('button', {name: "Know", exact: true}).click();
 	await expect(page.getByRole('heading', {name: 'subtle', exact: true})).toBeVisible();
-	await page.getByRole('button', {name: '认识', exact: true}).click();
-	await expect(page.getByRole('heading', {name: '本轮已完成'})).toBeVisible();
-	await expect(page.getByText('统计显示仍有 3 个到期')).toBeVisible();
-	await page.getByRole('button', {name: '继续获取到期词'}).click();
+	await page.getByRole('button', {name: "Know", exact: true}).click();
+	await expect(page.getByRole('heading', {name: "Round complete"})).toBeVisible();
+	await expect(page.getByText('3 words are still due.')).toBeVisible();
+	await page.getByRole('button', {name: "Get next due group"}).click();
 	await expect(page.getByRole('heading', {name: 'resilient', exact: true})).toBeVisible();
 	const names = (await calls(page)).map((call) => call.command);
 	expect(names.filter((name) => name === 'review_group')).toHaveLength(2);
@@ -294,58 +240,6 @@ test('due mode survives reload and history changes without mixing new words', as
 	expect(returned).not.toContain('study_grade');
 });
 
-test('lookup hint uses the saved record and does not invent a review time', async ({page}) => {
-	await boot(page, {
-		stats: emptyStats,
-		lookups: {
-			meticulous: {visit_count: 2, status: 'learning', next_review_at: '2026-12-01T00:00:00.000Z'},
-			subtle: {visit_count: 1, status: 'learning', next_review_at: null}
-		},
-		library: [
-			{id: 1, word: 'meticulous', display: 'meticulous', phonetic: null, definition: '一丝不苟的', status: 'learning', bookmarked: false, note: '', visit_count: 2, next_review_at: '2026-12-01T00:00:00.000Z'},
-			{id: 2, word: 'subtle', display: 'subtle', phonetic: null, definition: '微妙的', status: 'learning', bookmarked: false, note: '', visit_count: 1, next_review_at: null}
-		]
-	});
-	await page.goto('/?word=meticulous');
-	await expect(page.getByText('查词记录已保存')).toBeVisible();
-	await expect(page.getByText('查过 2 次')).toBeVisible();
-	await expect(page.getByText('学习中', {exact: true})).toBeVisible();
-	await expect(page.getByText(/下次复习/)).toBeVisible();
-	expect((await calls(page)).filter((call) => call.command === 'lookup_word')).toHaveLength(1);
-	expect((await calls(page)).some((call) => call.command === 'library_words')).toBe(true);
-	await page.screenshot({path: `${evidence}/lookup-saved.png`, fullPage: true, animations: 'disabled'});
-	await page.goto('/?word=subtle');
-	await expect(page.getByText('查词记录已保存')).toBeVisible();
-	await expect(page.getByText(/下次复习/)).toHaveCount(0);
-	await expect(page.getByText('已安排复习')).toHaveCount(0);
-	expect((await calls(page)).filter((call) => call.command === 'lookup_word').map((call) => call.args.word)).toEqual(['subtle']);
-});
-
-test('repeat lookup and status refresh keep an unsaved note', async ({page}) => {
-	await boot(page, {
-		stats: {...emptyStats, encountered: 1, learning: 1},
-		lookups: {meticulous: {visit_count: 1, status: 'learning'}},
-		library: [{id: 1, word: 'meticulous', display: 'meticulous', phonetic: null, definition: '一丝不苟的', status: 'learning', bookmarked: false, note: '', visit_count: 1, next_review_at: null}]
-	});
-	await page.goto('/?word=meticulous');
-	const notes = page.getByLabel('Word notes');
-	await expect(notes).toBeEnabled();
-	await notes.fill('未保存的笔记');
-	await page.getByRole('combobox', {name: 'Search for a word'}).press('Enter');
-	await expect(notes).toHaveValue('未保存的笔记');
-	await page.evaluate(() => {
-		const state = JSON.parse(localStorage.getItem('test.home.state') ?? '{}');
-		state.library[0].status = 'familiar';
-		localStorage.setItem('test.home.state', JSON.stringify(state));
-	});
-	await page.getByLabel('学习记录操作').click();
-	await page.getByRole('button', {name: '刷新学习状态'}).click();
-	await expect(notes).toHaveValue('未保存的笔记');
-	await expect(page.getByText('熟悉', {exact: true})).toBeVisible();
-	await expect.poll(async () => (await calls(page)).filter((call) => call.command === 'lookup_word').length).toBe(1);
-	expect((await calls(page)).some((call) => call.command === 'stats_summary')).toBe(true);
-});
-
 test('new-word entry filters due cards from the shared study API', async ({page}) => {
 	await boot(page, {stats: emptyStats, studyDueIds: [1], newIds: [4]});
 	await page.goto('/review?mode=new');
@@ -355,36 +249,20 @@ test('new-word entry filters due cards from the shared study API', async ({page}
 	expect(request?.args.priority).toBe('new_first');
 });
 
-test('paused words hide stale due dates and keep the lookup header compact', async ({page}) => {
-	await boot(page, {stats: emptyStats, library: [{id:1,word:'meticulous',status:'ignored',visit_count:2,next_review_at:'2020-01-01T00:00:00.000Z'}]});
-	await page.evaluate(() => localStorage.setItem('lexica.preferences', JSON.stringify({theme:'dark',edition:'obsidian'})));
-	await page.goto('/?word=meticulous');
-	await expect(page.getByText('已暂停复习', {exact:true})).toBeVisible();
-	await expect(page.getByText(/下次复习/)).toHaveCount(0);
-	const hint = page.getByLabel('查词学习记录');
-	expect((await hint.boundingBox())!.height).toBeLessThan(65);
-	await expect(page.getByRole('button', {name:'刷新学习状态'})).not.toBeVisible();
-	await expect(page.locator('.metadata-panel')).not.toBeVisible();
-	expect((await page.locator('.hero-card').boundingBox())!.height).toBeLessThan(390);
-	await page.screenshot({path:test.info().outputPath('compact-dark-lookup.png'),fullPage:true});
-	await page.setViewportSize({width:480,height:820});
-	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-});
-
 test('late grade response cannot advance a newly selected learning session', async ({page}) => {
 	await boot(page, {stats: emptyStats, reviewBatches: [[1]], newIds: [3, 4], gradeSlow: true});
 	await page.goto('/review?mode=due');
 	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toBeVisible();
-	await page.getByRole('button', {name: '认识', exact: true}).click();
+	await page.getByRole('button', {name: "Know", exact: true}).click();
 	await expect.poll(async () => (await calls(page)).filter((item) => item.command === 'study_grade').length).toBe(1);
 	await page.evaluate(() => {
 		const link = document.createElement('a');
-		link.href = '/review?mode=new'; link.textContent = '切换测试模式'; document.querySelector('main')?.prepend(link);
+		link.href = '/review?mode=new'; link.textContent = 'Switch test mode'; document.querySelector('main')?.prepend(link);
 	});
-	await page.getByRole('link', {name: '切换测试模式'}).click();
+	await page.getByRole('link', {name: 'Switch test mode'}).click();
 	await expect(page.getByRole('heading', {name: 'resilient', exact: true})).toBeVisible();
 	await page.evaluate(() => localStorage.setItem('test.grade.release', '1'));
 	await page.waitForFunction(() => (window as any).__gradeReturned === true);
-	await expect(page.getByRole('button', {name: '认识', exact: true})).toBeEnabled();
+	await expect(page.getByRole('button', {name: "Know", exact: true})).toBeEnabled();
 	await expect(page.getByRole('heading', {name: 'resilient', exact: true})).toBeVisible();
 });

@@ -69,15 +69,15 @@ test('real C++ service keeps inevitable hour honest', async ({page, request}) =>
  await page.goto(`/?word=${encodeURIComponent('inevitable hour')}`);
  await expect(page.getByRole('heading', {name: 'inevitable hour', exact: true})).toBeVisible();
  await expect(page.locator('.syllable-headword')).toHaveText('in·ev·i·ta·ble hour');
- await expect(page.getByText('暂无词频数据')).toBeVisible();
+ await expect(page.getByText("Frequency unavailable")).toBeVisible();
  await expect(page.locator('.freq-ticks')).toHaveCount(0);
- await expect(page.getByText('暂无等级数据')).toBeVisible();
+ await expect(page.getByText("Level unavailable")).toBeVisible();
  await expect(page.getByText('CEFR-R')).toHaveCount(0);
  await expect(page.getByText('88%')).toHaveCount(0);
  await expect(page.locator('.definition-preview')).toContainText('死期');
  await page.getByRole('button', {name:'Full entry',exact:true}).click();
  await expect(page.locator('.translation-text')).toHaveText('死期');
- await expect(page.locator('.pos-pill')).toHaveText('词性未标注');
+ await expect(page.locator('.pos-pill')).toHaveText("Part of speech unavailable");
  await page.waitForTimeout(1400);
  await page.screenshot({path: test.info().outputPath('inevitable-hour-live.png'), fullPage: true});
 });

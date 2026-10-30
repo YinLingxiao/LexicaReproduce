@@ -57,8 +57,8 @@ export const entries: FixtureEntry[] = (seed.words as any[]).map((w, i) => {
 		collocations: w.collocations ?? [], synonyms: w.synonyms ?? [], antonyms: w.antonyms ?? [], word_family: w.word_family ?? [],
 		tags: w.tags ?? [], collins: w.collins ?? null, oxford: !!w.oxford, mnemonic: w.mnemonic ?? null, roots: w.roots ?? [],
 		derivatives: derivativesOf(w.word, w.word_family ?? []),
-		synonyms_detailed: (w.synonyms ?? []).map((word: string) => ({word, pos, gloss: gloss || '近义词'})),
-		antonyms_detailed: (w.antonyms ?? []).map((word: string) => ({word, pos, gloss: '反义词'})),
+		synonyms_detailed: (w.synonyms ?? []).map((word: string) => ({word, pos, gloss: gloss || "Synonyms"})),
+		antonyms_detailed: (w.antonyms ?? []).map((word: string) => ({word, pos, gloss: "Antonyms"})),
 		lookalikes: LOOKALIKES[w.word] ?? [], forms,
 		exam_example: senses[0]?.examples[0] ? {text: senses[0].examples[0].text, translation: senses[0].examples[0].translation} : null
 	};

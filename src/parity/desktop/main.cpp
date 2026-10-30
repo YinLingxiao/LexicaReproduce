@@ -174,7 +174,7 @@ struct Host {
     PostMessageW(window, kReply, 0, 0);
   }
   void startWorker() {
-    SetWindowTextW(window, L"Lexica · 正在打开词库");
+    SetWindowTextW(window, L"Lexica · Opening dictionary");
     startupThread = std::thread([this] {
       const auto began = std::chrono::steady_clock::now();
       p::setCurrentCancellation(&startupStop);
@@ -228,9 +228,9 @@ struct Host {
                                  FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                                  0, 0, CLEARTYPE_QUALITY, 0, L"Microsoft YaHei UI");
     const auto previous = SelectObject(dc, font);
-    const wchar_t *text = closePending ? L"正在安全结束启动…"
-        : startupDone.load(std::memory_order_acquire) ? L"词库已就绪，正在打开界面…"
-                                                     : L"正在打开本地词库…";
+    const wchar_t *text = closePending ? L"Finishing startup safely…"
+        : startupDone.load(std::memory_order_acquire) ? L"Dictionary ready. Opening the interface…"
+                                                     : L"Opening your local dictionary…";
     DrawTextW(dc, text, -1, &area, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     SelectObject(dc, previous);
     DeleteObject(font);

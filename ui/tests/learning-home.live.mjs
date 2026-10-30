@@ -38,22 +38,23 @@ test('isolated service: lookup, due review, feedback, refreshed home', async ({p
 	};
 
 	await page.goto('/');
-	await expect(page.getByRole('heading', {name: '先查一个词'})).toBeVisible();
+	await expect(page.getByRole('combobox',{name:'Search for a word'})).toBeVisible();
+	await expect(page.getByRole('heading',{name:'Recent searches'})).toBeVisible();
+	expect(await page.locator('main').innerText()).not.toMatch(/\p{Script=Han}/u);
 	await expect(page.getByText('当前待复习')).toHaveCount(0);
 	await page.screenshot({path: path.join(evidence, 'home-live-new.png'), fullPage: true, animations: 'disabled'});
 
 	await page.getByRole('combobox', {name: 'Search for a word'}).fill('meticulous');
 	await page.getByRole('button', {name: 'Look up'}).click();
 	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toBeVisible();
-	await expect(page.getByText('查词记录已保存')).toBeVisible();
-	await expect(page.getByText(/查过 \d+ 次/)).toBeVisible();
-	await expect(page.getByText(/下次复习/)).toBeVisible();
+	await expect(page.locator('.hint')).toHaveCount(0);
 	await page.screenshot({path: path.join(evidence, 'home-live-lookup.png'), fullPage: true, animations: 'disabled'});
 
 	await rpc('lookup_word', {word: 'subtle'});
 	backdate();
 	await page.goto('/');
-	await expect(page.getByRole('heading', {name: '当前待复习 2 个'})).toBeVisible();
+	expect((await rpc('stats_summary')).due_now).toBe(2);
+	await expect(page.locator('main h1')).toHaveCount(0);
 	await expect(page.getByRole('button', {name: 'meticulous'})).toBeVisible();
 	await page.setViewportSize({width: 480, height: 820});
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -61,12 +62,12 @@ test('isolated service: lookup, due review, feedback, refreshed home', async ({p
 	await page.screenshot({path: path.join(evidence, 'home-live-due.png'), fullPage: true, animations: 'disabled'});
 
 	calls.length = 0;
-	const start = page.getByRole('link', {name: '开始复习'});
+	const start = page.getByRole('link', {name:'Review',exact:true}).first();
 	await start.focus();
 	await expect(start).toBeFocused();
 	await page.keyboard.press('Enter');
 	await expect(page).toHaveURL(/\/review\?mode=due$/);
-	await expect(page.getByText('到期复习', {exact: true})).toBeVisible();
+	await expect(page.getByText("Due reviews", {exact: true})).toBeVisible();
 	await expect(page.getByRole('heading', {name: /meticulous|subtle/})).toBeVisible();
 	expect(calls).toContain('review_group');
 	expect(calls).not.toContain('study_group');
@@ -75,13 +76,13 @@ test('isolated service: lookup, due review, feedback, refreshed home', async ({p
 	expect(calls).not.toContain('start_review_item');
 	await page.screenshot({path: path.join(evidence, 'review-live-due.png'), fullPage: true, animations: 'disabled'});
 
-	await page.getByRole('button', {name: '认识', exact: true}).click();
-	await page.getByRole('button', {name: '认识', exact: true}).click();
-	await expect(page.getByRole('heading', {name: '本轮已完成'})).toBeVisible();
+	await page.getByRole('button', {name: "Know", exact: true}).click();
+	await page.getByRole('button', {name: "Know", exact: true}).click();
+	await expect(page.getByRole('heading', {name: "Round complete"})).toBeVisible();
 	expect(calls.filter((name) => name === 'study_grade')).toHaveLength(2);
 
 	await page.goto('/');
-	await expect(page.getByRole('heading', {name: '当前暂无到期复习'})).toBeVisible();
+	await expect(page.getByRole('heading',{name:'Recent searches'})).toBeVisible();
 	await expect(page.getByText('今日已完成')).toHaveCount(0);
 	const summary = await rpc('stats_summary');
 	expect(summary.due_now).toBe(0);
@@ -116,7 +117,7 @@ test('real system TTS plays words and sentences across reloads and tabs', async 
 		if (data.command === 'tts_synthesize') synthRequests.push(data.args);
 	});
 	await page.goto('/?word=meticulous');
-	await page.getByRole('button', {name: '朗读单词', exact: true}).click();
+	await page.getByRole('button', {name: "Pronounce word", exact: true}).click();
 	await expect.poll(() => page.evaluate(() => window.__realAudioPlaying)).toBeGreaterThan(0);
 	expect(synthRequests.at(-1).text).toBe('meticulous');
 	const firstClient = synthRequests.at(-1).clientId;
@@ -125,13 +126,13 @@ test('real system TTS plays words and sentences across reloads and tabs', async 
 	const stale = await rpc('tts_synthesize', {text: 'hello', token: 1, clientId: firstClient});
 	expect(stale.error.code).toBe('CANCELLED');
 	await page.reload();
-	await page.getByRole('button', {name: '朗读单词', exact: true}).click();
+	await page.getByRole('button', {name: "Pronounce word", exact: true}).click();
 	await expect.poll(() => page.evaluate(() => window.__realAudioPlaying)).toBeGreaterThan(0);
 	expect(synthRequests.at(-1).clientId).not.toBe(firstClient);
 	const secondClient = synthRequests.at(-1).clientId;
 	await page.evaluate(() => document.fonts.ready);
 	const beforeExample = await page.locator('.lead-example .example').boundingBox();
-	await page.getByRole('button', {name: '朗读例句', exact: true}).first().click();
+	await page.getByRole('button', {name: "Read example", exact: true}).first().click();
 	await expect.poll(() => page.evaluate(() => window.__realAudioPlaying)).toBeGreaterThan(1);
 	expect(synthRequests.at(-1).text).not.toBe('meticulous');
 	const afterExample = await page.locator('.lead-example .example').boundingBox();
@@ -146,7 +147,7 @@ test('real system TTS plays words and sentences across reloads and tabs', async 
 	await page.screenshot({path: path.join(evidence, 'tts-http-playing.png'), fullPage: true});
 	const second = await context.newPage();
 	await second.goto('/settings');
-	await second.getByRole('button', {name: '试听', exact: true}).click();
+	await second.getByRole('button', {name: "Preview voice", exact: true}).click();
 	await expect.poll(() => second.evaluate(() => window.__realAudioPlaying)).toBeGreaterThan(0);
 	expect(synthRequests.at(-1).clientId).not.toBe(secondClient);
 	expect(errors).toEqual([]);

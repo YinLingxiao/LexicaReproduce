@@ -78,7 +78,7 @@
 	const definitionsVisible = $derived(s.cardMode === 'standard' || defsShown);
 
 	const tabs = $derived([
-		{ id: 'examples', label: '例句' },
+		{ id: 'examples', label: "Examples" },
 		...s.extensionTabs.filter((t) => t.enabled).map((t) => ({ id: t.id as string, label: t.label }))
 	]);
 	let tab = $state(preferences.study.autoReturnToExamples ? 'examples' : lastTab);
@@ -161,11 +161,11 @@
 
 <article class="study-card" class:fade={s.fadeIn}>
 	<div class="card-top-bar">
-		<span class="mode-tag">{card.is_new ? '新词' : '复习'}</span>
+		<span class="mode-tag">{card.is_new ? "New words" : "Review"}</span>
 		<button
 			class="icon-btn dots-btn"
-			aria-label="学习设置"
-			title="学习设置"
+			aria-label="Study settings"
+			title="Study settings"
 			onclick={onOpenSettings}><Icon name="dots" size={18} /></button
 		>
 	</div>
@@ -177,7 +177,7 @@
 			<SpeakButton
 				text={entry.word}
 				playKey={`study-${entry.id}-word`}
-				label="朗读单词"
+				label="Pronounce word"
 				accent={s.accent}
 				rate={s.speechRate}
 				repeat={s.pronounceRepeat === 'thrice' ? 3 : 1}
@@ -190,17 +190,17 @@
 			{#if s.cardMode === 'context' && example && !definitionsVisible}
 				<div class="context-card">
 					<div class="example-header">
-						<span class="example-pill"><em>context</em><span>语境</span></span>
+						<span class="example-pill"><em>context</em><span>Context</span></span>
 						<SpeakButton
 							text={example.text}
 							playKey={`study-${entry.id}-sentence-${example.id}`}
-							label="朗读例句"
+							label="Read example"
 							accent={s.accent}
 							rate={s.speechRate}
 						/>
 					</div>
 					<p class="example-en reading"><HighlightedText text={example.text} word={entry.word} /></p>
-					<button class="reveal block" onclick={() => (defsShown = true)}>点击显示完整释义</button>
+					<button class="reveal block" onclick={() => (defsShown = true)}>Show full definition</button>
 				</div>
 			{/if}
 
@@ -208,7 +208,7 @@
 				<div class="senses-block">
 					<div class="pos-row">
 						{#if primaryPos}<span class="pos-pill">{primaryPos}</span>{:else}<span
-								class="pos-pill missing">词性未标注</span
+								class="pos-pill missing">Part of speech unavailable</span
 							>{/if}
 					</div>
 					<div class="senses-scroll" class:has-fade={entry.senses.length > 3}>
@@ -223,10 +223,10 @@
 											title={`CEFR ${senseLevelInfo.level} · ${senseLevelInfo.sourceLabel}`}
 											>{senseLevelInfo.level}</span
 										>
-										{#if senseLevelInfo.estimated}<small class="level-source">估算</small
+										{#if senseLevelInfo.estimated}<small class="level-source">Estimated</small
 											>{/if}
 									{:else}
-										<span class="level-pill missing">未标注</span>
+										<span class="level-pill missing">Unrated</span>
 									{/if}
 								</div>
 								<p class="english reading">
@@ -234,7 +234,7 @@
 								</p>
 							</div>
 						{:else}
-							<p class="muted small">暂无释义。</p>
+							<p class="muted small">No definition available.</p>
 						{/each}
 					</div>
 				</div>
@@ -244,7 +244,7 @@
 		<div class="card-right-pane">
 			{#if tabs.length && definitionsVisible}
 				<div class="tabs-bar">
-					<div class="tabs-scroll" role="tablist" aria-label="扩展内容" bind:this={tabStrip}>
+					<div class="tabs-scroll" role="tablist" aria-label="Word details" bind:this={tabStrip}>
 						{#each tabs as t}<button
 								role="tab"
 								aria-selected={activeTab === t.id}
@@ -255,8 +255,8 @@
 					<button
 						class="tabs-more"
 						type="button"
-						aria-label="更多扩展栏"
-						title="横向滚动扩展栏"
+						aria-label="More word details"
+						title="Scroll word details"
 						onclick={scrollTabsRight}><Icon name="chevrons-right" size={16} /></button
 					>
 				</div>
@@ -269,15 +269,15 @@
 									<button
 										type="button"
 										class="example-pill"
-										title="切换标准/真题例句"
+										title="Switch dictionary / exam examples"
 										onclick={toggleExampleStyle}
 									>
-										<em>example</em><span>{s.exampleStyle === 'exam' ? '真题' : '标准'}</span>
+										<em>example</em><span>{s.exampleStyle === 'exam' ? "Exam" : "Standard"}</span>
 									</button>
 									<SpeakButton
 										text={example.text}
 										playKey={`study-${entry.id}-sentence-${example.id}`}
-										label="朗读例句"
+										label="Read example"
 										accent={s.accent}
 										rate={s.speechRate}
 									/>
@@ -287,20 +287,20 @@
 								</p>
 								{#if example.translation}
 									{#if s.hideChinese && !zhShown}
-										<button class="reveal" onclick={() => (zhShown = true)}>点击显示中文译文</button>
+										<button class="reveal" onclick={() => (zhShown = true)}>Show Chinese translation</button>
 									{:else}
 										<p class="example-zh">{example.translation}</p>
 									{/if}
 								{/if}
 							{:else}
-								<p class="muted small">暂无例句。</p>
+								<p class="muted small">No example available.</p>
 							{/if}
 
 							{#if chineseSummary}
 								<div class="translation-block">
 									<span class="translation-pill"><em>translation</em></span>
 									{#if s.hideChinese && !zhShown}
-										<button class="reveal" onclick={() => (zhShown = true)}>点击显示中文释义</button>
+										<button class="reveal" onclick={() => (zhShown = true)}>Show Chinese definition</button>
 									{:else}
 										<p class="translation-zh">{chineseSummary}</p>
 									{/if}
@@ -312,7 +312,7 @@
 							{#if entry.mnemonic}
 								<p class="mnemonic-text">{entry.mnemonic}</p>
 							{:else}
-								<p class="muted small">暂无助记。</p>
+								<p class="muted small">No mnemonic available.</p>
 							{/if}
 						</div>
 					{:else if activeTab === 'roots'}
@@ -327,7 +327,7 @@
 									{/each}
 								</ul>
 							{:else}
-								<p class="muted small">暂无词根词缀。</p>
+								<p class="muted small">No root information available.</p>
 							{/if}
 						</div>
 					{:else if activeTab === 'derivatives'}
@@ -356,7 +356,7 @@
 									{/each}
 								</ul>
 							{:else}
-								<p class="muted small">暂无派生词。</p>
+								<p class="muted small">No derivatives available.</p>
 							{/if}
 						</div>
 					{:else if activeTab === 'forms'}
@@ -371,7 +371,7 @@
 									{/each}
 								</ul>
 							{:else}
-								<p class="muted small">暂无词形变化。</p>
+								<p class="muted small">No word forms available.</p>
 							{/if}
 						</div>
 					{:else}
@@ -395,7 +395,7 @@
 									{/each}
 								</ul>
 							{:else}
-								<p class="muted small">暂无内容。</p>
+								<p class="muted small">No details available.</p>
 							{/if}
 						</div>
 					{/if}
@@ -405,13 +405,13 @@
 	</div>
 
 	<!-- 右下侧三联悬浮圆钮（收藏 ☆ / 斩词 🗑 / 记忆小脑 🧠） -->
-	<aside class="floating-dock" aria-label="单词操作">
+	<aside class="floating-dock" aria-label="Word actions">
 		<button
 			type="button"
 			class="fab"
 			aria-pressed={card.bookmarked}
-			aria-label={card.bookmarked ? '取消收藏' : '收藏'}
-			title={card.bookmarked ? '取消收藏' : '收藏单词'}
+			aria-label={card.bookmarked ? "Remove bookmark" : "Bookmark"}
+			title={card.bookmarked ? "Remove bookmark" : "Bookmark this word"}
 			onclick={onToggleBookmark}
 		>
 			<Icon name={card.bookmarked ? 'star-filled' : 'star'} size={19} />
@@ -419,35 +419,35 @@
 		<button
 			type="button"
 			class="fab"
-			aria-label="不再学习这个词"
-			title="标为熟知（不再安排学习）"
+			aria-label="Pause this word"
+			title="Pause future study for this word"
 			disabled={busy}
 			onclick={onIgnoreWord}
 		>
 			<Icon name="trash" size={18} />
 		</button>
-		<div class="brain-group" role="group" aria-label="掌握度评分">
+		<div class="brain-group" role="group" aria-label="Recall confidence">
 			<div class="sub-grades">
 				<button
 					type="button"
 					class="sub-grade"
 					disabled={busy}
-					title="模糊（快捷键 2）"
-					onclick={() => onGradeWord('hazy')}>模糊</button
+					title="Not sure (2)"
+					onclick={() => onGradeWord('hazy')}>Not sure</button
 				>
 				<button
 					type="button"
 					class="sub-grade"
 					disabled={busy}
-					title="忘记（快捷键 3）"
-					onclick={() => onGradeWord('forgot')}>忘记</button
+					title="Forgot (3)"
+					onclick={() => onGradeWord('forgot')}>Forgot</button
 				>
 			</div>
 			<button
 				type="button"
 				class="fab brain-fab"
-				aria-label="认识"
-				title="认识并进入下一词（Space / 1）"
+				aria-label="Know"
+				title="Know and continue (Space / 1)"
 				disabled={busy}
 				onclick={() => onGradeWord('know')}
 			>
@@ -463,7 +463,7 @@
 		aria-valuemin={0}
 		aria-valuemax={progressTotal}
 		aria-valuenow={progressIndex + 1}
-		aria-label="本组学习进度"
+		aria-label="Session progress"
 	>
 		{#each { length: TICK_COUNT } as _, idx}
 			<span class="tick" class:filled={idx < filledTicks}></span>

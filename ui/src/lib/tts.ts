@@ -97,7 +97,7 @@ const controller = createSpeechController({
 			if (error instanceof RpcError) throw new SpeechError(error.code, error.message);
 			if (error instanceof SpeechError) throw error;
 			if (error instanceof Error) throw new SpeechError('RESOURCE_ERROR', error.message);
-			throw new SpeechError('RESOURCE_ERROR', '朗读失败');
+			throw new SpeechError('RESOURCE_ERROR', "Pronunciation failed.");
 		}
 	},
 	cancel: async (token) => {

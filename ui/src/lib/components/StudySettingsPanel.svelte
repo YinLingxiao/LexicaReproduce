@@ -13,16 +13,16 @@
 
 	type Wordbook = StudyPreferences['wordbook'];
 	const WORDBOOK_NAMES: Record<Wordbook, string> = {
-		cet4: '大学英语四级 CET-4',
-		cet6: '大学英语六级 CET-6',
-		ky: '考研英语',
+		cet4: "CET-4",
+		cet6: "CET-6",
+		ky: "Postgraduate English",
 		toefl: 'TOEFL',
 		ielts: 'IELTS',
 		gre: 'GRE',
-		gk: '高考英语',
+		gk: "Gaokao English",
 		oxford: 'Oxford 3000',
-		custom: '自定义词库',
-		encountered: '查词记录'
+		custom: "Custom wordbook",
+		encountered: "Search history"
 	};
 	const WORDBOOK_ORDER = Object.keys(WORDBOOK_NAMES) as Wordbook[];
 
@@ -84,26 +84,26 @@
 	}
 
 	const cardModes = [
-		['standard', '标准卡片'],
-		['context', '语境卡片']
+		['standard', "Standard card"],
+		['context', "Context card"]
 	] as const;
 	const planStyles = [
-		['standard', '标准'],
-		['intensive', '强化'],
-		['casual', '轻松']
+		['standard', "Standard"],
+		['intensive', "Intensive"],
+		['casual', "Casual"]
 	] as const;
 	const priorities = [
-		['mixed', '混合'],
-		['new_first', '新词优先'],
-		['review_first', '复习优先']
+		['mixed', "Mixed"],
+		['new_first', "New words first"],
+		['review_first', "Reviews first"]
 	] as const;
 	const repeats = [
-		['never', '不重复'],
-		['thrice', '重复 3 次']
+		['never', "Once"],
+		['thrice', "Three times"]
 	] as const;
 	const accents = [
-		['US', '美音'],
-		['UK', '英音']
+		['US', "US"],
+		['UK', "UK"]
 	] as const;
 	const rates = [
 		[0.8, '0.8x'],
@@ -111,12 +111,12 @@
 		[1.2, '1.2x']
 	] as const;
 	const exampleStyles = [
-		['standard', '标准例句'],
-		['exam', '真题例句']
+		['standard', "Dictionary examples"],
+		['exam', "Exam examples"]
 	] as const;
 	const exampleOrders = [
-		['first', '首条'],
-		['random', '随机']
+		['first', "First"],
+		['random', "Random"]
 	] as const;
 </script>
 
@@ -136,16 +136,16 @@
 <div class="study-settings">
 	{#if onClose}
 		<div class="panel-head">
-			<h2>学习设置</h2>
-			<button class="icon-btn" aria-label="关闭学习设置" onclick={onClose}
+			<h2>Study settings</h2>
+			<button class="icon-btn" aria-label="Close study settings" onclick={onClose}
 				><Icon name="close" size={16} /></button
 			>
 		</div>
 	{/if}
 
 	<section class="panel">
-		<div class="section-heading"><h2>词书与计划</h2></div>
-		<div class="books" role="radiogroup" aria-label="词书">
+		<div class="section-heading"><h2>Wordbook and plan</h2></div>
+		<div class="books" role="radiogroup" aria-label="Wordbook">
 			{#each bookRows as b}
 				<button
 					class="book"
@@ -165,13 +165,13 @@
 				</button>
 			{/each}
 		</div>
-		{#if booksError}<p class="muted small">词书进度暂不可用：{booksError}</p>{/if}
+		{#if booksError}<p class="muted small">Wordbook progress unavailable:{booksError}</p>{/if}
 		<p class="muted small blurb">
-			自定义词库收录你在查词或学习时收藏的单词。想整理收藏，可以到
-			<a href="/library?filter=bookmarked">单词本 · 已收藏</a>。
+			Your custom wordbook contains bookmarked words. Manage them in
+			<a href="/library?filter=bookmarked">Words · Bookmarked</a>。
 		</p>
 		<div class="setting-row">
-			<h3>卡片类型</h3>
+			<h3>Card type</h3>
 			<div class="segmented">
 				{#each cardModes as [key, label]}<button
 						aria-pressed={preferences.study.cardMode === key}
@@ -181,7 +181,7 @@
 			</div>
 		</div>
 		<div class="setting-row">
-			<h3>计划风格</h3>
+			<h3>Study plan</h3>
 			<div class="segmented">
 				{#each planStyles as [key, label]}<button
 						aria-pressed={preferences.study.planStyle === key}
@@ -191,7 +191,7 @@
 			</div>
 		</div>
 		<div class="setting-row">
-			<h3>每日新词</h3>
+			<h3>Daily new words</h3>
 			<div class="segmented">
 				{#each DAILY_NEW_LIMITS as n}<button
 						aria-pressed={preferences.study.dailyNewLimit === n}
@@ -201,7 +201,7 @@
 			</div>
 		</div>
 		<div class="setting-row last">
-			<h3>学习顺序</h3>
+			<h3>Study order</h3>
 			<div class="segmented">
 				{#each priorities as [key, label]}<button
 						aria-pressed={preferences.study.priority === key}
@@ -213,10 +213,10 @@
 	</section>
 
 	<section class="panel">
-		<div class="section-heading"><h2>发音</h2></div>
-		{@render toggle('autoPronounceWord', '单词自动发音')}
+		<div class="section-heading"><h2>Pronunciation</h2></div>
+		{@render toggle('autoPronounceWord', "Auto-play words")}
 		<div class="setting-row">
-			<h3>重复播放</h3>
+			<h3>Repeat</h3>
 			<div class="segmented">
 				{#each repeats as [key, label]}<button
 						aria-pressed={preferences.study.pronounceRepeat === key}
@@ -225,10 +225,10 @@
 					>{/each}
 			</div>
 		</div>
-		{@render toggle('autoPronounceExample', '例句自动发音')}
-		{@render toggle('autoPronounceContext', '语境卡片自动发音')}
+		{@render toggle('autoPronounceExample', "Auto-play examples")}
+		{@render toggle('autoPronounceContext', "Auto-play context cards")}
 		<div class="setting-row">
-			<h3>口音</h3>
+			<h3>Accent</h3>
 			<div class="segmented">
 				{#each accents as [key, label]}<button
 						aria-pressed={preferences.study.accent === key}
@@ -238,7 +238,7 @@
 			</div>
 		</div>
 		<div class="setting-row last">
-			<h3>语速</h3>
+			<h3>Playback speed</h3>
 			<div class="segmented">
 				{#each rates as [key, label]}<button
 						aria-pressed={preferences.study.speechRate === key}
@@ -250,9 +250,9 @@
 	</section>
 
 	<section class="panel">
-		<div class="section-heading"><h2>例句</h2></div>
+		<div class="section-heading"><h2>Examples</h2></div>
 		<div class="setting-row">
-			<h3>例句类型</h3>
+			<h3>Example source</h3>
 			<div class="segmented">
 				{#each exampleStyles as [key, label]}<button
 						aria-pressed={preferences.study.exampleStyle === key}
@@ -262,7 +262,7 @@
 			</div>
 		</div>
 		<div class="setting-row last">
-			<h3>显示方式</h3>
+			<h3>Display</h3>
 			<div class="segmented">
 				{#each exampleOrders as [key, label]}<button
 						aria-pressed={preferences.study.exampleOrder === key}
@@ -271,20 +271,20 @@
 					>{/each}
 			</div>
 		</div>
-		<p class="muted small footnote">真题例句目前支持大学英语四级、六级，及考研英语真题。</p>
+		<p class="muted small footnote">Exam examples support CET-4, CET-6, and postgraduate English exams.</p>
 	</section>
 
 	<section class="panel">
-		<div class="section-heading"><h2>卡片显示与测验</h2></div>
-		{@render toggle('autoSplitSyllables', '自动拆分音节')}
-		{@render toggle('fadeIn', '卡片渐显')}
-		{@render toggle('hideChinese', '隐藏中文释义')}
-		{@render toggle('inSessionQuiz', '学完后拼写测验', true)}
+		<div class="section-heading"><h2>Cards and practice</h2></div>
+		{@render toggle('autoSplitSyllables', "Split syllables")}
+		{@render toggle('fadeIn', "Animate cards")}
+		{@render toggle('hideChinese', "Hide Chinese translations")}
+		{@render toggle('inSessionQuiz', "Spelling practice after browsing", true)}
 	</section>
 
 	<section class="panel">
-		<div class="section-heading"><h2>扩展页签</h2></div>
-		<p class="muted small blurb">勾选要显示的页签，拖动 ≡ 或用 ↑ ↓ 键调整顺序。</p>
+		<div class="section-heading"><h2>Extra tabs</h2></div>
+		<p class="muted small blurb">Choose tabs, then drag ≡ or use Up / Down to reorder them.</p>
 		<ul class="tab-list">
 			{#each preferences.study.extensionTabs as tab, i (tab.id)}
 				<li
@@ -308,8 +308,8 @@
 					<button
 						class="handle"
 						draggable="true"
-						aria-label="移动 {tab.label}（第 {i + 1} 项，共 {preferences.study.extensionTabs
-							.length} 项），按上下方向键调整"
+						aria-label="Move {tab.label} ( {i + 1}  of {preferences.study.extensionTabs
+							.length} ) — use Up / Down to reorder"
 						ondragstart={(e) => {
 							dragFrom = i;
 							e.dataTransfer?.setData('text/plain', tab.id);
@@ -320,7 +320,7 @@
 				</li>
 			{/each}
 		</ul>
-		{@render toggle('autoReturnToExamples', '切换单词时自动返回例句', true)}
+		{@render toggle('autoReturnToExamples', "Return to examples on each word", true)}
 	</section>
 </div>
 

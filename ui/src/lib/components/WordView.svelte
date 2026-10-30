@@ -84,11 +84,11 @@
 		const tagMap: Record<string, string> = {
 			cet4: 'CET-4',
 			cet6: 'CET-6',
-			ky: '考研',
+			ky: "Postgraduate",
 			toefl: 'TOEFL',
 			ielts: 'IELTS',
 			gre: 'GRE',
-			gk: '高考',
+			gk: "Gaokao",
 		};
 		for (const t of entry.tags ?? []) {
 			const label = tagMap[t.toLowerCase()];
@@ -373,7 +373,7 @@
 						<SpeakButton
 							text={entry.word}
 							playKey={`lookup-${entry.id}-word`}
-							label="朗读单词"
+							label="Pronounce word"
 							accent={preferences.study.accent}
 							rate={preferences.study.speechRate}
 							repeat={preferences.study.pronounceRepeat === 'thrice' ? 3 : 1}
@@ -383,7 +383,7 @@
 
 				<div class="metrics-bar">
 					<div class="metric-item freq-metric">
-						<span class="metric-label">词频</span>
+						<span class="metric-label">Frequency</span>
 						{#if frequency.hasRank}<div
 								class="freq-ticks"
 								aria-label={frequency.label}
@@ -403,15 +403,15 @@
 					<div class="metric-item level-metric">
 						<span class="metric-label">CEFR</span><span class="metric-value"
 							>{level.level ?? NO_LEVEL_LABEL}{level.estimated
-								? ' · 估算'
+								? ' · Estimated'
 								: ''}</span
 						>
 					</div>
 					<details class="metadata-details" use:fitPopover>
-						<summary>词条信息</summary>
+						<summary>Entry details</summary>
 						<div class="metadata-panel" data-popover>
 							<p>{frequency.explanation} {frequency.sourceLabel}</p>
-							{#if collins}<p>Collins 星级，不是词频排名</p>{/if}
+							{#if collins}<p>Collins stars are a rating, not a frequency rank.</p>{/if}
 							{#if level.level}<div
 									class="cefr-scale"
 									role="img"
@@ -423,7 +423,7 @@
 										>{/each}
 								</div>
 								<p>
-									{level.sourceLabel}{level.estimated ? ' · 估算' : ''}
+									{level.sourceLabel}{level.estimated ? ' · Estimated' : ''}
 								</p>{/if}
 						</div>
 					</details>
@@ -440,8 +440,8 @@
 						class:active={inCustomBook}
 						disabled={isPreview()}
 						onclick={toggleCustomBook}
-						title={inCustomBook ? '从自定义单词本移除' : '加入自定义单词本'}
-						aria-label="加入自定义单词本">+</button
+						title={inCustomBook ? "Remove from custom wordbook" : "Add to custom wordbook"}
+						aria-label="Add to custom wordbook">+</button
 					>
 				</div>
 
@@ -458,7 +458,7 @@
 							disabled={!noteReady || busy || isPreview()}
 						>
 							<Icon name={bookmarked ? 'star-filled' : 'star'} size={15} />
-							<span>{bookmarked ? '已收藏' : '收藏'}</span>
+							<span>{bookmarked ? "Bookmarked" : "Bookmark"}</span>
 						</button>
 						<button
 							type="button"
@@ -468,7 +468,7 @@
 							onclick={toggleTracking}
 						>
 							<Icon name="review" size={15} />
-							<span>{ignored ? '恢复复习' : '暂停复习'}</span>
+							<span>{ignored ? "Resume review" : "Pause review"}</span>
 						</button>
 						<button
 							type="button"
@@ -478,13 +478,13 @@
 							onclick={copy}
 						>
 							<Icon name="copy" size={15} />
-							<span>复制</span>
+							<span>Copy</span>
 						</button>
 					</div>
 					<div
 						class="memory-indicator"
 						title={ignored
-							? '已暂停复习'
+							? "Review paused"
 							: result.memory
 								? `${statusLabel[result.memory.status ?? 'new']} · seen ${result.memory.visit_count}×`
 								: 'New word'}
@@ -493,7 +493,7 @@
 						{#if result.memory}
 							<small
 								>{ignored
-									? '已暂停'
+									? "Paused"
 									: statusLabel[result.memory.status ?? 'new']} · {result.memory
 									.visit_count}×</small
 							>
@@ -513,7 +513,7 @@
 								<SpeakButton
 									text={example.text}
 									playKey={`lookup-${entry.id}-lead-${'id' in example ? example.id : 'ai'}`}
-									label="朗读例句"
+									label="Read example"
 									accent={preferences.study.accent}
 									rate={preferences.study.speechRate}
 								/>
@@ -529,12 +529,12 @@
 								<span
 									class="preview-label"
 									title={aiUnavailable
-										? '例句暂不可用，先显示词典释义'
+										? "Examples are unavailable. Showing the dictionary definition."
 										: undefined}
-									>{aiLoading ? '释义 · 正在补充例句' : '释义'}</span
+									>{aiLoading ? "Definition · loading an example" : "Definition"}</span
 								>
 								<p>
-									{chineseSummary || primary?.english_definition || '暂无释义'}
+									{chineseSummary || primary?.english_definition || "No definition available"}
 								</p>
 							</div>{/if}
 					</div>
@@ -562,7 +562,7 @@
 				{#if full || example}<div class="definitions" class:spaced={!full}>
 						<div class="definitions-head">
 							{#if primaryPos}<span class="pos-pill">{primaryPos}</span
-								>{:else}<span class="pos-pill missing">词性未标注</span>{/if}
+								>{:else}<span class="pos-pill missing">Part of speech unavailable</span>{/if}
 							<h2 class="defs-title">Definitions</h2>
 						</div>
 						{#each entry.senses as sense, i}
@@ -578,10 +578,10 @@
 												>{senseLevelInfo.level}</span
 											>
 											{#if senseLevelInfo.estimated}<small class="level-source"
-													>估算</small
+													>Estimated</small
 												>{/if}
 										{:else}
-											<span class="level-pill missing">未标注</span>
+											<span class="level-pill missing">Unrated</span>
 										{/if}
 									</div>
 									<div class="sense-defs">
@@ -604,7 +604,7 @@
 											<SpeakButton
 												text={ex.text}
 												playKey={`lookup-${entry.id}-sense-${ex.id}`}
-												label="朗读例句"
+												label="Read example"
 												accent={preferences.study.accent}
 												rate={preferences.study.speechRate}
 											/>
@@ -624,7 +624,7 @@
 											<SpeakButton
 												text={aiSentence}
 												playKey={`lookup-${entry.id}-ai`}
-												label="朗读例句"
+												label="Read example"
 												accent={preferences.study.accent}
 												rate={preferences.study.speechRate}
 											/>

@@ -61,13 +61,13 @@ try {
   });
   await page.goto('https://lexica.local/settings');
   assert(await page.evaluate(() => Boolean(window.chrome?.webview)), 'Native bridge missing');
-  await page.getByRole('button', {name: '试听', exact: true}).click();
+  await page.getByRole('button', {name: 'Preview voice', exact: true}).click();
   await page.waitForFunction(() => window.__ttsPlaying > 0, null, {timeout: 15000});
   await page.screenshot({path: path.join(data, 'settings-playing.png'), fullPage: true});
   await page.goto('https://lexica.local/?word=meticulous');
-  await page.getByRole('button', {name: '朗读单词', exact: true}).click();
+  await page.getByRole('button', {name: 'Pronounce word', exact: true}).click();
   await page.waitForFunction(() => window.__ttsPlaying > 0);
-  await page.getByRole('button', {name: '朗读例句', exact: true}).first().click();
+  await page.getByRole('button', {name: 'Read example', exact: true}).first().click();
   await page.waitForFunction(() => window.__ttsPlaying > 1);
   const exampleBox = await page.locator('.lead-example .example').boundingBox();
   assert(exampleBox.width > 200 && exampleBox.height < 250, 'Voice notice squeezed the example text');
@@ -75,7 +75,7 @@ try {
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({path: path.join(data, 'word-sentence-playing.png'), fullPage: true});
   await page.reload();
-  await page.getByRole('button', {name: '朗读单词', exact: true}).click();
+  await page.getByRole('button', {name: 'Pronounce word', exact: true}).click();
   await page.waitForFunction(() => window.__ttsPlaying > 0);
   assert.deepEqual(errors, []);
   const result = {ok: true, transport: 'native WebView2', real_media_playing_events: true,

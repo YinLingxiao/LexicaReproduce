@@ -106,7 +106,7 @@ std::shared_ptr<TtsEngine> engine() {
 // epochMu must be held. Active/queued requests retain their epoch across LRU eviction.
 std::shared_ptr<std::atomic<std::int64_t>> clientEpoch(const std::string &clientId) {
   if (clientId.empty() || clientId.size() > 128)
-    throw Error("BAD_REQUEST", "无效的朗读会话标识");
+    throw Error("BAD_REQUEST", "Invalid speech session ID.");
   if (!epochs.count(clientId) && epochs.size() >= 128) {
     auto victim = epochs.end();
     for (auto it = epochs.begin(); it != epochs.end(); ++it)
@@ -114,7 +114,7 @@ std::shared_ptr<std::atomic<std::int64_t>> clientEpoch(const std::string &client
           (victim == epochs.end() || it->second.touched < victim->second.touched))
         victim = it;
     if (victim == epochs.end())
-      throw Error("BUSY", "朗读会话过多");
+      throw Error("BUSY", "Too many speech sessions.");
     epochs.erase(victim);
   }
   auto &entry = epochs[clientId];
@@ -126,11 +126,11 @@ std::shared_ptr<std::atomic<std::int64_t>> clientEpoch(const std::string &client
 class UnsupportedEngine final : public TtsEngine {
 public:
   TtsCatalog catalog() override {
-    return {false, "当前环境不支持 Windows 系统语音合成。", {}};
+    return {false, "System speech synthesis is not supported in this environment.", {}};
   }
   TtsAudio synthesize(const TtsVoiceInfo &, const std::string &, double,
                       const std::function<bool()> &) override {
-    throw Error("NOT_SUPPORTED", "当前环境不支持 Windows 系统语音合成。");
+    throw Error("NOT_SUPPORTED", "System speech synthesis is not supported in this environment.");
   }
   void cancel() override {}
 };
@@ -144,10 +144,10 @@ std::shared_ptr<TtsEngine> createPlatformEngine() {
 #endif
 
 std::string ttsInstallMessage() {
-  return "没有可用的英语语音。请打开「设置 → 时间和语言 → 语言和区域」，添加「英语(美国)」或「英语(英国)」，"
-         "在「安装语言功能」中勾选「文字转语音 / Text-to-speech」后安装。"
-         "若该语言已经装好，点语言旁的「…」→「语言选项」，在「语言功能」里下载「文字转语音」。"
-         "已安装的语音可在「设置 → 时间和语言 → 语音」中查看。";
+  return "No English voice is installed. Open Settings > Time & language > Language & region. "
+         "Add English (United States) or English (United Kingdom) and install Text-to-speech. "
+         "For an existing language, open Language options and download Text-to-speech. "
+         "Manage voices in Settings > Time & language > Speech.";
 }
 
 void setTtsEngine(std::shared_ptr<TtsEngine> next) {
@@ -201,30 +201,30 @@ Json ttsSynthesize(const Json &args, const Cancellation *cancellation) {
     return token < epoch->load() || (cancellation && cancellation->requested());
   };
   if (stale())
-    throw Error("CANCELLED", "朗读已取消");
+    throw Error("CANCELLED", "Playback cancelled.");
   const auto text = trim(input.text);
   if (text.empty())
-    throw Error("BAD_REQUEST", "文本为空");
+    throw Error("BAD_REQUEST", "Text is empty.");
   if (text.size() > kMaxText)
-    throw Error("BAD_REQUEST", "文本过长");
+    throw Error("BAD_REQUEST", "Text is too long.");
   const double rate = input.rate.value_or(1.0);
   if (!std::isfinite(rate) || rate < 0.5 || rate > 2.0)
-    throw Error("BAD_REQUEST", "语速超出范围");
+    throw Error("BAD_REQUEST", "Speech rate is out of range.");
   std::optional<std::string> accent;
   if (input.accent && !input.accent->empty()) {
     if (*input.accent != "US" && *input.accent != "UK")
-      throw Error("BAD_REQUEST", "口音必须是 US 或 UK");
+      throw Error("BAD_REQUEST", "Accent must be US or UK.");
     accent = *input.accent;
   }
   std::optional<std::string> voiceId;
   if (input.voiceId && !input.voiceId->empty()) {
     if (input.voiceId->size() > 512)
-      throw Error("BAD_REQUEST", "音色标识过长");
+      throw Error("BAD_REQUEST", "Voice ID is too long.");
     voiceId = *input.voiceId;
   }
   std::lock_guard<std::mutex> lock(synthMu);
   if (stale())
-    throw Error("CANCELLED", "朗读已取消");
+    throw Error("CANCELLED", "Playback cancelled.");
   const auto current = engine();
   struct Guard {
     ~Guard() {
@@ -237,7 +237,7 @@ Json ttsSynthesize(const Json &args, const Cancellation *cancellation) {
   {
     std::lock_guard<std::mutex> mark(epochMu);
     if (stale())
-      throw Error("CANCELLED", "朗读已取消");
+      throw Error("CANCELLED", "Playback cancelled.");
     running = true;
     runningToken = input.token;
     activeEngine = current;
@@ -246,7 +246,7 @@ Json ttsSynthesize(const Json &args, const Cancellation *cancellation) {
   const auto catalog = current->catalog();
   if (!catalog.supported) {
     throw Error("NOT_SUPPORTED", catalog.message.empty()
-                                     ? "当前环境不支持 Windows 系统语音合成。"
+                                     ? "System speech synthesis is not supported in this environment."
                                      : catalog.message);
   }
   const TtsVoiceInfo *chosen = nullptr;
@@ -254,7 +254,7 @@ Json ttsSynthesize(const Json &args, const Cancellation *cancellation) {
   if (voiceId) {
     chosen = findId(catalog.voices, *voiceId);
     if (!chosen)
-      throw Error("RESOURCE_ERROR", "所选英语音色已不可用。");
+      throw Error("RESOURCE_ERROR", "The selected English voice is unavailable.");
     substituted = accent && chosen->accent != *accent;
   } else if (accent) {
     chosen = findAccent(catalog.voices, *accent);
@@ -268,20 +268,20 @@ Json ttsSynthesize(const Json &args, const Cancellation *cancellation) {
   if (!chosen)
     throw Error("RESOURCE_ERROR", ttsInstallMessage());
   if (stale())
-    throw Error("CANCELLED", "朗读已取消");
+    throw Error("CANCELLED", "Playback cancelled.");
   const auto audio = current->synthesize(*chosen, text, rate, stale);
   if (stale())
-    throw Error("CANCELLED", "朗读已取消");
+    throw Error("CANCELLED", "Playback cancelled.");
   if (audio.bytes.empty())
-    throw Error("RESOURCE_ERROR", "合成结果为空");
+    throw Error("RESOURCE_ERROR", "Speech synthesis returned no audio.");
   if (audio.bytes.size() > kMaxAudio)
-    throw Error("RESOURCE_ERROR", "合成音频超过大小限制");
+    throw Error("RESOURCE_ERROR", "Synthesized audio exceeds the size limit.");
   if (!allowedMime(audio.mime))
-    throw Error("RESOURCE_ERROR", "合成结果不是可播放的音频");
+    throw Error("RESOURCE_ERROR", "Speech synthesis returned an unsupported audio format.");
   if ((audio.mime == "audio/wav" || audio.mime == "audio/x-wav" ||
        audio.mime == "audio/wave") &&
       !looksLikeWav(audio.bytes))
-    throw Error("RESOURCE_ERROR", "合成结果不是有效的 WAV 音频");
+    throw Error("RESOURCE_ERROR", "Speech synthesis returned invalid WAV audio.");
   TtsSynthesis result;
   result.mime = audio.mime;
   result.audio_base64 = base64Encode(audio.bytes);
