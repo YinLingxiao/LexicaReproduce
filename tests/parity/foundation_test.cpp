@@ -88,7 +88,7 @@ int main() {
       check(app.dispatch(p::Json::array())["error"]["code"] == "BAD_REQUEST",
             "malformed envelope failed");
       const auto caps = app.capabilities();
-      check(caps["commands"].size() == 31, "missing upstream commands");
+      check(caps["commands"].size() == 34, "missing upstream commands");
       for (const auto &command : caps["commands"])
         if (command["name"] == "save_word_note" &&
             command["available"] == false)

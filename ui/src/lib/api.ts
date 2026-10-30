@@ -1,8 +1,8 @@
 // Adapted from Lexica c4b92a39402860566bf954f92efc8e59666aaa4a; MIT.
 import { invoke, isPreview } from './transport';
 export { isPreview } from './transport';
-import type { ComprehensionLevel, MemoryStatus, RecallQuality, StudyPriority, StudyGrade, PromptKind, PromptSource, HintKind, SetupPhase, Example, Collocation, Sense, WordFormEntry, RelatedWordItem, RootPart, WordEntry, Suggestion, MemorySummary, LookupWordResult, AppInfo, SetupProgress, EnsureDictionaryResult, WordNote, LibraryWord, LibraryPage, ActivityDay, StatsSummary, RecentWord, ReviewItem, ReviewGroupEntry, Hint, MemoryState, ReviewFeedback, WordbookInfo, StudyCardEntry, StudySessionGroup, AiConfigView, AiExample, AiGenItem, FadingWord, LookupOutcome } from './generated/contracts';
-export type { ComprehensionLevel, MemoryStatus, RecallQuality, StudyPriority, StudyGrade, PromptKind, PromptSource, HintKind, SetupPhase, Example, Collocation, Sense, WordFormEntry, RelatedWordItem, RootPart, WordEntry, Suggestion, MemorySummary, LookupWordResult, AppInfo, SetupProgress, EnsureDictionaryResult, WordNote, LibraryWord, LibraryPage, ActivityDay, StatsSummary, RecentWord, ReviewItem, ReviewGroupEntry, Hint, MemoryState, ReviewFeedback, WordbookInfo, StudyCardEntry, StudySessionGroup, AiConfigView, AiExample, AiGenItem, FadingWord, LookupOutcome } from './generated/contracts';
+import type { ComprehensionLevel, MemoryStatus, RecallQuality, StudyPriority, StudyGrade, PromptKind, PromptSource, HintKind, SetupPhase, Example, Collocation, Sense, WordFormEntry, RelatedWordItem, RootPart, WordEntry, Suggestion, MemorySummary, LookupWordResult, AppInfo, SetupProgress, EnsureDictionaryResult, WordNote, LibraryWord, LibraryPage, ActivityDay, StatsSummary, RecentWord, ReviewItem, ReviewGroupEntry, Hint, MemoryState, ReviewFeedback, WordbookInfo, StudyCardEntry, StudySessionGroup, AiConfigView, AiExample, AiGenItem, FadingWord, LookupOutcome, TtsSynthesis, TtsVoiceList } from './generated/contracts';
+export type { ComprehensionLevel, MemoryStatus, RecallQuality, StudyPriority, StudyGrade, PromptKind, PromptSource, HintKind, SetupPhase, Example, Collocation, Sense, WordFormEntry, RelatedWordItem, RootPart, WordEntry, Suggestion, MemorySummary, LookupWordResult, AppInfo, SetupProgress, EnsureDictionaryResult, WordNote, LibraryWord, LibraryPage, ActivityDay, StatsSummary, RecentWord, ReviewItem, ReviewGroupEntry, Hint, MemoryState, ReviewFeedback, WordbookInfo, StudyCardEntry, StudySessionGroup, AiConfigView, AiExample, AiGenItem, FadingWord, LookupOutcome, TtsSynthesis, TtsVoice, TtsVoiceList } from './generated/contracts';
 export type MemoryStateLite = MemoryState;
 
 export function errorMessage(error: unknown): string {
@@ -162,6 +162,30 @@ export async function submitReview(
 
 export async function fadingWords(limit = 20): Promise<FadingWord[]> {
 	return invoke<FadingWord[]>('fading_words', { limit });
+}
+
+export function ttsVoices(): Promise<TtsVoiceList> {
+	return invoke<TtsVoiceList>('tts_voices');
+}
+
+export function ttsSynthesize(args: {
+	text: string;
+	token: number;
+	voiceId?: string | null;
+	accent?: string | null;
+	rate?: number | null;
+}): Promise<TtsSynthesis> {
+	return invoke<TtsSynthesis>('tts_synthesize', {
+		text: args.text,
+		token: args.token,
+		voiceId: args.voiceId ?? null,
+		accent: args.accent ?? null,
+		rate: args.rate ?? null
+	});
+}
+
+export function ttsCancel(token: number): Promise<void> {
+	return invoke<void>('tts_cancel', { token });
 }
 
 export function dueLabel(iso: string | null): string {

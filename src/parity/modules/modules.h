@@ -7,4 +7,5 @@ void registerDictionary(Router &);
 void registerLearning(Router &);
 void registerLibrary(Router &);
 void registerAi(Router &);
+void registerTts(Router &);
 } // namespace lexica::parity

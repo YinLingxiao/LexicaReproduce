@@ -21,6 +21,7 @@ Application::Application(const std::filesystem::path &path, const Clock *clock,
   registerLearning(router_);
   registerLibrary(router_);
   registerAi(router_);
+  registerTts(router_);
 }
 Json Application::dispatch(const Json &request,
                            const Cancellation *cancellation) {

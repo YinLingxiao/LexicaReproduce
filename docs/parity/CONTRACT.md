@@ -1,4 +1,4 @@
-# 公共接口与数据合同 v1.2.0
+# 公共接口与数据合同 v1.3.0
 
 权威输入：`contracts/models.json`、`contracts/commands.json`。C++ 生成文件为 `src/parity/contracts/dto.h`、`catalog.h`；TypeScript 为 `ui/src/lib/generated/contracts.ts`。
 
@@ -97,7 +97,9 @@ encounters 与完成的 reviews 为投影事实源；前端偏好仍放在原版
 
 ## 错误码
 
-基础错误：BAD_REQUEST、UNKNOWN_COMMAND、PROTOCOL_MISMATCH、NOT_IMPLEMENTED、CONTRACT_ERROR、DB_ERROR、SCHEMA_MISMATCH、VERSION_TOO_NEW、DATA_DIRECTORY_ERROR、NETWORK_ERROR、RESOURCE_ERROR、WEBVIEW_ERROR、BUSY、CANCELLED、INTERNAL_ERROR。
+基础错误：BAD_REQUEST、UNKNOWN_COMMAND、PROTOCOL_MISMATCH、NOT_IMPLEMENTED、NOT_SUPPORTED、CONTRACT_ERROR、DB_ERROR、SCHEMA_MISMATCH、VERSION_TOO_NEW、DATA_DIRECTORY_ERROR、NETWORK_ERROR、RESOURCE_ERROR、WEBVIEW_ERROR、BUSY、CANCELLED、INTERNAL_ERROR。
+
+1.3.0 增量增加 `tts_voices`、`tts_synthesize`、`tts_cancel`。合成走 background 队列，取消走交互队列。`tts_synthesize` 只返回有界 base64 音频，不返回本地路径。`NOT_SUPPORTED` 表示当前进程没有系统语音能力；没有英语语音包时用 `RESOURCE_ERROR`，并在 message 里给出安装说明。旧命令的参数和结果不变。
 
 前端传输还会产生 TIMEOUT、CANCELLED、HTTP_ERROR。业务未命中是 LookupOutcome.miss，空集合是成功响应。新增业务错误码由 A 记录后统一使用，保留可读 message；响应和日志不得携带密钥。
 

@@ -10,7 +10,7 @@ const config = {
 			directives: {
 				'default-src': ['self'], 'script-src': ['self'],
 				'style-src': ['self', 'unsafe-inline'], 'font-src': ['self'],
-				'img-src': ['self', 'data:'], 'connect-src': ['self'],
+				'img-src': ['self', 'data:'], 'media-src': ['self', 'blob:'], 'connect-src': ['self'],
 				'object-src': ['none'], 'base-uri': ['self'], 'frame-src': ['none']
 			}
 		},

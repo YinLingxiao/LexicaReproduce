@@ -38,6 +38,9 @@ export interface AiConfigView {enabled: boolean; base_url: string; model: string
 export interface AiExample {word_id: number; sense_id: number | null; sentence: string;}
 export interface AiGenItem {word_id: number; sense_id: number | null;}
 export interface FadingWord {word: string; display: string; high_priority: boolean; next_review_at: string | null;}
+export interface TtsVoice {id: string; label: string; language: string; accent: string;}
+export interface TtsVoiceList {supported: boolean; voices: Array<TtsVoice>; message: string | null;}
+export interface TtsSynthesis {mime: string; audio_base64: string; voice_id: string; voice_label: string; language: string; requested_accent: string | null; actual_accent: string; substituted: boolean;}
 export interface LookupOutcomeHit {entry: WordEntry;}
 export interface LookupOutcomeMiss {suggestions: Array<Suggestion>;}
 export type LookupOutcome = {type: 'hit'; entry: WordEntry;} | {type: 'miss'; suggestions: Array<Suggestion>;};
@@ -73,6 +76,9 @@ export interface AiConfigSaveArgs {enabled: boolean; baseUrl: string; model: str
 export interface AiTestConnectionArgs {}
 export interface AiGenerateExamplesArgs {items: Array<AiGenItem>;}
 export interface AiEnrichWordsArgs {wordIds: Array<number>; examStyle: boolean;}
+export interface TtsVoicesArgs {}
+export interface TtsSynthesizeArgs {text: string; token: number; voiceId: string | null; accent: string | null; rate: number | null;}
+export interface TtsCancelArgs {token: number;}
 export interface CommandMap {
  app_info: {args: AppInfoArgs; result: AppInfo};
  ensure_dictionary: {args: EnsureDictionaryArgs; result: EnsureDictionaryResult};
@@ -105,4 +111,7 @@ export interface CommandMap {
  ai_test_connection: {args: AiTestConnectionArgs; result: null};
  ai_generate_examples: {args: AiGenerateExamplesArgs; result: Array<AiExample>};
  ai_enrich_words: {args: AiEnrichWordsArgs; result: number};
+ tts_voices: {args: TtsVoicesArgs; result: TtsVoiceList};
+ tts_synthesize: {args: TtsSynthesizeArgs; result: TtsSynthesis};
+ tts_cancel: {args: TtsCancelArgs; result: null};
 }

@@ -1,6 +1,6 @@
 {
   "protocol_version": 1,
-  "contract_version": "1.2.0",
+  "contract_version": "1.3.0",
   "upstream_sha": "c4b92a39402860566bf954f92efc8e59666aaa4a",
   "commands": [
     {"name":"app_info", "owner":"dictionary", "args":{}, "result":"AppInfo", "phase0":"implemented"},
@@ -33,6 +33,9 @@
     {"name":"ai_config_save", "owner":"ai", "args":{"enabled":"bool", "baseUrl":"string", "model":"string", "key":"string?"}, "result":"AiConfigView"},
     {"name":"ai_test_connection", "owner":"ai", "args":{}, "result":"void", "lane":"background"},
     {"name":"ai_generate_examples", "owner":"ai", "args":{"items":"AiGenItem[]"}, "result":"AiExample[]", "lane":"background"},
-    {"name":"ai_enrich_words", "owner":"ai", "args":{"wordIds":"int[]", "examStyle":"bool"}, "result":"int", "lane":"background"}
+    {"name":"ai_enrich_words", "owner":"ai", "args":{"wordIds":"int[]", "examStyle":"bool"}, "result":"int", "lane":"background"},
+    {"name":"tts_voices", "owner":"platform", "args":{}, "result":"TtsVoiceList"},
+    {"name":"tts_synthesize", "owner":"platform", "args":{"text":"string", "token":"int", "voiceId":"string?", "accent":"string?", "rate":"number?"}, "bounds":{"token":[0,9007199254740991]}, "result":"TtsSynthesis", "lane":"background"},
+    {"name":"tts_cancel", "owner":"platform", "args":{"token":"int"}, "bounds":{"token":[0,9007199254740991]}, "result":"void"}
   ]
 }

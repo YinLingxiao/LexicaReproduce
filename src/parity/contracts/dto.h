@@ -272,6 +272,30 @@ struct FadingWord {
  std::optional<std::string> next_review_at{};
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FadingWord,word,display,high_priority,next_review_at)
+struct TtsVoice {
+ std::string id{};
+ std::string label{};
+ std::string language{};
+ std::string accent{};
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TtsVoice,id,label,language,accent)
+struct TtsVoiceList {
+ bool supported{};
+ std::vector<TtsVoice> voices{};
+ std::optional<std::string> message{};
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TtsVoiceList,supported,voices,message)
+struct TtsSynthesis {
+ std::string mime{};
+ std::string audio_base64{};
+ std::string voice_id{};
+ std::string voice_label{};
+ std::string language{};
+ std::optional<std::string> requested_accent{};
+ std::string actual_accent{};
+ bool substituted{};
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TtsSynthesis,mime,audio_base64,voice_id,voice_label,language,requested_accent,actual_accent,substituted)
 struct LookupOutcomeHit {
  WordEntry entry{};
 };
@@ -436,4 +460,20 @@ struct AiEnrichWordsArgs {
  bool examStyle{};
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AiEnrichWordsArgs,wordIds,examStyle)
+struct TtsVoicesArgs {
+
+};
+inline void to_json(Json& j,const TtsVoicesArgs&){j=Json::object();} inline void from_json(const Json&,TtsVoicesArgs&){}
+struct TtsSynthesizeArgs {
+ std::string text{};
+ std::int64_t token{};
+ std::optional<std::string> voiceId{};
+ std::optional<std::string> accent{};
+ std::optional<double> rate{};
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TtsSynthesizeArgs,text,token,voiceId,accent,rate)
+struct TtsCancelArgs {
+ std::int64_t token{};
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TtsCancelArgs,token)
 }

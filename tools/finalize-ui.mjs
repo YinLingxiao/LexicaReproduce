@@ -8,6 +8,6 @@ const html = fs.readFileSync(new URL('index.html', base), 'utf8');
 const hashes = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
   .filter(([, attributes]) => !/\bsrc\s*=/.test(attributes))
   .map(([, , body]) => `'sha256-${crypto.createHash('sha256').update(body.replace(/\r\n/g, '\n')).digest('base64')}'`);
-const policy = `default-src 'self'; script-src 'self' ${hashes.join(' ')}; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-src 'none'`;
+const policy = `default-src 'self'; script-src 'self' ${hashes.join(' ')}; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-src 'none'`;
 fs.writeFileSync(new URL('csp.txt', base), policy);
 console.log('SPA content security policy generated.');
