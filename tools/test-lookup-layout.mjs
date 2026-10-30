@@ -61,14 +61,17 @@ try {
  assert.equal(await page.getByText(/下次复习/).count(),0,'Paused word displays a stale review date');
  assert.equal(await page.locator('.speech-popover').isVisible(),false);
  assert.equal(await page.locator('.metadata-panel').isVisible(),false);
+ const speaker=page.locator('.hero-head .speak-control > button');
+ assert.equal((await speaker.innerText()).trim(),'','Pronunciation must remain an icon-only control');
+ const speakerBox=await speaker.boundingBox();
+ assert(speakerBox.width<=30&&speakerBox.height<=30,'Speaker control is no longer compact');
+ assert((await speaker.getAttribute('title')).includes('英语'),'Actual voice details must remain available on hover');
  await page.evaluate(()=>window.scrollTo(0,0));
  await page.screenshot({path:path.join(data,'happy-dark-desktop.png')});
- await page.getByLabel('查看发音信息').click();
- await page.locator('.speech-popover').waitFor();
- await page.getByLabel('查看发音信息').click();
+ await page.locator('.phonetic-row').screenshot({path:path.join(data,'speaker-icon.png')});
  await page.setViewportSize({width:480,height:820});
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Compact layout overflows');
- for (const selector of ['.speech-details summary','.metadata-details summary']) {
+ for (const selector of ['.metadata-details summary']) {
   await page.locator(selector).click();
   await page.waitForFunction(() => [...document.querySelectorAll('details[open] [data-popover]')].every(node=>{
    const box=node.getBoundingClientRect();return box.left>=10&&box.right<=innerWidth-10;

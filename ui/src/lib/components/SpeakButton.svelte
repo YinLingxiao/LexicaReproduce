@@ -29,7 +29,6 @@
 	let phase = $state<'idle' | 'loading' | 'playing' | 'error'>('idle');
 	let message = $state('');
 	let notice = $state('');
-	let actualAccent = $state('');
 
 	function sync(): void {
 		const snap = getSpeechSnapshot();
@@ -37,7 +36,6 @@
 		phase = mine ? snap.phase : 'idle';
 		message = mine && snap.phase === 'error' ? snap.error : '';
 		notice = mine ? snap.notice : '';
-		actualAccent = mine ? snap.actualAccent : '';
 	}
 
 	$effect(() => {
@@ -67,15 +65,6 @@
 		speakText(text, { playKey, accent, rate, repeat, voiceId });
 	}
 
-	const caption = $derived(
-		phase === 'loading'
-			? '合成中'
-			: phase === 'playing'
-				? '停止'
-				: label === '朗读单词'
-					? '朗读'
-					: label,
-	);
 	const accessible = $derived(
 		phase === 'loading'
 			? `正在合成${label}`
@@ -83,6 +72,7 @@
 				? `停止${label}`
 				: label,
 	);
+	const noticeId = $derived(`speech-info-${playKey.replace(/[^A-Za-z0-9_-]/g, '_')}`);
 </script>
 
 <span class="speak-control">
@@ -91,30 +81,24 @@
 		class:busy={phase === 'loading'}
 		class:active={phase === 'playing'}
 		aria-label={accessible}
+		aria-describedby={notice ? noticeId : undefined}
+		title={[accessible, notice].filter(Boolean).join(' · ')}
 		aria-busy={phase === 'loading'}
 		aria-pressed={phase === 'playing'}
 		onclick={activate}
-		><Icon
-			name={phase === 'playing' ? 'close' : 'sound'}
-			size={14}
-		/>{caption}</button
+		><Icon name="sound" size={18} /></button
 	>
-	{#if message || notice}<details class="speech-details" use:fitPopover>
+	{#if notice}<span class="speech-description" id={noticeId}>{notice}</span>{/if}
+	{#if message}<details class="speech-details" use:fitPopover>
 			<summary
 				class:error={Boolean(message)}
-				aria-label={message ? '查看发音错误' : '查看发音信息'}
-				title={message || notice}
+				aria-label="查看发音错误"
+				title={message}
 			>
-				{message
-					? '朗读失败'
-					: actualAccent === 'US'
-						? '美音'
-						: actualAccent === 'UK'
-							? '英音'
-							: '音色'}
+				!
 			</summary>
 			<span class="speech-popover" data-popover>
-				<span role={message ? 'alert' : undefined}>{message || notice}</span>
+				<span role="alert">{message}</span>
 				<a href="/settings#pronunciation">发音设置</a>
 			</span>
 		</details>{/if}
@@ -129,24 +113,44 @@
 		max-width: 100%;
 	}
 	button {
-		min-height: 32px;
-		padding: 4px 10px;
-		font-size: 13px;
+		width: 28px;
+		height: 28px;
+		min-height: 28px;
+		padding: 4px;
+		border: 0;
+		border-radius: 50%;
+		background: transparent;
+		box-shadow: none;
+		color: var(--accent);
 		display: inline-flex;
 		align-items: center;
-		gap: 5px;
-		white-space: nowrap;
+		justify-content: center;
+		flex-shrink: 0;
 	}
-	button.busy,
+	button:hover,
 	button.active {
-		border-color: var(--accent);
-		color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
 	}
+	button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+	button.busy { animation: speaking-pulse 0.8s ease-in-out infinite alternate; }
+	@keyframes speaking-pulse { to { opacity: 0.35; } }
+	@media (prefers-reduced-motion: reduce) { button.busy { animation: none; } }
 	.speech-details {
 		position: relative;
 		font-size: 11px;
 		color: var(--muted);
 		text-align: left;
+	}
+	.speech-description {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+		border: 0;
 	}
 	summary {
 		cursor: pointer;
