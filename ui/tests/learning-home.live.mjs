@@ -4,11 +4,13 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const evidence = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../docs/parity/evidence/learning-home');
-const database = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../tmp-learning-home-live/lexica.db');
+const database = path.join(process.env.LEXICA_HOME_LIVE_DATA, 'lexica.db');
 
 function backdate() {
 	const script = `
 import sqlite3
+from pathlib import Path
+assert Path(${JSON.stringify(database)}).is_file(), 'isolated test database missing'
 conn = sqlite3.connect(${JSON.stringify(database)}, timeout=30)
 conn.execute("PRAGMA busy_timeout=30000")
 cur = conn.execute("UPDATE memory_states SET next_review_at='2020-01-01T00:00:00.000Z'")
@@ -85,4 +87,68 @@ test('isolated service: lookup, due review, feedback, refreshed home', async ({p
 	expect(summary.due_now).toBe(0);
 	expect(summary.encountered).toBeGreaterThanOrEqual(2);
 	await page.screenshot({path: path.join(evidence, 'home-live-clear.png'), fullPage: true, animations: 'disabled'});
+});
+
+test('real system TTS plays words and sentences across reloads and tabs', async ({page, context, request}) => {
+	const rpc = async (command, args = {}) => {
+		const response = await request.post('/rpc', {data: {
+			protocol_version: 1, request_id: `tts-live-${crypto.randomUUID()}`, command, args
+		}});
+		return response.json();
+	};
+	const catalog = await rpc('tts_voices');
+	expect(catalog.ok).toBe(true);
+	test.skip(!catalog.result.supported || !catalog.result.voices.length, 'No installed English voice in this environment');
+	const errors = [];
+	page.on('pageerror', (error) => errors.push(error.message));
+	await context.addInitScript(() => {
+		window.__realAudioPlaying = 0;
+		const play = HTMLMediaElement.prototype.play;
+		HTMLMediaElement.prototype.play = function () {
+			this.addEventListener('playing', () => { window.__realAudioPlaying++; }, {once: true});
+			return play.call(this);
+		};
+	});
+	const synthRequests = [];
+	context.on('request', (req) => {
+		if (req.method() !== 'POST' || !req.url().endsWith('/rpc')) return;
+		const data = req.postDataJSON();
+		if (data.command === 'tts_synthesize') synthRequests.push(data.args);
+	});
+	await page.goto('/?word=meticulous');
+	await page.getByRole('button', {name: '朗读单词', exact: true}).click();
+	await expect.poll(() => page.evaluate(() => window.__realAudioPlaying)).toBeGreaterThan(0);
+	expect(synthRequests.at(-1).text).toBe('meticulous');
+	const firstClient = synthRequests.at(-1).clientId;
+	expect(firstClient).toBeTruthy();
+	await rpc('tts_cancel', {token: 999999, clientId: firstClient});
+	const stale = await rpc('tts_synthesize', {text: 'hello', token: 1, clientId: firstClient});
+	expect(stale.error.code).toBe('CANCELLED');
+	await page.reload();
+	await page.getByRole('button', {name: '朗读单词', exact: true}).click();
+	await expect.poll(() => page.evaluate(() => window.__realAudioPlaying)).toBeGreaterThan(0);
+	expect(synthRequests.at(-1).clientId).not.toBe(firstClient);
+	const secondClient = synthRequests.at(-1).clientId;
+	await page.evaluate(() => document.fonts.ready);
+	const beforeExample = await page.locator('.lead-example .example').boundingBox();
+	await page.getByRole('button', {name: '朗读例句', exact: true}).first().click();
+	await expect.poll(() => page.evaluate(() => window.__realAudioPlaying)).toBeGreaterThan(1);
+	expect(synthRequests.at(-1).text).not.toBe('meticulous');
+	const afterExample = await page.locator('.lead-example .example').boundingBox();
+	expect(afterExample.width).toBeGreaterThan(200);
+	expect(afterExample.width).toBeGreaterThanOrEqual(beforeExample.width * 0.95);
+	expect(afterExample.height).toBeLessThanOrEqual(beforeExample.height + 40);
+	await page.setViewportSize({width: 480, height: 820});
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+	expect((await page.locator('.lead-example .example').boundingBox()).width).toBeGreaterThan(150);
+	await page.locator('.context').screenshot({path: path.join(evidence, 'tts-http-480.png')});
+	await page.setViewportSize({width: 1180, height: 820});
+	await page.screenshot({path: path.join(evidence, 'tts-http-playing.png'), fullPage: true});
+	const second = await context.newPage();
+	await second.goto('/settings');
+	await second.getByRole('button', {name: '试听', exact: true}).click();
+	await expect.poll(() => second.evaluate(() => window.__realAudioPlaying)).toBeGreaterThan(0);
+	expect(synthRequests.at(-1).clientId).not.toBe(secondClient);
+	expect(errors).toEqual([]);
+	await second.close();
 });

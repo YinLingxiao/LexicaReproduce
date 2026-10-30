@@ -164,21 +164,17 @@ export async function installContractFixture(page: Page) {
 			entries.find((entry: any) => entry.word === word);
 		const win = window as any;
 		win.__calls = [];
-		win.__uttered = [];
 		const origStart = document.startViewTransition?.bind(document);
 		win.__vt = [];
 		if (origStart) document.startViewTransition = ((cb: Parameters<Document['startViewTransition']>[0]) => {
 			win.__vt.push(document.documentElement.dataset.revealing ?? null);
 			return origStart(cb);
 		}) as Document['startViewTransition'];
-		try {
-			const synth = window.speechSynthesis;
-			const speak = synth.speak.bind(synth);
-			synth.speak = (utterance: SpeechSynthesisUtterance) => {
-				win.__uttered.push({text: utterance.text, lang: utterance.lang, rate: utterance.rate});
-				try { speak(utterance); } catch { utterance.onend?.(new SpeechSynthesisEvent('end', {utterance})); }
-			};
-		} catch { /* headless hosts can omit a writable speech engine */ }
+		// Contract fixture only: deterministic playback; live tests use the real media engine.
+		HTMLMediaElement.prototype.play = function () {
+			queueMicrotask(() => this.dispatchEvent(new Event('ended')));
+			return Promise.resolve();
+		};
 		try {
 			Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {
 				writeText: async (text: string) => { win.__copied = text; },
@@ -344,6 +340,18 @@ export async function installContractFixture(page: Page) {
 				case 'ensure_dictionary':
 					if (win.__ensureLeft > 0) { win.__ensureLeft -= 1; fail('NOT_IMPLEMENTED', 'ensure_dictionary is scheduled for the next development phase.'); }
 					return {ready: false, word_count: entries.length, imported: 0, skipped: true};
+				case 'tts_voices':
+					return {supported: true, message: null, voices: [
+						{id: 'uk', label: 'Fixture UK', language: 'en-GB', accent: 'UK'},
+						{id: 'us', label: 'Fixture US', language: 'en-US', accent: 'US'}
+					]};
+				case 'tts_cancel': return null;
+				case 'tts_synthesize': {
+					const actual = args.accent === 'US' ? 'US' : 'UK';
+					return {mime: 'audio/wav', audio_base64: 'UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=',
+						voice_id: actual.toLowerCase(), voice_label: `Fixture ${actual}`, language: actual === 'US' ? 'en-US' : 'en-GB',
+						requested_accent: args.accent, actual_accent: actual, substituted: false};
+				}
 				case 'import_ecdict':
 					fail('NOT_IMPLEMENTED', 'import_ecdict is scheduled for the next development phase.');
 				default:

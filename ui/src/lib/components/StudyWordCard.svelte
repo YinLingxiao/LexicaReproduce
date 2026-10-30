@@ -4,11 +4,11 @@
 </script>
 
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import type { Example, RelatedWordItem, StudyCardEntry, StudyGrade } from '$lib/api';
 	import { preferences, applyPreferences } from '$lib/preferences.svelte';
 	import SyllableHeadword from './SyllableHeadword.svelte';
-	import { speakText } from '$lib/tts';
+	import { speakText, getSpeechSnapshot, stopSpeaking } from '$lib/tts';
 	import SpeakButton from './SpeakButton.svelte';
 	import Icon from './Icon.svelte';
 	import HighlightedText from './HighlightedText.svelte';
@@ -153,6 +153,9 @@
 		if (s.cardMode === 'context' && s.autoPronounceContext && example) speakSentence(example.text, example.id);
 		else if (s.autoPronounceWord) speakWord();
 		else if (s.autoPronounceExample && example) speakSentence(example.text, example.id);
+	});
+	onDestroy(() => {
+		if (getSpeechSnapshot().playKey.startsWith(`study-${entry.id}-`)) stopSpeaking();
 	});
 </script>
 

@@ -1,5 +1,7 @@
 # 首页学习层级与到期复习入口
 
+本报告记录 Agent 分支交付时的状态。后续新词队列过滤、侧栏复习入口、异步状态保护及最终验收见 [集成审核报告](INTEGRATION_TTS_HOME_REVIEW.md)。
+
 分支 `codex/learning-home-improvement`。worktree：`D:\lexica-learning-home`。起始 SHA `38e56d97b339be213e92f7df30943a31faef50df`。提交 SHA 见本文件末尾，由该提交写入。
 
 标题「让查过的词真正被记住。」是产品目标，不是已经测得的记忆效果。页面只展示查词、学习记录、理解反馈和到期复习这些现有流程。

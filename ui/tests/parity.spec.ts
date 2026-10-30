@@ -365,7 +365,7 @@ test('study card content, context mode, syllables, speech and example preference
 	await page.getByRole('tab', {name: '词形变化'}).click();
 	await expect(page.getByText('Plural')).toBeVisible();
 	await expect(page.getByText('surgeries')).toBeVisible();
-	await expect.poll(() => page.evaluate(() => (window as any).__uttered.some((item: any) => item.text === 'surgery' && item.lang === 'en-GB'))).toBe(true);
+	await expect.poll(async () => (await calls(page)).some((item) => item.command === 'tts_synthesize' && item.args.text === 'surgery' && item.args.accent === 'UK')).toBe(true);
 	await page.locator('.dots-btn').click();
 	await page.getByRole('switch', {name: '自动拆分音节'}).click();
 	await expect(page.locator('.headword')).toHaveText('surgery');

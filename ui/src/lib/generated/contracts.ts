@@ -77,8 +77,8 @@ export interface AiTestConnectionArgs {}
 export interface AiGenerateExamplesArgs {items: Array<AiGenItem>;}
 export interface AiEnrichWordsArgs {wordIds: Array<number>; examStyle: boolean;}
 export interface TtsVoicesArgs {}
-export interface TtsSynthesizeArgs {text: string; token: number; voiceId: string | null; accent: string | null; rate: number | null;}
-export interface TtsCancelArgs {token: number;}
+export interface TtsSynthesizeArgs {text: string; token: number; clientId: string | null; voiceId: string | null; accent: string | null; rate: number | null;}
+export interface TtsCancelArgs {token: number; clientId: string | null;}
 export interface CommandMap {
  app_info: {args: AppInfoArgs; result: AppInfo};
  ensure_dictionary: {args: EnsureDictionaryArgs; result: EnsureDictionaryResult};

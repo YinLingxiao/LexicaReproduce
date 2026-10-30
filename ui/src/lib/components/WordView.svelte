@@ -930,8 +930,8 @@
 	}
 	.lead-example {
 		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
+		flex-direction: column;
+		align-items: stretch;
 		gap: 12px;
 	}
 	.example {
@@ -1056,8 +1056,8 @@
 	}
 	.sense-example {
 		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
+		flex-direction: column;
+		align-items: stretch;
 		gap: 12px;
 		margin: 12px 0 16px 8px;
 		border-left: 2px solid var(--line);

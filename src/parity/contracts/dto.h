@@ -467,13 +467,15 @@ inline void to_json(Json& j,const TtsVoicesArgs&){j=Json::object();} inline void
 struct TtsSynthesizeArgs {
  std::string text{};
  std::int64_t token{};
+ std::optional<std::string> clientId{};
  std::optional<std::string> voiceId{};
  std::optional<std::string> accent{};
  std::optional<double> rate{};
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TtsSynthesizeArgs,text,token,voiceId,accent,rate)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TtsSynthesizeArgs,text,token,clientId,voiceId,accent,rate)
 struct TtsCancelArgs {
  std::int64_t token{};
+ std::optional<std::string> clientId{};
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TtsCancelArgs,token)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TtsCancelArgs,token,clientId)
 }

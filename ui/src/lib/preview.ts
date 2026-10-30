@@ -350,60 +350,6 @@ const WORD_BOOKS: Array<Omit<WordbookInfo, 'learned_words'> & { learned: number 
 	{ id: 'encountered', name: '查词本', total_words: 96, learned: 96 }
 ];
 
-function previewTone(): string {
-	const samples = 800;
-	const data = 44 + samples * 2;
-	const bytes = new Uint8Array(data);
-	const view = new DataView(bytes.buffer);
-	bytes.set([82, 73, 70, 70], 0);
-	view.setUint32(4, data - 8, true);
-	bytes.set([87, 65, 86, 69, 102, 109, 116, 32], 8);
-	view.setUint32(16, 16, true);
-	view.setUint16(20, 1, true);
-	view.setUint16(22, 1, true);
-	view.setUint32(24, 8000, true);
-	view.setUint32(28, 16000, true);
-	view.setUint16(32, 2, true);
-	view.setUint16(34, 16, true);
-	bytes.set([100, 97, 116, 97], 36);
-	view.setUint32(40, samples * 2, true);
-	for (let i = 0; i < samples; i++) {
-		view.setInt16(44 + i * 2, Math.round(Math.sin((2 * Math.PI * 440 * i) / 8000) * 8000), true);
-	}
-	let binary = '';
-	for (const value of bytes) binary += String.fromCharCode(value);
-	return btoa(binary);
-}
-
-function previewSynthesis(args: Record<string, unknown>) {
-	const text = String(args.text ?? '').trim();
-	if (!text) throw new Error('文本为空');
-	if (text.length > 2000) throw new Error('文本过长');
-	const voiceId = args.voiceId == null || args.voiceId === '' ? null : String(args.voiceId);
-	const accent = args.accent == null || args.accent === '' ? null : String(args.accent);
-	const voices = [
-		{ id: 'preview-uk', label: 'Preview UK', language: 'en-GB', accent: 'UK' },
-		{ id: 'preview-us', label: 'Preview US', language: 'en-US', accent: 'US' }
-	];
-	let voice = voiceId ? voices.find((item) => item.id === voiceId) : undefined;
-	if (voiceId && !voice) throw new Error('所选英语音色已不可用。');
-	let substituted = false;
-	if (!voice) {
-		voice = voices.find((item) => item.accent === accent) ?? voices[0];
-		substituted = Boolean(accent && voice.accent !== accent);
-	} else if (accent && voice.accent !== accent) substituted = true;
-	return {
-		mime: 'audio/wav',
-		audio_base64: previewTone(),
-		voice_id: voice.id,
-		voice_label: voice.label,
-		language: voice.language,
-		requested_accent: accent,
-		actual_accent: voice.accent,
-		substituted
-	};
-}
-
 export async function previewInvoke(
 	command: string,
 	args: Record<string, unknown> = {}
@@ -521,18 +467,11 @@ export async function previewInvoke(
 				has_key: false
 			};
 		case 'tts_voices':
-			return {
-				supported: true,
-				voices: [
-					{ id: 'preview-uk', label: 'Preview UK', language: 'en-GB', accent: 'UK' },
-					{ id: 'preview-us', label: 'Preview US', language: 'en-US', accent: 'US' }
-				],
-				message: null
-			};
+			return {supported: false, voices: [], message: '浏览器预览没有连接系统语音。请启动 C++ 后端或桌面应用使用发音功能。'};
 		case 'tts_cancel':
 			return null;
 		case 'tts_synthesize':
-			return previewSynthesis(args);
+			throw new Error('浏览器预览没有连接系统语音。请启动 C++ 后端或桌面应用使用发音功能。');
 		default:
 			throw new Error('Browser preview is read-only. Use the desktop app for this action.');
 	}

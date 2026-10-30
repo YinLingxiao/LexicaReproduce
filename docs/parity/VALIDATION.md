@@ -142,3 +142,11 @@ C++ 测试新增跨数据库请求重放、Application 重开、同路径数据�
 程序版本统一从根目录 VERSION 读取，EXE 的 FileVersion / ProductVersion 均为 0.1.0；接口合同仍为 1.2.0、schema 6。发布使用独立目录 dist/releases/0.1.0，不替换正在运行的服务。
 
 Release CTest 10/10、浏览器 3/3、HTTP 18 项、WebView2 与安装/升级/卸载回归全部通过。日志为 build-parity-msvc/release-0.1.0-*.log。程序包完整包含 EXE、UI、字体、图标和许可证，不包含用户数据库或密钥。校验值随 Release 的 SHA256SUMS.txt 提供。
+
+## TTS 与学习首页集成（2026-10-30）
+
+两分支合并后修复了跨标签页取消、导入阻塞发音、音色说明挤压例句、新词入口混入到期卡片、旧异步结果修改新会话等问题。合同为 1.3.0（34 命令），schema 仍为 6。
+
+MSVC Debug / Release 与 UCRT 各 11/11；原有 UI 夹具 24/24、新首页夹具 10/10、TTS 控制器 7/7；真实 HTTP 流程 2/2、原有真实 UI 3/3、HTTP 冒烟 18 项、原生 WebView2 设置/单词/例句/刷新播放和安装回归均通过。以上真实流程也针对更新后的 dist/LexicaReproduce 执行。没有人工听音，本机只有美式 Zira 音色；UCRT 明确不支持 TTS。
+
+详细问题、证据和复现步骤见 [INTEGRATION_TTS_HOME_REVIEW.md](INTEGRATION_TTS_HOME_REVIEW.md)，日志为 build-parity-msvc/review-*.log。

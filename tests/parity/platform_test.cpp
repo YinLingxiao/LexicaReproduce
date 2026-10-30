@@ -315,6 +315,13 @@ int main() {
                               .count();
     check(lookupDone && lookupMs < 500,
           "lookup queued behind the background command");
+    std::atomic<bool> speechDone{false};
+    executor.submit({{"command", "tts_synthesize"}}, [&](p::Json reply) {
+      speechDone = reply["ok"] == true;
+    });
+    for (int i = 0; i < 100 && !speechDone; ++i)
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    check(speechDone, "speech queued behind dictionary import");
     executor.shutdown();
     std::cout << "Parity platform: layout, upstream probe, legacy migration, "
                  "events and lanes passed\n";

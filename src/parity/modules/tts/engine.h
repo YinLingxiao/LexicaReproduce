@@ -48,6 +48,6 @@ void setTtsEngine(std::shared_ptr<TtsEngine> engine);
 void usePlatformTtsEngine();
 Json ttsVoices();
 Json ttsSynthesize(const Json &args, const Cancellation *cancellation);
-void ttsCancel(std::int64_t token);
+void ttsCancel(std::int64_t token, const std::string &clientId = "legacy");
 std::string ttsInstallMessage();
 } // namespace lexica::parity

@@ -26,7 +26,8 @@ private:
     Json request;
     Reply reply;
   };
-  void loop(bool background);
+  enum class Lane { Interactive, Background, Speech };
+  void loop(Lane lane);
   Json cancelled(const Json &request) const;
   Json busy(const Json &request) const;
   Handler handler_;
@@ -37,6 +38,7 @@ private:
   std::condition_variable ready_;
   std::deque<Job> interactive_;
   std::deque<Job> backgroundQueue_;
+  std::deque<Job> speechQueue_;
   std::vector<std::thread> threads_;
   bool stopped_ = false;
 };

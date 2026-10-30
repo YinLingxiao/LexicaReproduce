@@ -140,7 +140,13 @@ export function createSpeechController(deps: SpeechDeps) {
 
 	async function playRepeats(job: Job, audio: SynthesisAudio): Promise<void> {
 		const url = deps.createObjectURL(audio.bytes, audio.mime);
-		const element = deps.createAudio(url);
+		let element: SpeechAudio;
+		try {
+			element = deps.createAudio(url);
+		} catch (error) {
+			deps.revokeObjectURL(url);
+			throw error;
+		}
 		await new Promise<void>((resolve) => {
 			let closed = false;
 			let played = 0;
@@ -174,11 +180,13 @@ export function createSpeechController(deps: SpeechDeps) {
 				}
 				played += 1;
 				set({ phase: 'playing', error: '' });
-				if (played > 1) element.setCurrentTime(0);
-				void element.play().then(
-					() => {},
-					(error: unknown) => fail(blocked(error) ? '自动播放被拦截，请点击按钮手动朗读。' : '播放失败')
-				);
+				try {
+					if (played > 1) element.setCurrentTime(0);
+					void element.play().catch((error: unknown) =>
+						fail(blocked(error) ? '自动播放被拦截，请点击按钮手动朗读。' : '播放失败'));
+				} catch {
+					fail('播放失败');
+				}
 			};
 			element.onended = () => {
 				if (closed || job.token !== epoch) {
@@ -235,7 +243,11 @@ export function createSpeechController(deps: SpeechDeps) {
 				inFlight = false;
 				if (job.token !== epoch) continue;
 				set({ notice: noticeFor(job, audio) });
-				await playRepeats(job, audio);
+				try {
+					await playRepeats(job, audio);
+				} catch {
+					if (job.token === epoch) set({ phase: 'error', error: '播放失败', notice: '' });
+				}
 			}
 		} finally {
 			inFlight = false;
@@ -248,13 +260,14 @@ export function createSpeechController(deps: SpeechDeps) {
 		const text = input.text.trim();
 		const token = ++epoch;
 		stopPlayback();
+		if (inFlight) requestCancel(token);
 		const playKey = input.playKey;
 		if (!text) {
 			queued = null;
 			set({ phase: 'error', error: '没有可朗读的文本', notice: '', playKey, token });
 			return;
 		}
-		if (text.length > 2000) {
+		if (new TextEncoder().encode(text).byteLength > 2000) {
 			queued = null;
 			set({ phase: 'error', error: '文本过长', notice: '', playKey, token });
 			return;

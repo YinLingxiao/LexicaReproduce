@@ -126,6 +126,7 @@ struct Host {
   fs::path root, ui, report;
   p::DataLayout layout{};
   bool smoke = false, finished = false;
+  bool automaticDictionarySetup = true;
   int exitCode = 0;
   p::Json diagnostics = p::Json::array();
   ComPtr<ICoreWebView2Environment> environment;
@@ -168,7 +169,7 @@ struct Host {
         [this](const std::string &name, const p::Json &payload) {
           send(
               {{"protocol_version", 1}, {"event", name}, {"payload", payload}});
-        }, !smoke);
+        }, !smoke && automaticDictionarySetup);
     executor = std::make_unique<p::Executor>(
         [this](const p::Json &request, const p::Cancellation *cancel) {
           return app->dispatch(request, cancel);
@@ -617,6 +618,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int show) {
         haveRoot = true;
       } else if (a == L"--ui-dir" && i + 1 < argc)
         host.ui = fs::absolute(argv[++i]);
+      else if (a == L"--no-auto-setup")
+        host.automaticDictionarySetup = false;
       else if (a == L"--smoke-report" && i + 1 < argc) {
         host.report = fs::absolute(argv[++i]);
         host.smoke = true;

@@ -91,10 +91,18 @@ async function install(page: Page) {
 				case 'study_group': {
 					if (current.studyFail) fail('study_group failed');
 					const ids: number[] = current.newIds ?? [4];
-					const cards = ids.map((id) => card(id, true));
+					const cards = [...(current.studyDueIds ?? []).map((id: number) => card(id, false)), ...ids.map((id) => card(id, true))];
 					return {cards, due_count: 0, new_count: cards.length, today_learned_new: 0};
 				}
 				case 'study_grade':
+					if (current.gradeSlow) {
+						await new Promise<void>((resolve) => {
+							const timer = setInterval(() => {
+								if (localStorage.getItem('test.grade.release') === '1') { clearInterval(timer); resolve(); }
+							}, 20);
+						});
+					}
+					win.__gradeReturned = true;
 					return {correct: args.grade !== 'forgot', quality: 'good', answer: '', hints_used: 0, memory: null};
 				case 'review_group': {
 					const batches: number[][] = current.reviewBatches ?? [[1]];
@@ -325,8 +333,41 @@ test('repeat lookup and status refresh keep an unsaved note', async ({page}) => 
 	await notes.fill('未保存的笔记');
 	await page.getByRole('combobox', {name: 'Search for a word'}).press('Enter');
 	await expect(notes).toHaveValue('未保存的笔记');
+	await page.evaluate(() => {
+		const state = JSON.parse(localStorage.getItem('test.home.state') ?? '{}');
+		state.library[0].status = 'familiar';
+		localStorage.setItem('test.home.state', JSON.stringify(state));
+	});
 	await page.getByRole('button', {name: '刷新学习状态'}).click();
 	await expect(notes).toHaveValue('未保存的笔记');
+	await expect(page.getByText('学习状态：熟悉')).toBeVisible();
 	await expect.poll(async () => (await calls(page)).filter((call) => call.command === 'lookup_word').length).toBe(1);
 	expect((await calls(page)).some((call) => call.command === 'stats_summary')).toBe(true);
+});
+
+test('new-word entry filters due cards from the shared study API', async ({page}) => {
+	await boot(page, {stats: emptyStats, studyDueIds: [1], newIds: [4]});
+	await page.goto('/review?mode=new');
+	await expect(page.getByRole('heading', {name: 'profound', exact: true})).toBeVisible();
+	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toHaveCount(0);
+	const request = (await calls(page)).find((item) => item.command === 'study_group');
+	expect(request?.args.priority).toBe('new_first');
+});
+
+test('late grade response cannot advance a newly selected learning session', async ({page}) => {
+	await boot(page, {stats: emptyStats, reviewBatches: [[1]], newIds: [3, 4], gradeSlow: true});
+	await page.goto('/review?mode=due');
+	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toBeVisible();
+	await page.getByRole('button', {name: '认识', exact: true}).click();
+	await expect.poll(async () => (await calls(page)).filter((item) => item.command === 'study_grade').length).toBe(1);
+	await page.evaluate(() => {
+		const link = document.createElement('a');
+		link.href = '/review?mode=new'; link.textContent = '切换测试模式'; document.querySelector('main')?.prepend(link);
+	});
+	await page.getByRole('link', {name: '切换测试模式'}).click();
+	await expect(page.getByRole('heading', {name: 'resilient', exact: true})).toBeVisible();
+	await page.evaluate(() => localStorage.setItem('test.grade.release', '1'));
+	await page.waitForFunction(() => (window as any).__gradeReturned === true);
+	await expect(page.getByRole('button', {name: '认识', exact: true})).toBeEnabled();
+	await expect(page.getByRole('heading', {name: 'resilient', exact: true})).toBeVisible();
 });

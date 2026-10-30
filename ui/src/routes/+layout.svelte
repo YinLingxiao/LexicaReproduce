@@ -108,7 +108,7 @@
 		</div>
 		<nav aria-label="Main" id="sidebar-navigation">
 			{#each navigation as n}<a
-					href={n.href}
+					href={n.href === '/review' ? '/review?mode=due' : n.href}
 					title={n.label}
 					aria-label={n.label}
 					class:active={page.url.pathname === n.href}
@@ -128,7 +128,7 @@
 	</div>
 	<nav class="bottom-nav" aria-label="Main (compact)">
 		{#each navigation as n}<a
-				href={n.href}
+				href={n.href === '/review' ? '/review?mode=due' : n.href}
 				aria-label={n.label}
 				class:active={page.url.pathname === n.href}
 				aria-current={page.url.pathname === n.href ? 'page' : undefined}

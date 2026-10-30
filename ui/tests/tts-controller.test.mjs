@@ -206,6 +206,21 @@ test('rate, voice and repeat are applied once per utterance', async () => {
     assert.equal(h.controller.snapshot().phase, 'idle');
     assert.equal(h.controller.snapshot().error, '');
 });
+test('synchronous playback failures are visible and release their URL', async () => {
+    const h = harness();
+    h.setPlay(() => { throw new Error('audio unavailable'); });
+    h.controller.speak({ text: 'hello', playKey: 'word' });
+    await flush();
+    assert.equal(h.controller.snapshot().phase, 'error');
+    assert.equal(h.revoked.length, 1);
+});
+test('text size is checked in UTF-8 bytes before synthesis', async () => {
+    const h = harness();
+    h.controller.speak({ text: '词'.repeat(700), playKey: 'word' });
+    await flush();
+    assert.equal(h.controller.snapshot().phase, 'error');
+    assert.equal(h.requests.length, 0);
+});
 let failed = 0;
 for (const [name, fn] of tests) {
     try {

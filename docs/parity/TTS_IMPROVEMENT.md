@@ -1,5 +1,7 @@
 # 单词与句子 TTS
 
+本报告记录 Agent 分支交付时的状态。后续修复、独立语音队列和最终桌面播放验收见 [集成审核报告](INTEGRATION_TTS_HOME_REVIEW.md)。
+
 分支 `codex/tts-improvement`。worktree：`D:\lexica-tts-improvement`。起始 SHA `38e56d97b339be213e92f7df30943a31faef50df`。实现提交 `72d9c6de3ed13bbc28fd33e865c378646a428e44`。未合并、未推送。
 
 ## 方案

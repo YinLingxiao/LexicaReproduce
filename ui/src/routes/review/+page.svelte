@@ -146,34 +146,30 @@
 		}));
 	}
 
-	async function fetchCards(mode: ReviewMode): Promise<StudyCardEntry[]> {
+	async function fetchCards(mode: ReviewMode): Promise<{ cards: StudyCardEntry[]; fromStudy: boolean }> {
 		const s = preferences.study;
 		const useLegacyFixture =
 			typeof window !== 'undefined' &&
 			(localStorage.getItem('test.review.ids') !== null ||
 				localStorage.getItem('test.review.defonly') !== null);
 		if (mode === 'due') {
-			fromStudy = false;
-			return dueCards(await reviewGroup());
+			return { cards: dueCards(await reviewGroup()), fromStudy: false };
 		}
 		if (mode === 'new') {
-			fromStudy = true;
-			const session = await studyGroup(s.wordbook, s.dailyNewLimit, s.priority);
-			return session.cards;
+			const session = await studyGroup(s.wordbook, s.dailyNewLimit, 'new_first');
+			return { cards: session.cards.filter((card) => card.is_new), fromStudy: true };
 		}
 		if (!useLegacyFixture) {
 			try {
 				const session = await studyGroup(s.wordbook, s.dailyNewLimit, s.priority);
 				if (session.cards.length) {
-					fromStudy = true;
-					return session.cards;
+					return { cards: session.cards, fromStudy: true };
 				}
 			} catch {
 				/* 学习组不可用时回退到到期复习组 */
 			}
 		}
-		fromStudy = false;
-		return dueCards(await reviewGroup());
+		return { cards: dueCards(await reviewGroup()), fromStudy: false };
 	}
 
 	async function refreshRemaining() {
@@ -197,7 +193,12 @@
 
 	async function load(mode: ReviewMode = reviewMode) {
 		const token = ++sessionToken;
-		const carriedRound = finishedRound;
+		const carriedRound = finishedRound && activeMode === mode;
+		++followToken;
+		busy = false;
+		cardError = "";
+		reviewId = null;
+		feedback = null;
 		finishedRound = false;
 		activeMode = mode;
 		phase = 'loading';
@@ -205,9 +206,10 @@
 		showSettings = false;
 		followUp = 'idle';
 		try {
-			const cards = await fetchCards(mode);
+			const loaded = await fetchCards(mode);
 			if (token !== sessionToken) return;
-			group = cards;
+			fromStudy = loaded.fromStudy;
+			group = loaded.cards;
 			if (!group.length) {
 				showRoundDone = carriedRound && mode === 'due';
 				phase = 'empty';
@@ -236,6 +238,7 @@
 
 	/** 后台补全词条资料并生成填空句；都不阻塞浏览。 */
 	function kickOffAi() {
+		const token = sessionToken;
 		const cards = group;
 		if (fromStudy) {
 			void aiEnrichWords(
@@ -253,6 +256,7 @@
 				}));
 				if (!items.length) return;
 				const cfg = await aiConfigGet();
+				if (token !== sessionToken) return;
 				if (!cfg.enabled || !cfg.has_key) {
 					aiNeedsSetup = true;
 					return;
@@ -260,11 +264,13 @@
 				aiNeedsSetup = false;
 				aiNote = 'Generating AI example sentences…';
 				const examples = await aiGenerateExamples(items);
+				if (token !== sessionToken) return;
 				aiResults = examples; // 迟到结果只存这里；后端已写入 SQLite 缓存
 				aiNote = examples.length
 					? `AI examples ready for ${examples.length} word${examples.length === 1 ? '' : 's'}.`
 					: '';
 			} catch (e) {
+				if (token !== sessionToken) return;
 				aiNote = `AI examples unavailable — using local prompts (${errorMessage(e)}).`;
 			}
 		})();
@@ -287,6 +293,7 @@
 	}
 
 	async function toggleBookmark() {
+		const token = sessionToken;
 		const gi = queue[browseIdx];
 		const card = group[gi];
 		if (!card) return;
@@ -296,13 +303,16 @@
 			// 先读回已有笔记，避免收藏时覆盖用户写过的内容。
 			const note = await wordNote(card.entry.id);
 			await saveWordNote(card.entry.id, next, note.note);
+			if (token !== sessionToken) return;
 		} catch (e) {
+			if (token !== sessionToken) return;
 			card.bookmarked = !next;
 			cardError = errorMessage(e);
 		}
 	}
 
 	async function ignoreWord() {
+		const token = sessionToken;
 		const gi = queue[browseIdx];
 		const card = group[gi];
 		if (!card || busy) return;
@@ -310,17 +320,20 @@
 		cardError = '';
 		try {
 			await setWordIgnored(card.entry.id, true);
+			if (token !== sessionToken) return;
 			ignored[gi] = true;
 			queue = queue.filter((i, k) => k < browseIdx || i !== gi);
 			if (browseIdx >= queue.length) finishBrowse();
 		} catch (e) {
+			if (token !== sessionToken) return;
 			cardError = errorMessage(e);
 		} finally {
-			busy = false;
+			if (token === sessionToken) busy = false;
 		}
 	}
 
 	async function gradeWord(grade: StudyGrade) {
+		const token = sessionToken;
 		const gi = queue[browseIdx];
 		const card = group[gi];
 		if (!card || busy) return;
@@ -328,13 +341,15 @@
 		cardError = '';
 		try {
 			await studyGrade(card.entry.id, grade);
+			if (token !== sessionToken) return;
 			gradeCounts[grade]++;
 			if (grade === 'forgot') queue = [...queue, gi];
 			advance();
 		} catch (e) {
+			if (token !== sessionToken) return;
 			cardError = errorMessage(e);
 		} finally {
-			busy = false;
+			if (token === sessionToken) busy = false;
 		}
 	}
 
@@ -372,6 +387,7 @@
 	}
 
 	async function beginCard() {
+		const token = sessionToken;
 		const gi = order[pos];
 		if (gi === undefined) return;
 		busy = true;
@@ -384,7 +400,7 @@
 			// 只在首轮答题时创建正式 review；重考走只读接口，不重复记录。
 			if (!formalDone[gi]) {
 				const item = prompts[gi];
-				reviewId = await startReviewItem({
+				const started = await startReviewItem({
 					word_id: item.word_id,
 					prompt: item.prompt,
 					kind: item.kind,
@@ -392,13 +408,16 @@
 					sense_id: item.sense_id,
 					example_id: item.example_id
 				});
+				if (token !== sessionToken) return;
+				reviewId = started;
 			}
 		} catch (e) {
+			if (token !== sessionToken) return;
 			cardError = errorMessage(e);
 		} finally {
-			busy = false;
+			if (token === sessionToken) busy = false;
 			await tick();
-			input?.focus();
+			if (token === sessionToken) input?.focus();
 		}
 	}
 
@@ -424,6 +443,7 @@
 	}
 
 	async function submit(value: string | null) {
+		const token = sessionToken;
 		const gi = order[pos];
 		if (gi === undefined || !currentPrompt || feedback || busy) return;
 		if (value !== null && !value.trim()) return;
@@ -434,6 +454,7 @@
 				// 首轮答题：正式记录 + 记忆更新（现有机制，含拼写容错与质量映射）。
 				if (reviewId === null) throw new Error('This item is not ready.');
 				const fb: ReviewFeedback = await submitReview(reviewId, value);
+				if (token !== sessionToken) return;
 				formalDone[gi] = true;
 				feedback = {
 					correct: fb.correct,
@@ -452,6 +473,7 @@
 			} else {
 				// 组内重考：只读判分，不重复计入正式复习/记忆评分。
 				const res = await practiceCheck(currentPrompt.word_id, value);
+				if (token !== sessionToken) return;
 				feedback = {
 					correct: res.correct,
 					answer: group[gi].entry.display,
@@ -468,13 +490,15 @@
 				}
 			}
 		} catch (e) {
+			if (token !== sessionToken) return;
 			cardError = errorMessage(e);
 		} finally {
-			busy = false;
+			if (token === sessionToken) busy = false;
 		}
 	}
 
 	async function hint() {
+		const token = sessionToken;
 		const gi = order[pos];
 		if (gi === undefined || !currentPrompt || feedback || busy || hints.length >= 3) return;
 		busy = true;
@@ -484,13 +508,15 @@
 			const h = formalDone[gi]
 				? await practiceHint(currentPrompt.word_id, currentPrompt.sense_id, next)
 				: await requestHint(reviewId as number, next);
+			if (token !== sessionToken) return;
 			hints = [...hints, h];
 		} catch (e) {
+			if (token !== sessionToken) return;
 			cardError = errorMessage(e);
 		} finally {
-			busy = false;
+			if (token === sessionToken) busy = false;
 			await tick();
-			input?.focus();
+			if (token === sessionToken) input?.focus();
 		}
 	}
 
@@ -537,6 +563,7 @@
 		untrack(() => {
 			void load(mode);
 		});
+		return () => { ++sessionToken; ++followToken; };
 	});
 </script>
 

@@ -24,8 +24,9 @@ std::vector<std::string> backgroundCommands() {
 Executor::Executor(Handler handler)
     : handler_(std::move(handler)), background_(backgroundCommands()) {
   for (int i = 0; i < 4; ++i)
-    threads_.emplace_back([this] { loop(false); });
-  threads_.emplace_back([this] { loop(true); });
+    threads_.emplace_back([this] { loop(Lane::Interactive); });
+  threads_.emplace_back([this] { loop(Lane::Background); });
+  threads_.emplace_back([this] { loop(Lane::Speech); });
 }
 Executor::~Executor() { shutdown(); }
 Json Executor::cancelled(const Json &request) const {
@@ -41,14 +42,15 @@ void Executor::submit(Json request, Reply reply) {
                            : std::string{};
   const bool background = std::find(background_.begin(), background_.end(),
                                     command) != background_.end();
+  const bool speech = command == "tts_synthesize" || command == "tts_voices";
   Json early;
   {
     std::lock_guard<std::mutex> lock(mutex_);
     if (stopped_)
       early = cancelled(request);
     else {
-      auto &queue = background ? backgroundQueue_ : interactive_;
-      const std::size_t limit = background ? 8 : 128;
+      auto &queue = speech ? speechQueue_ : background ? backgroundQueue_ : interactive_;
+      const std::size_t limit = speech || background ? 8 : 128;
       if (queue.size() >= limit)
         early = busy(request);
       else
@@ -60,8 +62,9 @@ void Executor::submit(Json request, Reply reply) {
   else
     ready_.notify_all();
 }
-void Executor::loop(bool background) {
-  auto &queue = background ? backgroundQueue_ : interactive_;
+void Executor::loop(Lane lane) {
+  auto &queue = lane == Lane::Speech ? speechQueue_
+               : lane == Lane::Background ? backgroundQueue_ : interactive_;
   for (;;) {
     Job job;
     {
@@ -81,7 +84,7 @@ void Executor::loop(bool background) {
     Json result;
     try {
       result =
-          handler_(job.request, background ? &backgroundStop_ : &shutdown_);
+          handler_(job.request, lane == Lane::Background ? &backgroundStop_ : &shutdown_);
     } catch (const Error &error) {
       result = envelope(job.request, error.code.c_str(), error.what());
     } catch (const std::exception &) {

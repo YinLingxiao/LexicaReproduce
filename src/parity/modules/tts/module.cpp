@@ -11,7 +11,8 @@ void registerTts(Router &router) {
       });
   router.bind("platform", "tts_cancel",
               [](const Json &args, Context &) -> Json {
-                ttsCancel(args.get<TtsCancelArgs>().token);
+                const auto input = args.get<TtsCancelArgs>();
+                ttsCancel(input.token, input.clientId.value_or("legacy"));
                 return Json(nullptr);
               });
 }

@@ -34,8 +34,8 @@
     {"name":"ai_test_connection", "owner":"ai", "args":{}, "result":"void", "lane":"background"},
     {"name":"ai_generate_examples", "owner":"ai", "args":{"items":"AiGenItem[]"}, "result":"AiExample[]", "lane":"background"},
     {"name":"ai_enrich_words", "owner":"ai", "args":{"wordIds":"int[]", "examStyle":"bool"}, "result":"int", "lane":"background"},
-    {"name":"tts_voices", "owner":"platform", "args":{}, "result":"TtsVoiceList"},
-    {"name":"tts_synthesize", "owner":"platform", "args":{"text":"string", "token":"int", "voiceId":"string?", "accent":"string?", "rate":"number?"}, "bounds":{"token":[0,9007199254740991]}, "result":"TtsSynthesis", "lane":"background"},
-    {"name":"tts_cancel", "owner":"platform", "args":{"token":"int"}, "bounds":{"token":[0,9007199254740991]}, "result":"void"}
+    {"name":"tts_voices", "owner":"platform", "args":{}, "result":"TtsVoiceList", "lane":"speech"},
+    {"name":"tts_synthesize", "owner":"platform", "args":{"text":"string", "token":"int", "clientId":"string?", "voiceId":"string?", "accent":"string?", "rate":"number?"}, "bounds":{"token":[0,9007199254740991]}, "result":"TtsSynthesis", "lane":"speech"},
+    {"name":"tts_cancel", "owner":"platform", "args":{"token":"int", "clientId":"string?"}, "bounds":{"token":[0,9007199254740991]}, "result":"void"}
   ]
 }

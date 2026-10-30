@@ -16,7 +16,7 @@ void check(bool condition, const std::string &message) {
     throw std::runtime_error(message);
 }
 p::Json call(p::Application &app, const std::string &command, p::Json args) {
-  static std::uint64_t sequence = 0;
+  static std::atomic<std::uint64_t> sequence{0};
   return app.dispatch({{"protocol_version", 1},
                        {"request_id", "tts-" + std::to_string(++sequence)},
                        {"command", command},
@@ -215,6 +215,12 @@ int main() {
     check(call(app, "tts_cancel", {{"token", 20}})["ok"] == true, "raise epoch");
     check(synth(app, "hello", 19, {{"voiceId", "us"}})["error"]["code"] == "CANCELLED",
           "stale token returned audio");
+    check(call(app, "tts_cancel", {{"token", 1000}, {"clientId", "old-document"}})["ok"] == true,
+          "old document cancellation");
+    check(synth(app, "hello", 1, {{"clientId", "new-document"}})["ok"] == true,
+          "a reload or another tab inherited the old cancellation epoch");
+    check(synth(app, "hello", 1, {{"clientId", "old-document"}})["error"]["code"] == "CANCELLED",
+          "client-scoped stale token was accepted");
     auto slow = std::make_shared<Slow>();
     p::setTtsEngine(slow);
     p::Json first;
@@ -222,6 +228,8 @@ int main() {
     for (int i = 0; i < 100 && slow->started.load() == 0; ++i)
       std::this_thread::sleep_for(std::chrono::milliseconds(20));
     check(slow->started.load() == 1, "slow synthesis did not start");
+    call(app, "tts_cancel", {{"token", 2000}, {"clientId", "other-tab"}});
+    check(!slow->stop.load(), "another tab cancelled active synthesis");
     check(call(app, "tts_cancel", {{"token", 22}})["ok"] == true, "cancel in flight");
     worker.join();
     check(first["ok"] == false && first["error"]["code"] == "CANCELLED" && !first.contains("result"),

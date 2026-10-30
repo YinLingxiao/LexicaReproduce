@@ -3,6 +3,8 @@
 #include <cmath>
 #include <cstring>
 #include <mutex>
+#include <atomic>
+#include <unordered_map>
 namespace lexica::parity {
 std::shared_ptr<TtsEngine> createPlatformEngine();
 namespace {
@@ -13,7 +15,14 @@ std::mutex engineMu;
 std::shared_ptr<TtsEngine> slot;
 std::mutex synthMu;
 std::mutex epochMu;
-std::int64_t epoch = 0;
+struct ClientEpoch {
+  std::shared_ptr<std::atomic<std::int64_t>> value =
+      std::make_shared<std::atomic<std::int64_t>>(0);
+  std::uint64_t touched = 0;
+};
+std::unordered_map<std::string, ClientEpoch> epochs;
+std::uint64_t touchSequence = 0;
+std::shared_ptr<std::atomic<std::int64_t>> activeEpoch;
 bool running = false;
 std::int64_t runningToken = 0;
 std::shared_ptr<TtsEngine> activeEngine;
@@ -94,9 +103,23 @@ std::shared_ptr<TtsEngine> engine() {
   return slot;
 }
 
-std::int64_t loadEpoch() {
-  std::lock_guard<std::mutex> lock(epochMu);
-  return epoch;
+// epochMu must be held. Active/queued requests retain their epoch across LRU eviction.
+std::shared_ptr<std::atomic<std::int64_t>> clientEpoch(const std::string &clientId) {
+  if (clientId.empty() || clientId.size() > 128)
+    throw Error("BAD_REQUEST", "无效的朗读会话标识");
+  if (!epochs.count(clientId) && epochs.size() >= 128) {
+    auto victim = epochs.end();
+    for (auto it = epochs.begin(); it != epochs.end(); ++it)
+      if (it->second.value.use_count() == 1 &&
+          (victim == epochs.end() || it->second.touched < victim->second.touched))
+        victim = it;
+    if (victim == epochs.end())
+      throw Error("BUSY", "朗读会话过多");
+    epochs.erase(victim);
+  }
+  auto &entry = epochs[clientId];
+  entry.touched = ++touchSequence;
+  return entry.value;
 }
 
 #if !LEXICA_TTS_WINRT
@@ -137,18 +160,14 @@ void usePlatformTtsEngine() {
   slot = createPlatformEngine();
 }
 
-void ttsCancel(std::int64_t token) {
-  std::shared_ptr<TtsEngine> current;
-  bool interrupt = false;
-  {
-    std::lock_guard<std::mutex> lock(epochMu);
-    if (token > epoch)
-      epoch = token;
-    interrupt = running && runningToken < epoch;
-    current = activeEngine;
-  }
-  if (interrupt && current)
-    current->cancel();
+void ttsCancel(std::int64_t token, const std::string &clientId) {
+  std::lock_guard<std::mutex> lock(epochMu);
+  const auto epoch = clientEpoch(clientId);
+  if (token > epoch->load())
+    epoch->store(token);
+  // Keep the active request stable until cancel() has been delivered.
+  if (running && activeEpoch == epoch && runningToken < epoch->load() && activeEngine)
+    activeEngine->cancel();
 }
 
 Json ttsVoices() {
@@ -173,7 +192,15 @@ Json ttsVoices() {
 
 Json ttsSynthesize(const Json &args, const Cancellation *cancellation) {
   const auto input = args.get<TtsSynthesizeArgs>();
-  if (input.token < loadEpoch())
+  std::shared_ptr<std::atomic<std::int64_t>> epoch;
+  {
+    std::lock_guard<std::mutex> lock(epochMu);
+    epoch = clientEpoch(input.clientId.value_or("legacy"));
+  }
+  auto stale = [epoch, token = input.token, cancellation] {
+    return token < epoch->load() || (cancellation && cancellation->requested());
+  };
+  if (stale())
     throw Error("CANCELLED", "朗读已取消");
   const auto text = trim(input.text);
   if (text.empty())
@@ -196,8 +223,7 @@ Json ttsSynthesize(const Json &args, const Cancellation *cancellation) {
     voiceId = *input.voiceId;
   }
   std::lock_guard<std::mutex> lock(synthMu);
-  if (input.token < loadEpoch() ||
-      (cancellation && cancellation->requested()))
+  if (stale())
     throw Error("CANCELLED", "朗读已取消");
   const auto current = engine();
   struct Guard {
@@ -205,15 +231,17 @@ Json ttsSynthesize(const Json &args, const Cancellation *cancellation) {
       std::lock_guard<std::mutex> guard(epochMu);
       running = false;
       activeEngine.reset();
+      activeEpoch.reset();
     }
   } guard;
   {
     std::lock_guard<std::mutex> mark(epochMu);
-    if (input.token < epoch || (cancellation && cancellation->requested()))
+    if (stale())
       throw Error("CANCELLED", "朗读已取消");
     running = true;
     runningToken = input.token;
     activeEngine = current;
+    activeEpoch = epoch;
   }
   const auto catalog = current->catalog();
   if (!catalog.supported) {
@@ -239,10 +267,6 @@ Json ttsSynthesize(const Json &args, const Cancellation *cancellation) {
   }
   if (!chosen)
     throw Error("RESOURCE_ERROR", ttsInstallMessage());
-  auto stale = [&] {
-    return input.token < loadEpoch() ||
-           (cancellation && cancellation->requested());
-  };
   if (stale())
     throw Error("CANCELLED", "朗读已取消");
   const auto audio = current->synthesize(*chosen, text, rate, stale);

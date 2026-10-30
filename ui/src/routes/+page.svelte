@@ -50,6 +50,8 @@
 	let request = 0;
 	let schedule = $state<Schedule>({ kind: 'unknown' });
 	let scheduleToken = 0;
+	let refreshToken = 0;
+	let recordMemory = $state<{ status: string; visit_count: number } | null>(null);
 	const query = $derived(page.url.searchParams.get('word') ?? '');
 	const hit = $derived(result?.outcome.type === 'hit' ? result.outcome.entry : null);
 	const task = $derived.by(() => {
@@ -66,7 +68,9 @@
 	});
 
 	async function refresh() {
+		const token = ++refreshToken;
 		const results = await Promise.allSettled([recentWords(8), statsSummary()]);
+		if (token !== refreshToken) return;
 		if (results[0].status === 'fulfilled') {
 			recent = results[0].value;
 			recentStatus = 'ready';
@@ -107,6 +111,7 @@
 				schedule = { kind: 'unknown' };
 				return;
 			}
+			recordMemory = { status: row.status, visit_count: row.visit_count };
 			if (row.next_review_at) schedule = { kind: 'scheduled', when: dueLabel(row.next_review_at) };
 			else schedule = { kind: 'unscheduled' };
 		} catch {
@@ -121,6 +126,7 @@
 		loading = true;
 		error = '';
 		result = null;
+		recordMemory = null;
 		schedule = { kind: 'unknown' };
 		value = word;
 		try {
@@ -128,7 +134,7 @@
 			if (token !== request) return;
 			result = found;
 			if (found.outcome.type === 'hit' && found.encounter_id !== null)
-				void readSchedule(found.outcome.entry.id, word);
+				void readSchedule(found.outcome.entry.id, found.outcome.entry.word);
 		} catch (e) {
 			if (token === request) error = errorMessage(e);
 		} finally {
@@ -155,7 +161,7 @@
 
 	function refreshLearningStatus() {
 		void refresh();
-		if (hit && result?.encounter_id !== null) void readSchedule(hit.id, query);
+		if (hit && result?.encounter_id !== null) void readSchedule(hit.id, hit.word);
 	}
 
 	$effect(() => {
@@ -201,12 +207,12 @@
 				<LookupRecordHint
 					saved={result.encounter_id !== null && result.outcome.type === 'hit'}
 					miss={result.outcome.type === 'miss'}
-					visitCount={result.memory ? result.memory.visit_count : null}
-					statusText={result.memory?.status ? (statusText[result.memory.status] ?? null) : null}
+					visitCount={recordMemory?.visit_count ?? result.memory?.visit_count ?? null}
+					statusText={statusText[recordMemory?.status ?? result.memory?.status ?? ''] ?? null}
 					{schedule}
 					onRefresh={refreshLearningStatus}
 					onRetrySchedule={() => {
-						if (hit) void readSchedule(hit.id, query);
+						if (hit) void readSchedule(hit.id, hit.word);
 					}}
 				/>
 				{#key result}<WordView
@@ -214,7 +220,7 @@
 						{query}
 						oncommit={doLookup}
 						ondismiss={() => goto('/')}
-						onupdate={refresh}
+						onupdate={refreshLearningStatus}
 					/>{/key}{/if}
 		</div>
 	{:else}

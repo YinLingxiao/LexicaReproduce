@@ -196,8 +196,13 @@ TtsAudio synthesizeSapi(const TtsVoiceInfo &voice, const std::string &text, doub
       release();
       throw Error("CANCELLED", "朗读已取消");
     }
-    if (speaker->WaitUntilDone(50) == S_OK)
+    const auto waited = speaker->WaitUntilDone(50);
+    if (waited == S_OK)
       break;
+    if (FAILED(waited)) {
+      release();
+      throw Error("RESOURCE_ERROR", "语音合成失败。");
+    }
   }
   if (cancelled()) {
     release();
@@ -275,7 +280,18 @@ public:
   TtsAudio synthesize(const TtsVoiceInfo &voice, const std::string &text, double rate,
                       const std::function<bool()> &cancelled) override {
     return wait(post([this, voice, text, rate, cancelled] {
-      return synthesizeOnWorker(voice, text, rate, cancelled);
+      cancelFlag.store(false);
+      const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(25);
+      auto shouldStop = [this, cancelled, deadline] {
+        return cancelFlag.load() || cancelled() || std::chrono::steady_clock::now() >= deadline;
+      };
+      try {
+        return synthesizeOnWorker(voice, text, rate, shouldStop);
+      } catch (...) {
+        if (!cancelled() && std::chrono::steady_clock::now() >= deadline)
+          throw Error("RESOURCE_ERROR", "语音合成超时");
+        throw;
+      }
     }));
   }
   void cancel() override {

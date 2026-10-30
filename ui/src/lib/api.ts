@@ -168,6 +168,10 @@ export function ttsVoices(): Promise<TtsVoiceList> {
 	return invoke<TtsVoiceList>('tts_voices');
 }
 
+// A fresh document owns its cancellation sequence; reloads and other tabs are independent.
+const ttsClientId = globalThis.crypto?.randomUUID?.() ??
+	`tts-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
 export function ttsSynthesize(args: {
 	text: string;
 	token: number;
@@ -178,6 +182,7 @@ export function ttsSynthesize(args: {
 	return invoke<TtsSynthesis>('tts_synthesize', {
 		text: args.text,
 		token: args.token,
+		clientId: ttsClientId,
 		voiceId: args.voiceId ?? null,
 		accent: args.accent ?? null,
 		rate: args.rate ?? null
@@ -185,7 +190,7 @@ export function ttsSynthesize(args: {
 }
 
 export function ttsCancel(token: number): Promise<void> {
-	return invoke<void>('tts_cancel', { token });
+	return invoke<void>('tts_cancel', { token, clientId: ttsClientId });
 }
 
 export function dueLabel(iso: string | null): string {

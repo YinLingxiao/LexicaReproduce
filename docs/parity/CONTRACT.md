@@ -99,7 +99,7 @@ encounters 与完成的 reviews 为投影事实源；前端偏好仍放在原版
 
 基础错误：BAD_REQUEST、UNKNOWN_COMMAND、PROTOCOL_MISMATCH、NOT_IMPLEMENTED、NOT_SUPPORTED、CONTRACT_ERROR、DB_ERROR、SCHEMA_MISMATCH、VERSION_TOO_NEW、DATA_DIRECTORY_ERROR、NETWORK_ERROR、RESOURCE_ERROR、WEBVIEW_ERROR、BUSY、CANCELLED、INTERNAL_ERROR。
 
-1.3.0 增量增加 `tts_voices`、`tts_synthesize`、`tts_cancel`。合成走 background 队列，取消走交互队列。`tts_synthesize` 只返回有界 base64 音频，不返回本地路径。`NOT_SUPPORTED` 表示当前进程没有系统语音能力；没有英语语音包时用 `RESOURCE_ERROR`，并在 message 里给出安装说明。旧命令的参数和结果不变。
+1.3.0 增量增加 `tts_voices`、`tts_synthesize`、`tts_cancel`。音色查询和合成走独立 speech 队列（最多等待 8 个任务），取消走交互队列；词典导入不会阻塞朗读。`tts_synthesize` 只返回有界 base64 音频，不返回本地路径。合成和取消支持可选 `clientId`（1–128 字节）；前端为每个文档生成新标识，token 只取消该会话的更早合成，刷新及其他标签页相互独立。未提供 clientId 的调用兼容 legacy 会话。后端最多缓存 128 个会话，保留活动请求并淘汰闲置会话。`NOT_SUPPORTED` 表示当前进程没有系统语音能力；没有英语语音包时用 `RESOURCE_ERROR`，并在 message 里给出安装说明。旧命令的参数和结果不变。
 
 前端传输还会产生 TIMEOUT、CANCELLED、HTTP_ERROR。业务未命中是 LookupOutcome.miss，空集合是成功响应。新增业务错误码由 A 记录后统一使用，保留可读 message；响应和日志不得携带密钥。
 
