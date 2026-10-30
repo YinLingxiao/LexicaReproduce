@@ -74,6 +74,8 @@ test('real C++ service keeps inevitable hour honest', async ({page, request}) =>
  await expect(page.getByText('暂无等级数据')).toBeVisible();
  await expect(page.getByText('CEFR-R')).toHaveCount(0);
  await expect(page.getByText('88%')).toHaveCount(0);
+ await expect(page.locator('.definition-preview')).toContainText('死期');
+ await page.getByRole('button', {name:'Full entry',exact:true}).click();
  await expect(page.locator('.translation-text')).toHaveText('死期');
  await expect(page.locator('.pos-pill')).toHaveText('词性未标注');
  await page.waitForTimeout(1400);

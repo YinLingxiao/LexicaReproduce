@@ -6,6 +6,7 @@ export interface SpeechSnapshot {
 	notice: string;
 	playKey: string;
 	token: number;
+	actualAccent: string;
 }
 
 export interface SynthesisRequest {
@@ -84,8 +85,14 @@ function accentName(accent: string, language: string): string {
 function noticeFor(job: Job, audio: SynthesisAudio): string {
 	const actual = `${audio.voiceLabel}（${accentName(audio.actualAccent, audio.language)}）`;
 	if (!audio.substituted) return `当前音色：${actual}`;
-	if (job.voiceId) return `所选音色是 ${actual}，不是请求的${job.accent === 'US' ? '美式英语' : '英式英语'}。`;
-	const wanted = job.accent === 'US' ? '美式英语' : job.accent === 'UK' ? '英式英语' : '所选口音';
+	if (job.voiceId)
+		return `所选音色是 ${actual}，不是请求的${job.accent === 'US' ? '美式英语' : '英式英语'}。`;
+	const wanted =
+		job.accent === 'US'
+			? '美式英语'
+			: job.accent === 'UK'
+				? '英式英语'
+				: '所选口音';
 	return `请求的${wanted}不可用，实际使用 ${actual}。`;
 }
 
@@ -93,12 +100,22 @@ function blocked(error: unknown): boolean {
 	if (!error || typeof error !== 'object') return false;
 	const name = 'name' in error ? String(error.name) : '';
 	const message = 'message' in error ? String(error.message) : '';
-	return name === 'NotAllowedError' || /not allowed|user gesture|interact with the document/i.test(message);
+	return (
+		name === 'NotAllowedError' ||
+		/not allowed|user gesture|interact with the document/i.test(message)
+	);
 }
 
 export function createSpeechController(deps: SpeechDeps) {
 	let epoch = 0;
-	let state: SpeechSnapshot = { phase: 'idle', error: '', notice: '', playKey: '', token: 0 };
+	let state: SpeechSnapshot = {
+		phase: 'idle',
+		error: '',
+		notice: '',
+		playKey: '',
+		token: 0,
+		actualAccent: '',
+	};
 	const listeners = new Set<() => void>();
 	let queued: Job | null = null;
 	let pumping = false;
@@ -182,8 +199,15 @@ export function createSpeechController(deps: SpeechDeps) {
 				set({ phase: 'playing', error: '' });
 				try {
 					if (played > 1) element.setCurrentTime(0);
-					void element.play().catch((error: unknown) =>
-						fail(blocked(error) ? '自动播放被拦截，请点击按钮手动朗读。' : '播放失败'));
+					void element
+						.play()
+						.catch((error: unknown) =>
+							fail(
+								blocked(error)
+									? '自动播放被拦截，请点击按钮手动朗读。'
+									: '播放失败',
+							),
+						);
 				} catch {
 					fail('播放失败');
 				}
@@ -224,7 +248,7 @@ export function createSpeechController(deps: SpeechDeps) {
 						token: job.token,
 						voiceId: job.voiceId,
 						accent: job.accent,
-						rate: job.rate
+						rate: job.rate,
 					});
 				} catch (error) {
 					inFlight = false;
@@ -232,7 +256,10 @@ export function createSpeechController(deps: SpeechDeps) {
 					const speech =
 						error instanceof SpeechError
 							? error
-							: new SpeechError('RESOURCE_ERROR', error instanceof Error ? error.message : '朗读失败');
+							: new SpeechError(
+									'RESOURCE_ERROR',
+									error instanceof Error ? error.message : '朗读失败',
+								);
 					if (speech.code === 'CANCELLED') {
 						set({ phase: 'idle', error: '' });
 						continue;
@@ -242,11 +269,15 @@ export function createSpeechController(deps: SpeechDeps) {
 				}
 				inFlight = false;
 				if (job.token !== epoch) continue;
-				set({ notice: noticeFor(job, audio) });
+				set({
+					notice: noticeFor(job, audio),
+					actualAccent: audio.actualAccent,
+				});
 				try {
 					await playRepeats(job, audio);
 				} catch {
-					if (job.token === epoch) set({ phase: 'error', error: '播放失败', notice: '' });
+					if (job.token === epoch)
+						set({ phase: 'error', error: '播放失败', notice: '' });
 				}
 			}
 		} finally {
@@ -264,7 +295,13 @@ export function createSpeechController(deps: SpeechDeps) {
 		const playKey = input.playKey;
 		if (!text) {
 			queued = null;
-			set({ phase: 'error', error: '没有可朗读的文本', notice: '', playKey, token });
+			set({
+				phase: 'error',
+				error: '没有可朗读的文本',
+				notice: '',
+				playKey,
+				token,
+			});
 			return;
 		}
 		if (new TextEncoder().encode(text).byteLength > 2000) {
@@ -277,12 +314,23 @@ export function createSpeechController(deps: SpeechDeps) {
 			text,
 			playKey,
 			voiceId: input.voiceId ?? null,
-			accent: input.accent === 'US' || input.accent === 'UK' ? input.accent : null,
-			rate: input.rate === 0.8 || input.rate === 1 || input.rate === 1.2 ? input.rate : 1,
-			repeat: input.repeat === 3 ? 3 : 1
+			accent:
+				input.accent === 'US' || input.accent === 'UK' ? input.accent : null,
+			rate:
+				input.rate === 0.8 || input.rate === 1 || input.rate === 1.2
+					? input.rate
+					: 1,
+			repeat: input.repeat === 3 ? 3 : 1,
 		};
 		queued = job;
-		set({ phase: 'loading', error: '', notice: '', playKey, token });
+		set({
+			phase: 'loading',
+			error: '',
+			notice: '',
+			actualAccent: '',
+			playKey,
+			token,
+		});
 		if (inFlight) requestCancel(token);
 		void pump();
 	}
@@ -302,6 +350,6 @@ export function createSpeechController(deps: SpeechDeps) {
 			return () => listeners.delete(listener);
 		},
 		speak,
-		stop
+		stop,
 	};
 }

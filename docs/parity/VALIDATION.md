@@ -150,3 +150,9 @@ Release CTest 10/10、浏览器 3/3、HTTP 18 项、WebView2 与安装/升级/�
 MSVC Debug / Release 与 UCRT 各 11/11；原有 UI 夹具 24/24、新首页夹具 10/10、TTS 控制器 7/7；真实 HTTP 流程 2/2、原有真实 UI 3/3、HTTP 冒烟 18 项、原生 WebView2 设置/单词/例句/刷新播放和安装回归均通过。以上真实流程也针对更新后的 dist/LexicaReproduce 执行。没有人工听音，本机只有美式 Zira 音色；UCRT 明确不支持 TTS。
 
 详细问题、证据和复现步骤见 [INTEGRATION_TTS_HOME_REVIEW.md](INTEGRATION_TTS_HOME_REVIEW.md)，日志为 build-parity-msvc/review-*.log。
+
+## 启动与整页修订（2026-10-30）
+
+后台初始化和原生启动提示解除 UI 线程同步阻塞；种子补全改为无差异时零写入。查词页压缩学习记录和指标说明，修正暂停状态，无例句时直接显示释义。使用 3,401,187 词条副本验证深色和窄窗口布局，以及原生实际播放；锁库时窗口消息可响应，初始化中关闭通过。
+
+Debug / Release 各 11/11，UI 夹具 24+11，控制器 7/7，打包版真实 UI 2+3、HTTP 18 项和原生回归通过。证据及复现见 [STARTUP_LOOKUP_FIX.md](STARTUP_LOOKUP_FIX.md)，程序包为 dist/LexicaReproduce。

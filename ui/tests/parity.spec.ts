@@ -520,7 +520,8 @@ test('unknown frequency and non-CEFR levels stay honest on lookup and study page
 	await expect(page.getByText('暂无等级数据')).toBeVisible();
 	await expect(page.getByText('CEFR-R')).toHaveCount(0);
 	await expect(page.getByText('88%')).toHaveCount(0);
-	await expect(page.getByText('死期')).toBeVisible();
+	await expect(page.locator('.definition-preview')).toContainText('死期');
+	await page.getByRole('button', {name:'Full entry',exact:true}).click();
 	await expect(page.locator('.pos-pill')).toHaveText('词性未标注');
 	await page.screenshot({path: test.info().outputPath('inevitable-hour-lookup.png'), fullPage: true});
 
@@ -538,25 +539,28 @@ test('frequency rank, source, Collins stars and estimated levels are not conflat
 	await expect(page.getByText('暂无词频数据')).toBeVisible();
 	await expect(page.locator('.freq-ticks')).toHaveCount(0);
 	await expect(page.getByText('Collins ★★★★☆')).toBeVisible();
-	await expect(page.getByText('星级，不是词频排名')).toBeVisible();
+	await page.locator('.metadata-details summary').click();
+	await expect(page.getByText('Collins 星级，不是词频排名')).toBeVisible();
 	await expect(page.getByText('暂无等级数据')).toBeVisible();
 
 	await page.goto('/?word=rankedword');
 	await expect(page.locator('.freq-ticks')).toHaveCount(1);
 	await expect(page.locator('.freq-tick.on')).toHaveCount(14);
 	await expect(page.getByText(/第 1,234 名/)).toBeVisible();
-	await expect(page.locator('.freq-metric .metric-note')).toContainText('排名越小，越常见');
-	await expect(page.locator('.freq-metric .metric-note')).toContainText('ECDICT 当代语料库词频顺序');
-	await expect(page.locator('.level-metric .metric-note')).toContainText('旧版推断');
-	await expect(page.locator('.level-metric .metric-note')).toContainText('估算');
-	await expect(page.locator('.level-pill').first()).toHaveText('B2');
+	await page.locator('.metadata-details summary').click();
+	await expect(page.locator('.metadata-panel')).toContainText('排名越小，越常见');
+	await expect(page.locator('.metadata-panel')).toContainText('ECDICT 当代语料库词频顺序');
+	await expect(page.locator('.metadata-panel')).toContainText('旧版推断');
+	await expect(page.locator('.metadata-panel')).toContainText('估算');
+	await expect(page.locator('.level-metric')).toContainText('B2');
 
 	await page.goto('/?word=badlevel');
 	await expect(page.getByText('暂无等级数据')).toBeVisible();
 	await expect(page.getByText('G9')).toHaveCount(0);
 
 	await page.goto('/?word=bnconly');
-	await expect(page.locator('.freq-metric .metric-note')).toContainText('ECDICT 英国国家语料库词频顺序');
+	await page.locator('.metadata-details summary').click();
+	await expect(page.locator('.metadata-panel')).toContainText('ECDICT 英国国家语料库词频顺序');
 });
 
 test('syllable splitting preserves spaces, hyphens, apostrophes, punctuation and digits', async ({page}) => {

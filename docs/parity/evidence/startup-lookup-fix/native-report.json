@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "transport": "native WebView2",
+  "real_media_playing_events": true,
+  "settings_preview": true,
+  "word": true,
+  "sentence": true,
+  "reload": true,
+  "sentence_layout": {
+    "width": 390,
+    "height": 77
+  },
+  "human_listening": false
+}

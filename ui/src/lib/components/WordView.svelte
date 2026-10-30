@@ -6,6 +6,7 @@
 	import AiExampleLoading from './AiExampleLoading.svelte';
 	import { preferences } from '$lib/preferences.svelte';
 	import SpeakButton from './SpeakButton.svelte';
+	import { fitPopover } from '$lib/fit-popover';
 	import SyllableHeadword from './SyllableHeadword.svelte';
 	import {
 		CEFR_LEVELS,
@@ -14,7 +15,7 @@
 		describeCollins,
 		describeFrequency,
 		describeLevel,
-		displayPos
+		displayPos,
 	} from '$lib/lexicon-display';
 	import {
 		setComprehension,
@@ -29,7 +30,7 @@
 		aiGenerateExamples,
 		type ComprehensionLevel,
 		type LookupWordResult,
-		type RelatedWordItem
+		type RelatedWordItem,
 	} from '$lib/api';
 
 	let {
@@ -37,7 +38,7 @@
 		query,
 		oncommit,
 		ondismiss,
-		onupdate
+		onupdate,
 	}: {
 		result: LookupWordResult;
 		query: string;
@@ -46,21 +47,26 @@
 		onupdate: () => void;
 	} = $props();
 
-	const entry = $derived(result.outcome.type === 'hit' ? result.outcome.entry : null);
+	const entry = $derived(
+		result.outcome.type === 'hit' ? result.outcome.entry : null,
+	);
 	const miss = $derived(result.outcome.type === 'miss' ? result.outcome : null);
 	let aiSentence = $state('');
 	let aiLoading = $state(false);
 	let aiUnavailable = $state(false);
 	const dictionaryExamples = $derived(
-		entry?.senses.flatMap((s) => s.examples.filter((example) => example.text.trim())) ?? []
+		entry?.senses.flatMap((s) =>
+			s.examples.filter((example) => example.text.trim()),
+		) ?? [],
 	);
 	const examples = $derived(
-		aiSentence ? [{ text: aiSentence, translation: null }] : dictionaryExamples
+		aiSentence ? [{ text: aiSentence, translation: null }] : dictionaryExamples,
 	);
 
 	const primary = $derived(entry?.senses[0]);
 	const primaryPos = $derived(
-		entry?.senses.map((sense) => displayPos(sense.pos)).find((pos) => pos) ?? null
+		entry?.senses.map((sense) => displayPos(sense.pos)).find((pos) => pos) ??
+			null,
 	);
 	const frequency = $derived(describeFrequency(entry));
 	const collins = $derived(describeCollins(entry));
@@ -75,10 +81,6 @@
 			else if (frequency.rank <= 5000) list.push('TOP5000');
 		}
 		if (entry.oxford || entry.tags?.includes('oxford')) list.push('Oxford3000');
-		if (level.level)
-			list.push(
-				`CEFR-${level.level} · ${level.sourceLabel}${level.estimated ? '（估算）' : ''}`
-			);
 		const tagMap: Record<string, string> = {
 			cet4: 'CET-4',
 			cet6: 'CET-6',
@@ -86,7 +88,7 @@
 			toefl: 'TOEFL',
 			ielts: 'IELTS',
 			gre: 'GRE',
-			gk: '高考'
+			gk: '高考',
 		};
 		for (const t of entry.tags ?? []) {
 			const label = tagMap[t.toLowerCase()];
@@ -120,7 +122,10 @@
 		if (!entry) return [];
 		if (entry.derivatives?.length) return entry.derivatives;
 		return entry.word_family.map((raw) => {
-			const m = /^(\S+)\s+((?:n|v|vt|vi|adj|adv|prep|conj|pron)\.)\s*(.*)$/i.exec(raw.trim());
+			const m =
+				/^(\S+)\s+((?:n|v|vt|vi|adj|adv|prep|conj|pron)\.)\s*(.*)$/i.exec(
+					raw.trim(),
+				);
 			if (m) return { word: m[1], pos: m[2], gloss: m[3].trim() };
 			return { word: raw, pos: null, gloss: '' };
 		});
@@ -146,18 +151,28 @@
 	let recordChain = Promise.resolve();
 
 	async function loadAiExample() {
-		if (!entry || dictionaryExamples.length || !entry.senses.length || isPreview()) return;
+		if (
+			!entry ||
+			dictionaryExamples.length ||
+			!entry.senses.length ||
+			isPreview()
+		)
+			return;
 		try {
 			const config = await aiConfigGet();
 			if (!mounted || !config.enabled) return;
 			aiLoading = true;
-			const generated = await aiGenerateExamples([{ word_id: entry.id, sense_id: null }]);
+			const generated = await aiGenerateExamples([
+				{ word_id: entry.id, sense_id: null },
+			]);
 			if (!mounted) return;
-			const sentence = generated.find((item) => item.word_id === entry.id)?.sentence;
+			const sentence = generated.find(
+				(item) => item.word_id === entry.id,
+			)?.sentence;
 			if (sentence?.includes('______')) {
-				aiSentence = sentence.replaceAll('______', entry.word).replace(/^./, (letter) =>
-					letter.toUpperCase()
-				);
+				aiSentence = sentence
+					.replaceAll('______', entry.word)
+					.replace(/^./, (letter) => letter.toUpperCase());
 			} else {
 				aiUnavailable = true;
 			}
@@ -172,7 +187,7 @@
 		unknown: 0,
 		context: 1,
 		english: 2,
-		chinese: 3
+		chinese: 3,
 	};
 	function record(level: ComprehensionLevel) {
 		if (!result.encounter_id || ranks[level] <= recordedRank) return;
@@ -184,7 +199,8 @@
 				recordedRank = ranks[level];
 				onupdate();
 			} catch (e) {
-				if (mounted) error = `Learning record could not be saved: ${errorMessage(e)}`;
+				if (mounted)
+					error = `Learning record could not be saved: ${errorMessage(e)}`;
 			}
 		});
 	}
@@ -194,11 +210,19 @@
 	}
 	function revealFull() {
 		full = true;
-		record(entry?.senses.some((s) => s.chinese_definition) ? 'chinese' : 'english');
+		record(
+			entry?.senses.some((s) => s.chinese_definition) ? 'chinese' : 'english',
+		);
 	}
 	function understand() {
 		full = true;
-		record(showEnglish || !example ? 'english' : 'context');
+		record(
+			!example && chineseSummary
+				? 'chinese'
+				: showEnglish || !example
+					? 'english'
+					: 'context',
+		);
 	}
 	async function loadNote() {
 		if (!entry) return;
@@ -240,7 +264,9 @@
 		inCustomBook = next;
 		try {
 			await customWordbookToggle(entry.id, next);
-			message = next ? 'Added to custom wordbook' : 'Removed from custom wordbook';
+			message = next
+				? 'Added to custom wordbook'
+				: 'Removed from custom wordbook';
 		} catch (e) {
 			inCustomBook = !next;
 			error = errorMessage(e);
@@ -253,7 +279,9 @@
 		try {
 			await setWordIgnored(entry.id, !ignored);
 			ignored = !ignored;
-			message = ignored ? 'Review reminders paused' : 'Review reminders resumed';
+			message = ignored
+				? 'Review reminders paused'
+				: 'Review reminders resumed';
 			onupdate();
 		} catch (e) {
 			error = errorMessage(e);
@@ -265,7 +293,7 @@
 		if (!entry) return;
 		try {
 			await navigator.clipboard.writeText(
-				`${entry.display} ${entry.phonetic ?? ''}\n${entry.senses.map((s) => [s.english_definition, s.chinese_definition].filter(Boolean).join('\n')).join('\n\n')}`
+				`${entry.display} ${entry.phonetic ?? ''}\n${entry.senses.map((s) => [s.english_definition, s.chinese_definition].filter(Boolean).join('\n')).join('\n\n')}`,
 			);
 			message = 'Entry copied';
 		} catch {
@@ -278,21 +306,27 @@
 			e.ctrlKey ||
 			e.metaKey ||
 			e.altKey ||
-			(e.target as HTMLElement)?.matches('input,textarea,select,button,a,[contenteditable="true"]')
+			(e.target as HTMLElement)?.matches(
+				'input,textarea,select,button,a,[contenteditable="true"]',
+			)
 		)
 			return;
 		if (e.key === 'Escape') ondismiss();
 		if (!full && e.key.toLowerCase() === 'u') understand();
-		if (!full && e.key === '2') revealEnglish();
+		if (!full && e.key === '2' && primary?.english_definition) revealEnglish();
 		if (!full && e.key === '3') revealFull();
 	}
 	beforeNavigate((navigation) => {
-		if (dirty && !confirm('You have unsaved notes. Leave anyway?')) navigation.cancel();
+		if (dirty && !confirm('You have unsaved notes. Leave anyway?'))
+			navigation.cancel();
 	});
 	onMount(() => {
 		recordedRank = ranks[result.comprehension_level ?? 'unknown'];
 		full = preferences.reading === 'full';
-		if (full) record(entry?.senses.some((s) => s.chinese_definition) ? 'chinese' : 'english');
+		if (full)
+			record(
+				entry?.senses.some((s) => s.chinese_definition) ? 'chinese' : 'english',
+			);
 		void loadNote();
 		void loadAiExample();
 	});
@@ -327,9 +361,15 @@
 			<!-- 1. 顶部词头摘要大卡片（居中词头 + 音标喇叭 + 词频/难度 + 标签行 + 收藏/移除/复制 + 记忆小脑） -->
 			<section class="panel hero-card">
 				<header class="hero-head">
-					<h1><SyllableHeadword word={entry.display} split={preferences.study.autoSplitSyllables} /></h1>
+					<h1>
+						<SyllableHeadword
+							word={entry.display}
+							split={preferences.study.autoSplitSyllables}
+						/>
+					</h1>
 					<div class="phonetic-row">
-						{#if entry.phonetic}<span class="phonetic">{entry.phonetic}</span>{/if}
+						{#if entry.phonetic}<span class="phonetic">{entry.phonetic}</span
+							>{/if}
 						<SpeakButton
 							text={entry.word}
 							playKey={`lookup-${entry.id}-word`}
@@ -344,48 +384,49 @@
 				<div class="metrics-bar">
 					<div class="metric-item freq-metric">
 						<span class="metric-label">词频</span>
-						{#if frequency.hasRank}
-							<div class="freq-ticks" aria-label={frequency.label}>
-								{#each { length: FREQUENCY_TICKS } as _, idx}
-									<span class="freq-tick" class:on={idx < frequency.ticks}></span>
-								{/each}
-							</div>
-							<span class="metric-value">{frequency.label}</span>
-							<span class="metric-note"
-								>{frequency.explanation} {frequency.sourceLabel}</span
+						{#if frequency.hasRank}<div
+								class="freq-ticks"
+								aria-label={frequency.label}
 							>
-						{:else}
-							<span class="metric-empty">{frequency.label}</span>
-							<span class="metric-note">{frequency.explanation}</span>
-						{/if}
+								{#each { length: FREQUENCY_TICKS } as _, idx}<span
+										class="freq-tick"
+										class:on={idx < frequency.ticks}
+									></span>{/each}
+							</div>{/if}
+						<span class="metric-value">{frequency.label}</span>
 					</div>
-					{#if collins}
-						<div class="metric-item">
-							<span class="metric-label">Collins</span>
-							<span class="metric-value" aria-label={collins.label}>{collins.label}</span>
-							<span class="metric-note">星级，不是词频排名</span>
-						</div>
-					{/if}
+					{#if collins}<div class="metric-item">
+							<span class="metric-value" aria-label={collins.label}
+								>{collins.label}</span
+							>
+						</div>{/if}
 					<div class="metric-item level-metric">
-						<span class="metric-label">等级</span>
-						{#if level.level}
-							<div
-								class="cefr-scale"
-								role="img"
-								aria-label={`CEFR ${level.level}，${level.sourceLabel}`}
-							>
-								{#each CEFR_LEVELS as band}
-									<span class="cefr-step" class:active={band === level.level}>{band}</span>
-								{/each}
-							</div>
-							<span class="metric-value">{level.level}</span>
-							<span class="metric-note"
-								>{level.sourceLabel}{level.estimated ? ' · 估算' : ''}</span
-							>
-						{:else}
-							<span class="metric-empty">{NO_LEVEL_LABEL}</span>
-						{/if}
+						<span class="metric-label">CEFR</span><span class="metric-value"
+							>{level.level ?? NO_LEVEL_LABEL}{level.estimated
+								? ' · 估算'
+								: ''}</span
+						>
 					</div>
+					<details class="metadata-details" use:fitPopover>
+						<summary>词条信息</summary>
+						<div class="metadata-panel" data-popover>
+							<p>{frequency.explanation} {frequency.sourceLabel}</p>
+							{#if collins}<p>Collins 星级，不是词频排名</p>{/if}
+							{#if level.level}<div
+									class="cefr-scale"
+									role="img"
+									aria-label={`CEFR ${level.level}，${level.sourceLabel}`}
+								>
+									{#each CEFR_LEVELS as band}<span
+											class="cefr-step"
+											class:active={band === level.level}>{band}</span
+										>{/each}
+								</div>
+								<p>
+									{level.sourceLabel}{level.estimated ? ' · 估算' : ''}
+								</p>{/if}
+						</div>
+					</details>
 				</div>
 
 				<div class="tag-pills">
@@ -426,8 +467,8 @@
 							disabled={!noteReady || busy || isPreview()}
 							onclick={toggleTracking}
 						>
-							<Icon name="trash" size={15} />
-							<span>{ignored ? '已移除' : '移除'}</span>
+							<Icon name="review" size={15} />
+							<span>{ignored ? '恢复复习' : '暂停复习'}</span>
 						</button>
 						<button
 							type="button"
@@ -442,14 +483,18 @@
 					</div>
 					<div
 						class="memory-indicator"
-						title={result.memory
-							? `${statusLabel[result.memory.status ?? 'new']} · seen ${result.memory.visit_count}×`
-							: 'New word'}
+						title={ignored
+							? '已暂停复习'
+							: result.memory
+								? `${statusLabel[result.memory.status ?? 'new']} · seen ${result.memory.visit_count}×`
+								: 'New word'}
 					>
 						<Icon name="brain" size={20} />
 						{#if result.memory}
 							<small
-								>{statusLabel[result.memory.status ?? 'new']} · {result.memory
+								>{ignored
+									? '已暂停'
+									: statusLabel[result.memory.status ?? 'new']} · {result.memory
 									.visit_count}×</small
 							>
 						{/if}
@@ -474,110 +519,133 @@
 								/>
 							</div>
 							{#if aiSentence}<span class="ai-source">AI example</span>{/if}
-							{#if examples.length > 1}<button class="ghost another" onclick={() => exampleIdx++}
+							{#if examples.length > 1}<button
+									class="ghost another"
+									onclick={() => exampleIdx++}
 									>Another example <span
 										>{(exampleIdx % examples.length) + 1} / {examples.length}</span
 									><Icon name="arrow" size={14} /></button
-								>{/if}{:else if aiLoading}<AiExampleLoading />{:else}<p class="muted">
-								{aiUnavailable
-									? 'AI example unavailable — see the definitions.'
-									: 'No example sentence for this word — see the definitions.'}
-							</p>{/if}
+								>{/if}{:else}<div class="definition-preview">
+								<span
+									class="preview-label"
+									title={aiUnavailable
+										? '例句暂不可用，先显示词典释义'
+										: undefined}
+									>{aiLoading ? '释义 · 正在补充例句' : '释义'}</span
+								>
+								<p>
+									{chineseSummary || primary?.english_definition || '暂无释义'}
+								</p>
+							</div>{/if}
 					</div>
 					{#if showEnglish}<div class="english-hint">
 							<p class="reading">
-								{primary?.english_definition || 'No English definition — see the full entry.'}
+								{primary?.english_definition ||
+									'No English definition — see the full entry.'}
 							</p>
 						</div>{/if}
 					<div class="disclosure-actions">
-						<button class="primary" onclick={understand} disabled={!example && !showEnglish}
-							>Understood <kbd>U</kbd></button
-						>{#if !showEnglish}<button onclick={revealEnglish}>English <kbd>2</kbd></button
+						<button
+							class="primary"
+							onclick={understand}
+							disabled={!example &&
+								!showEnglish &&
+								!chineseSummary &&
+								!primary?.english_definition}>Understood <kbd>U</kbd></button
+						>{#if !showEnglish && primary?.english_definition}<button
+								onclick={revealEnglish}>English <kbd>2</kbd></button
 							>{/if}<button class="ghost" onclick={revealFull}
 							>Full entry <Icon name="arrow" size={15} /></button
 						>
 					</div>
 				{/if}
-				<div class="definitions" class:spaced={!full}>
-					<div class="definitions-head">
-						{#if primaryPos}<span class="pos-pill">{primaryPos}</span>{:else}<span
-								class="pos-pill missing">词性未标注</span
-							>{/if}
-						<h2 class="defs-title">Definitions</h2>
-					</div>
-					{#each entry.senses as sense, i}
-						{@const senseLevelInfo = describeLevel(sense)}
-						<section class="sense-block">
-							<div class="sense-head">
-								<div class="level-cell">
-									{#if senseLevelInfo.level}
-										<span
-											class="level-pill"
-											class:estimated={senseLevelInfo.estimated}
-											title={`CEFR ${senseLevelInfo.level} · ${senseLevelInfo.sourceLabel}`}
-											>{senseLevelInfo.level}</span
-										>
-										{#if senseLevelInfo.estimated}<small class="level-source">估算</small
-											>{/if}
-									{:else}
-										<span class="level-pill missing">未标注</span>
-									{/if}
-								</div>
-								<div class="sense-defs">
-									{#if sense.english_definition}<p class="reading english">
-											{sense.english_definition}
-										</p>{/if}
-								</div>
-							</div>
-							{#if full}
-								{#each sense.examples as ex}
-									<blockquote class="sense-example">
-										<div class="ex-main">
-											<p class="reading"><HighlightedText text={ex.text} word={entry.word} /></p>
-											{#if ex.translation}<footer>{ex.translation}</footer>{/if}
-										</div>
-										<SpeakButton
-											text={ex.text}
-											playKey={`lookup-${entry.id}-sense-${ex.id}`}
-											label="朗读例句"
-											accent={preferences.study.accent}
-											rate={preferences.study.speechRate}
-										/>
-									</blockquote>
-								{/each}
-								{#if i === 0 && aiSentence}
-									<blockquote class="sense-example">
-										<div class="ex-main">
-											<p class="reading">
-												<HighlightedText text={aiSentence} word={entry.word} />
-											</p>
-											<footer>AI example</footer>
-										</div>
-										<SpeakButton
-											text={aiSentence}
-											playKey={`lookup-${entry.id}-ai`}
-											label="朗读例句"
-											accent={preferences.study.accent}
-											rate={preferences.study.speechRate}
-										/>
-									</blockquote>
-								{:else if i === 0 && aiLoading}
-									<AiExampleLoading />
-								{/if}
-							{/if}
-						</section>
-					{/each}
-					{#if !entry.senses.length}
-						<p class="muted">No definitions available.</p>
-					{/if}
-
-					{#if chineseSummary}
-						<div class="translation-summary">
-							<span class="translation-pill"><em>translation</em></span>
-							<p class="translation-text">{chineseSummary}</p>
+				{#if full || example}<div class="definitions" class:spaced={!full}>
+						<div class="definitions-head">
+							{#if primaryPos}<span class="pos-pill">{primaryPos}</span
+								>{:else}<span class="pos-pill missing">词性未标注</span>{/if}
+							<h2 class="defs-title">Definitions</h2>
 						</div>
-					{/if}
-				</div>
+						{#each entry.senses as sense, i}
+							{@const senseLevelInfo = describeLevel(sense)}
+							<section class="sense-block">
+								<div class="sense-head">
+									<div class="level-cell">
+										{#if senseLevelInfo.level}
+											<span
+												class="level-pill"
+												class:estimated={senseLevelInfo.estimated}
+												title={`CEFR ${senseLevelInfo.level} · ${senseLevelInfo.sourceLabel}`}
+												>{senseLevelInfo.level}</span
+											>
+											{#if senseLevelInfo.estimated}<small class="level-source"
+													>估算</small
+												>{/if}
+										{:else}
+											<span class="level-pill missing">未标注</span>
+										{/if}
+									</div>
+									<div class="sense-defs">
+										{#if sense.english_definition}<p class="reading english">
+												{sense.english_definition}
+											</p>{/if}
+									</div>
+								</div>
+								{#if full}
+									{#each sense.examples as ex}
+										<blockquote class="sense-example">
+											<div class="ex-main">
+												<p class="reading">
+													<HighlightedText text={ex.text} word={entry.word} />
+												</p>
+												{#if ex.translation}<footer>
+														{ex.translation}
+													</footer>{/if}
+											</div>
+											<SpeakButton
+												text={ex.text}
+												playKey={`lookup-${entry.id}-sense-${ex.id}`}
+												label="朗读例句"
+												accent={preferences.study.accent}
+												rate={preferences.study.speechRate}
+											/>
+										</blockquote>
+									{/each}
+									{#if i === 0 && aiSentence}
+										<blockquote class="sense-example">
+											<div class="ex-main">
+												<p class="reading">
+													<HighlightedText
+														text={aiSentence}
+														word={entry.word}
+													/>
+												</p>
+												<footer>AI example</footer>
+											</div>
+											<SpeakButton
+												text={aiSentence}
+												playKey={`lookup-${entry.id}-ai`}
+												label="朗读例句"
+												accent={preferences.study.accent}
+												rate={preferences.study.speechRate}
+											/>
+										</blockquote>
+									{:else if i === 0 && aiLoading}
+										<AiExampleLoading />
+									{/if}
+								{/if}
+							</section>
+						{/each}
+						{#if !entry.senses.length}
+							<p class="muted">No definitions available.</p>
+						{/if}
+
+						{#if chineseSummary}
+							<div class="translation-summary">
+								<span class="translation-pill"><em>translation</em></span>
+								<p class="translation-text">{chineseSummary}</p>
+							</div>
+						{/if}
+					</div>{/if}
 			</section>
 
 			<!-- 3. 纵向平铺的拓展卡片流（Inflection / Mnemonic / Root and Affix / Derivatives / Similar Words / Synonyms / Antonyms / Collocations） -->
@@ -626,11 +694,14 @@
 						{#each derivativesList as d}
 							<li>
 								<span class="tree-node" aria-hidden="true"></span>
-								<button type="button" class="word-jump" onclick={() => oncommit(d.word)}
-									>{d.word}</button
+								<button
+									type="button"
+									class="word-jump"
+									onclick={() => oncommit(d.word)}>{d.word}</button
 								>
 								<span class="deriv-gloss">
-									{#if d.pos}<em>{d.pos}</em> {/if}{d.gloss}
+									{#if d.pos}<em>{d.pos}</em>
+									{/if}{d.gloss}
 								</span>
 							</li>
 						{/each}
@@ -644,11 +715,14 @@
 					<ul class="kv-list">
 						{#each entry.lookalikes as item}
 							<li>
-								<button type="button" class="word-jump" onclick={() => oncommit(item.word)}
-									>{item.word}</button
+								<button
+									type="button"
+									class="word-jump"
+									onclick={() => oncommit(item.word)}>{item.word}</button
 								>
 								<span class="deriv-gloss">
-									{#if item.pos}<em>{item.pos}</em> {/if}{item.gloss}
+									{#if item.pos}<em>{item.pos}</em>
+									{/if}{item.gloss}
 								</span>
 							</li>
 						{/each}
@@ -662,7 +736,11 @@
 						<h2 class="extra-title">{group.title}</h2>
 						<div class="related-cloud">
 							{#each group.words as w}
-								<button type="button" class="cloud-word" onclick={() => oncommit(w)}>
+								<button
+									type="button"
+									class="cloud-word"
+									onclick={() => oncommit(w)}
+								>
 									{w}
 								</button>
 							{/each}
@@ -693,8 +771,7 @@
 						maxlength="10000"
 						rows="6"
 						placeholder="Your own context or example…"
-						disabled={!noteReady || isPreview()}
-					></textarea>
+						disabled={!noteReady || isPreview()}></textarea>
 					<div class="note-footer">
 						<small>{dirty ? 'Unsaved' : 'Saved'}</small><button
 							onclick={() => save()}
@@ -706,7 +783,8 @@
 			<button
 				class="ghost track"
 				disabled={!noteReady || busy || isPreview()}
-				onclick={toggleTracking}>{ignored ? 'Resume reminders' : 'Pause reminders'}</button
+				onclick={toggleTracking}
+				>{ignored ? 'Resume reminders' : 'Pause reminders'}</button
 			>
 		</aside>
 	</article>
@@ -772,7 +850,7 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		gap: 6px;
+		gap: 10px;
 		color: var(--muted);
 		font-size: 16px;
 	}
@@ -780,9 +858,9 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 28px;
+		gap: 10px 20px;
 		flex-wrap: wrap;
-		margin-bottom: 18px;
+		margin-bottom: 16px;
 	}
 	.metric-item {
 		display: inline-flex;
@@ -796,14 +874,36 @@
 		font-weight: 600;
 		color: var(--fg);
 	}
-	.metric-note {
-		font-size: 10px;
+	.metadata-details {
+		position: relative;
+		font-size: 11px;
 		color: var(--muted);
 	}
-	.metric-empty {
-		font-size: 12px;
-		color: var(--muted);
-		font-style: italic;
+	.metadata-details summary {
+		cursor: pointer;
+		list-style: none;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+	.metadata-details summary::-webkit-details-marker {
+		display: none;
+	}
+	.metadata-panel {
+		position: absolute;
+		right: 0;
+		top: calc(100% + 10px);
+		z-index: 25;
+		width: min(300px, 75vw);
+		padding: 14px 16px;
+		background: var(--card);
+		border: 1px solid var(--line);
+		border-radius: 10px;
+		text-align: left;
+		box-shadow: 0 8px 28px #0002;
+		line-height: 1.7;
+	}
+	.metadata-panel p {
+		margin: 4px 0;
 	}
 	.freq-ticks {
 		display: inline-flex;
@@ -927,6 +1027,23 @@
 		background: var(--soft);
 		padding: 24px;
 		border-radius: 10px;
+	}
+	.definition-preview .preview-label {
+		display: block;
+		color: var(--muted);
+		font-size: 11px;
+		margin-bottom: 8px;
+	}
+	.definition-preview p {
+		margin: 0;
+		font-size: 18px;
+		line-height: 1.65;
+		color: var(--fg);
+		display: -webkit-box;
+		line-clamp: 3;
+		-webkit-line-clamp: 3;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
 	}
 	.lead-example {
 		display: flex;

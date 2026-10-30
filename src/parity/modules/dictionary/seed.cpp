@@ -1,5 +1,6 @@
 #include "parity/modules/dictionary/api.h"
 #include "parity_resources.h"
+#include <algorithm>
 #include <unordered_map>
 namespace lexica::parity {
 namespace {
@@ -77,8 +78,16 @@ const std::vector<SeedRecord> &seedRecords() {
       for (const auto &form : forms.items()) {
         const auto normalized = normalizeWord(form.value().get<std::string>());
         const char *kind = mapFormKind(form.key());
-        if (!normalized.empty() && normalized != row.word && kind)
-          row.forms.emplace_back(normalized, kind);
+        if (!normalized.empty() && normalized != row.word && kind) {
+          // Storage has one kind per (form, word). Preserve the previous final
+          // kind without rewriting the same row for past/past-participle aliases.
+          const auto alias = std::find_if(row.forms.begin(), row.forms.end(),
+              [&](const auto &item) { return item.first == normalized; });
+          if (alias == row.forms.end())
+            row.forms.emplace_back(normalized, kind);
+          else
+            alias->second = kind;
+        }
       }
       rows.push_back(std::move(row));
     }
@@ -128,12 +137,17 @@ void backfillSeedMetadata(sqlite3 *db, const std::string &now) {
       Statement update(
           db,
           "UPDATE words SET phonetic=CASE WHEN phonetic IS NULL OR phonetic='' "
-          "THEN COALESCE(?, phonetic) ELSE phonetic END, frequency_rank=COALESCE(?, "
-          "frequency_rank), synonyms=CASE WHEN ?<>'[]' THEN ? ELSE synonyms END, "
-          "antonyms=CASE WHEN ?<>'[]' THEN ? ELSE antonyms END, "
-          "word_family=CASE WHEN ?<>'[]' THEN ? ELSE word_family END, "
-          "tags=CASE WHEN ?<>'' THEN ? ELSE tags END, collins=COALESCE(?, collins), "
-          "oxford=CASE WHEN ?>0 THEN ? ELSE oxford END WHERE id=?");
+          "THEN COALESCE(?1, phonetic) ELSE phonetic END, frequency_rank=COALESCE(?2, "
+          "frequency_rank), synonyms=CASE WHEN ?3<>'[]' THEN ?4 ELSE synonyms END, "
+          "antonyms=CASE WHEN ?5<>'[]' THEN ?6 ELSE antonyms END, "
+          "word_family=CASE WHEN ?7<>'[]' THEN ?8 ELSE word_family END, "
+          "tags=CASE WHEN ?9<>'' THEN ?10 ELSE tags END, collins=COALESCE(?11, collins), "
+          "oxford=CASE WHEN ?12>0 THEN ?13 ELSE oxford END WHERE id=?14 AND ("
+          "((phonetic IS NULL OR phonetic='') AND phonetic IS NOT COALESCE(?1,phonetic)) OR "
+          "(?2 IS NOT NULL AND frequency_rank IS NOT ?2) OR "
+          "(?3<>'[]' AND synonyms IS NOT ?4) OR (?5<>'[]' AND antonyms IS NOT ?6) OR "
+          "(?7<>'[]' AND word_family IS NOT ?8) OR (?9<>'' AND tags IS NOT ?10) OR "
+          "(?11 IS NOT NULL AND collins IS NOT ?11) OR (?12>0 AND oxford IS NOT ?13))");
       bindMaybe(update, 1, row.phonetic);
       bindMaybe(update, 2, row.frequency);
       update.bind(3, row.synonyms).bind(4, row.synonyms);
@@ -145,7 +159,7 @@ void backfillSeedMetadata(sqlite3 *db, const std::string &now) {
       update.bind(13, row.oxford ? std::int64_t{1} : std::int64_t{0});
       update.bind(14, id).step();
       for (const auto &form : row.forms) {
-        Statement kind(db, "UPDATE word_forms SET kind=? WHERE word_id=? AND form=?");
+        Statement kind(db, "UPDATE word_forms SET kind=?1 WHERE word_id=?2 AND form=?3 AND kind IS NOT ?1");
         kind.bind(1, form.second).bind(2, id).bind(3, form.first).step();
       }
       if (row.mnemonic || !row.roots.empty()) {
@@ -160,7 +174,9 @@ void backfillSeedMetadata(sqlite3 *db, const std::string &now) {
             "ON CONFLICT(word_id) DO UPDATE SET "
             "mnemonic=COALESCE(word_enrichments.mnemonic, excluded.mnemonic), "
             "roots_json=CASE WHEN word_enrichments.roots_json IN ('', '[]') "
-            "THEN excluded.roots_json ELSE word_enrichments.roots_json END");
+            "THEN excluded.roots_json ELSE word_enrichments.roots_json END "
+            "WHERE (word_enrichments.mnemonic IS NULL AND excluded.mnemonic IS NOT NULL) "
+            "OR (word_enrichments.roots_json IN ('', '[]') AND excluded.roots_json<>'[]')");
         enrichment.bind(1, id);
         bindMaybe(enrichment, 2, row.mnemonic);
         enrichment.bind(3, roots.dump()).bind(4, now).step();

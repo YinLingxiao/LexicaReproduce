@@ -14,11 +14,10 @@
 		appInfo,
 		libraryWords,
 		relTime,
-		dueLabel,
 		errorMessage,
 		type LookupWordResult,
 		type RecentWord,
-		type StatsSummary
+		type StatsSummary,
 	} from '$lib/api';
 
 	type LoadStatus = 'loading' | 'ready' | 'error';
@@ -27,12 +26,13 @@
 		| { kind: 'unknown' }
 		| { kind: 'scheduled'; when: string }
 		| { kind: 'unscheduled' }
+		| { kind: 'paused' }
 		| { kind: 'error' };
 
 	const statusText: Record<string, string> = {
 		learning: '学习中',
 		familiar: '熟悉',
-		stable: '稳定'
+		stable: '稳定',
 	};
 
 	let result = $state<LookupWordResult | null>(null);
@@ -51,19 +51,30 @@
 	let schedule = $state<Schedule>({ kind: 'unknown' });
 	let scheduleToken = 0;
 	let refreshToken = 0;
-	let recordMemory = $state<{ status: string; visit_count: number } | null>(null);
+	let recordMemory = $state<{ status: string; visit_count: number } | null>(
+		null,
+	);
 	const query = $derived(page.url.searchParams.get('word') ?? '');
-	const hit = $derived(result?.outcome.type === 'hit' ? result.outcome.entry : null);
+	const hit = $derived(
+		result?.outcome.type === 'hit' ? result.outcome.entry : null,
+	);
 	const task = $derived.by(() => {
 		if (statsStatus === 'loading') return { kind: 'loading' as const };
-		if (statsStatus === 'error') return { kind: 'error' as const, message: statsError };
+		if (statsStatus === 'error')
+			return { kind: 'error' as const, message: statsError };
 		if (!stats) return { kind: 'loading' as const };
-		if (recentStatus === 'loading' && stats.encountered === 0 && stats.due_now === 0)
+		if (
+			recentStatus === 'loading' &&
+			stats.encountered === 0 &&
+			stats.due_now === 0
+		)
 			return { kind: 'loading' as const };
-		if (stats.due_now > 0) return { kind: 'due' as const, count: stats.due_now };
+		if (stats.due_now > 0)
+			return { kind: 'due' as const, count: stats.due_now };
 		if (stats.encountered === 0 && recentStatus === 'error')
 			return { kind: 'error' as const, message: recentError };
-		if (stats.encountered === 0 && recent.length === 0) return { kind: 'new' as const };
+		if (stats.encountered === 0 && recent.length === 0)
+			return { kind: 'new' as const };
 		return { kind: 'clear' as const };
 	});
 
@@ -100,6 +111,18 @@
 		void refresh();
 	}
 
+	function reviewTime(iso: string): string {
+		const date = new Date(iso);
+		if (!Number.isFinite(date.getTime())) return '';
+		if (date.getTime() <= Date.now()) return '已到期';
+		return new Intl.DateTimeFormat('zh-CN', {
+			month: 'numeric',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit',
+		}).format(date);
+	}
+
 	async function readSchedule(wordId: number, word: string) {
 		const token = ++scheduleToken;
 		schedule = { kind: 'pending' };
@@ -112,7 +135,9 @@
 				return;
 			}
 			recordMemory = { status: row.status, visit_count: row.visit_count };
-			if (row.next_review_at) schedule = { kind: 'scheduled', when: dueLabel(row.next_review_at) };
+			if (row.status === 'ignored') schedule = { kind: 'paused' };
+			else if (row.next_review_at)
+				schedule = { kind: 'scheduled', when: reviewTime(row.next_review_at) };
 			else schedule = { kind: 'unscheduled' };
 		} catch {
 			if (token !== scheduleToken) return;
@@ -156,12 +181,15 @@
 	}
 
 	function focusSearch() {
-		document.querySelector<HTMLInputElement>('input[aria-label="Search for a word"]')?.focus();
+		document
+			.querySelector<HTMLInputElement>('input[aria-label="Search for a word"]')
+			?.focus();
 	}
 
 	function refreshLearningStatus() {
 		void refresh();
-		if (hit && result?.encounter_id !== null) void readSchedule(hit.id, hit.word);
+		if (hit && result?.encounter_id !== null)
+			void readSchedule(hit.id, hit.word);
 	}
 
 	$effect(() => {
@@ -199,16 +227,22 @@
 		<a href="/" class="back"><Icon name="back" size={15} />Search</a>
 		<SearchBox oncommit={doLookup} bind:value />
 		<div class="word-area" aria-busy={loading}>
-			{#if loading}<div class="skeleton"></div>{:else if error}<div class="error" role="alert">
+			{#if loading}<div class="skeleton"></div>{:else if error}<div
+					class="error"
+					role="alert"
+				>
 					{error}
 				</div>
-				<button onclick={() => load(query)}>Try again</button
-				>{:else if result}
+				<button onclick={() => load(query)}>Try again</button>{:else if result}
 				<LookupRecordHint
 					saved={result.encounter_id !== null && result.outcome.type === 'hit'}
 					miss={result.outcome.type === 'miss'}
-					visitCount={recordMemory?.visit_count ?? result.memory?.visit_count ?? null}
-					statusText={statusText[recordMemory?.status ?? result.memory?.status ?? ''] ?? null}
+					visitCount={recordMemory?.visit_count ??
+						result.memory?.visit_count ??
+						null}
+					statusText={statusText[
+						recordMemory?.status ?? result.memory?.status ?? ''
+					] ?? null}
 					{schedule}
 					onRefresh={refreshLearningStatus}
 					onRetrySchedule={() => {
@@ -233,7 +267,11 @@
 				<li>按计划复习</li>
 			</ol>
 		</header>
-		<HomeLearningTask state={task} onRetry={retryHome} onFocusSearch={focusSearch} />
+		<HomeLearningTask
+			state={task}
+			onRetry={retryHome}
+			onFocusSearch={focusSearch}
+		/>
 		<section class="search-block" aria-labelledby="home-search-title">
 			<h2 id="home-search-title">查词</h2>
 			<SearchBox oncommit={doLookup} bind:value />
@@ -241,7 +279,9 @@
 		</section>
 		<section class="recent" aria-labelledby="home-recent-title">
 			<div class="section-heading">
-				<h2 id="home-recent-title">{recent.length ? '最近查过的词' : '查词记录'}</h2>
+				<h2 id="home-recent-title">
+					{recent.length ? '最近查过的词' : '查词记录'}
+				</h2>
 				{#if recent.length}<a href="/library">查看词库</a>{/if}
 			</div>
 			{#if recentStatus === 'loading'}
@@ -254,16 +294,20 @@
 					<div class="recent-grid">
 						{#each ['meticulous', 'subtle', 'resilient', 'profound'] as word}<button
 								type="button"
-								onclick={() => doLookup(word)}><span><strong>{word}</strong></span></button
+								onclick={() => doLookup(word)}
+								><span><strong>{word}</strong></span></button
 							>{/each}
 					</div>
 				{/if}
 			{:else}
 				<div class="recent-grid">
-					{#each recent as r}<button type="button" onclick={() => doLookup(r.word)}
-							><span><strong>{r.display}</strong><small>{r.phonetic ?? ''}</small></span><span
-								class="when">{relTime(r.visited_at)}</span
-							></button
+					{#each recent as r}<button
+							type="button"
+							onclick={() => doLookup(r.word)}
+							><span
+								><strong>{r.display}</strong><small>{r.phonetic ?? ''}</small
+								></span
+							><span class="when">{relTime(r.visited_at)}</span></button
 						>{/each}
 				</div>
 			{/if}
@@ -272,7 +316,8 @@
 			<h2 id="home-stats-title">学习统计</h2>
 			{#if statsStatus === 'ready' && stats}
 				<p>
-					{stats.encountered.toLocaleString()} 个有学习记录的词 · 学习中 {stats.learning.toLocaleString()} · 熟悉 {stats.familiar.toLocaleString()} · 稳定 {stats.stable.toLocaleString()}
+					{stats.encountered.toLocaleString()} 个有学习记录的词 · 学习中 {stats.learning.toLocaleString()}
+					· 熟悉 {stats.familiar.toLocaleString()} · 稳定 {stats.stable.toLocaleString()}
 				</p>
 			{:else if statsStatus === 'error'}
 				<p>学习统计暂时没有读出来。</p>
@@ -280,7 +325,8 @@
 				<p role="status">学习统计读取中</p>
 			{/if}
 			<p class="dict">
-				{#if wordCountStatus === 'error'}离线词典数量暂不可用{:else if wordCount === null}—{:else}{wordCount.toLocaleString()} entries · offline{/if}
+				{#if wordCountStatus === 'error'}离线词典数量暂不可用{:else if wordCount === null}—{:else}{wordCount.toLocaleString()}
+					entries · offline{/if}
 			</p>
 		</section>
 	{/if}

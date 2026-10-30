@@ -1,5 +1,7 @@
 # TTS 与学习首页集成审核
 
+后续现场启动问题与整页布局修订见 [STARTUP_LOOKUP_FIX.md](STARTUP_LOOKUP_FIX.md)。
+
 日期：2026-10-30。共同基线：`38e56d97b339be213e92f7df30943a31faef50df`。
 
 审核输入：`codex/tts-improvement`（`f3f35a5`）与 `codex/learning-home-improvement`（`0841e04`）。两个分支先以 merge commit 合入 `codex/review-tts-home`，再提交下述修复。Agent 的原交付报告描述的是修复前的分支状态，以本报告和当前源码为准。

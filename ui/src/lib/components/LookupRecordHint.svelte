@@ -1,11 +1,8 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
 	type Schedule =
-		| { kind: 'pending' }
-		| { kind: 'unknown' }
-		| { kind: 'scheduled'; when: string }
-		| { kind: 'unscheduled' }
-		| { kind: 'error' };
-
+		| { kind: 'pending' | 'unknown' | 'unscheduled' | 'error' | 'paused' }
+		| { kind: 'scheduled'; when: string };
 	let {
 		saved,
 		miss,
@@ -13,7 +10,7 @@
 		statusText,
 		schedule,
 		onRefresh,
-		onRetrySchedule
+		onRetrySchedule,
 	}: {
 		saved: boolean;
 		miss: boolean;
@@ -26,84 +23,139 @@
 </script>
 
 <aside class="hint" aria-label="查词学习记录">
-	{#if miss}
-		<p>没有查到这个词，这次没有写入学习记录。</p>
-	{:else if saved}
-		<p class="saved">查词记录已保存</p>
-		<ul>
-			{#if visitCount !== null}<li>已记录查词 {visitCount.toLocaleString()} 次</li>{/if}
-			{#if statusText}<li>学习状态：{statusText}</li>{/if}
-			{#if schedule.kind === 'pending'}<li role="status">正在读取复习安排</li>{/if}
-			{#if schedule.kind === 'scheduled'}
-				<li>已安排复习{schedule.when ? ` · ${schedule.when}` : ''}</li>
+	<div class="record-summary">
+		{#if saved}
+			<span class="saved"><Icon name="check" size={13} />查词记录已保存</span>
+			{#if visitCount !== null}<span>查过 {visitCount.toLocaleString()} 次</span
+				>{/if}
+			{#if schedule.kind === 'paused'}<span>已暂停复习</span>
+			{:else}
+				{#if statusText}<span>{statusText}</span>{/if}
+				{#if schedule.kind === 'scheduled'}<span>下次复习：{schedule.when}</span
+					>{/if}
 			{/if}
-			{#if schedule.kind === 'unscheduled'}<li>词库记录里没有下次复习时间</li>{/if}
-			{#if schedule.kind === 'error'}
-				<li class="error" role="alert">复习安排没有读出来</li>
-			{/if}
-		</ul>
-		{#if schedule.kind === 'error'}
-			<button type="button" onclick={onRetrySchedule}>重试读取复习安排</button>
-		{/if}
-		<div class="links">
-			<a href="/library">查看个人词库</a>
-			<a href="/review?mode=due">进入到期复习</a>
-			<button type="button" class="ghost" onclick={onRefresh}>刷新学习状态</button>
+			{#if schedule.kind === 'error'}<button
+					class="retry"
+					type="button"
+					onclick={onRetrySchedule}>重试读取复习安排</button
+				>{/if}
+		{:else if miss}<span>未找到词条</span>
+		{:else}<span>本次查词未记录</span>{/if}
+	</div>
+	{#if saved}
+		<div class="record-actions">
+			<a href="/library">词库 <Icon name="arrow" size={12} /></a>
+			<details>
+				<summary aria-label="学习记录操作" title="学习记录操作">•••</summary>
+				<div class="record-menu">
+					<a href="/review?mode=due">进入到期复习</a>
+					<button type="button" onclick={onRefresh}>刷新学习状态</button>
+				</div>
+			</details>
 		</div>
-	{:else}
-		<p>这次查词没有返回学习记录。</p>
 	{/if}
 </aside>
 
 <style>
 	.hint {
-		margin-bottom: 18px;
-		padding: 14px 16px;
-		border: 1px solid var(--line);
-		border-radius: 12px;
-		background: var(--soft);
-	}
-	.saved {
-		margin: 0 0 8px;
-		font: 500 18px/1.3 var(--serif);
-		color: var(--fg);
-	}
-	.hint p {
-		margin: 0;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: 6px 14px;
+		padding: 0 2px;
+		margin: 12px 0 16px;
+		min-height: 28px;
 		color: var(--muted);
-		font-size: 13px;
-	}
-	ul {
-		margin: 0;
-		padding-left: 18px;
-		color: var(--fg);
-		font-size: 13px;
+		font-size: 12px;
 		line-height: 1.6;
 	}
-	.links {
+	.record-summary {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 8px 14px;
 		align-items: center;
-		margin-top: 10px;
+		flex-wrap: wrap;
+		gap: 4px 12px;
 	}
-	.links a,
-	.links button {
-		min-height: 44px;
-		font-size: 13px;
+	.record-summary > span:not(:first-child)::before {
+		content: '·';
+		margin-right: 12px;
+		color: var(--line);
 	}
-	.hint > button {
-		min-height: 44px;
-		margin-top: 8px;
+	.saved {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
 	}
-	@media (max-width: 700px) {
-		.links {
-			display: grid;
+	.record-actions {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		margin-left: auto;
+	}
+	a {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		color: var(--muted);
+		text-decoration: none;
+	}
+	a:hover {
+		color: var(--accent);
+	}
+	details {
+		position: relative;
+	}
+	summary {
+		cursor: pointer;
+		list-style: none;
+		padding: 0 4px;
+		letter-spacing: 2px;
+	}
+	summary::-webkit-details-marker {
+		display: none;
+	}
+	.record-menu {
+		position: absolute;
+		right: 0;
+		top: calc(100% + 8px);
+		z-index: 30;
+		display: grid;
+		gap: 4px;
+		min-width: 160px;
+		padding: 8px;
+		background: var(--card);
+		border: 1px solid var(--line);
+		border-radius: 10px;
+		box-shadow: 0 8px 28px #0002;
+	}
+	.record-menu a,
+	.record-menu button {
+		padding: 8px 10px;
+		font-size: 12px;
+		text-align: left;
+		justify-content: flex-start;
+	}
+	.record-menu button,
+	.retry {
+		border: 0;
+		background: transparent;
+		color: var(--muted);
+		box-shadow: none;
+	}
+	.retry {
+		padding: 0;
+		font-size: 12px;
+		text-decoration: underline;
+	}
+	@media (max-width: 600px) {
+		.hint {
+			font-size: 11px;
 		}
-		.links a,
-		.links button,
-		.hint > button {
-			width: 100%;
+		.record-summary {
+			gap: 3px 8px;
+		}
+		.record-summary > span:not(:first-child)::before {
+			margin-right: 8px;
 		}
 	}
 </style>

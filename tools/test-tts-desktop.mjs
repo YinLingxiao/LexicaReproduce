@@ -11,7 +11,9 @@ process.env.NO_PROXY = [process.env.NO_PROXY, '127.0.0.1', 'localhost'].filter(B
 const {chromium} = createRequire(path.join(root, 'ui/package.json'))('@playwright/test');
 const exe = path.resolve(root, process.argv[2] ?? 'build-parity-msvc/src/parity/Debug/lexica_desktop.exe');
 const ui = path.resolve(root, process.argv[3] ?? 'ui/build');
-const data = path.join(root, 'build-parity-msvc/test-output/tts-desktop-review', `${Date.now()}-${process.pid}`);
+const testRoot = path.join(root, 'build-parity-msvc/test-output');
+const data = process.argv[4] ? path.resolve(process.argv[4]) : path.join(testRoot, 'tts-desktop-review', `${Date.now()}-${process.pid}`);
+assert(data.toLowerCase().startsWith(testRoot.toLowerCase() + path.sep), 'Desktop test data must stay inside test-output');
 fs.mkdirSync(data, {recursive: true});
 const port = await new Promise((resolve) => {
   const listener = net.createServer();
@@ -39,7 +41,14 @@ try {
   assert(ready, 'WebView2 debugging endpoint did not become ready');
   browser = await chromium.connectOverCDP(endpoint);
   const context = browser.contexts()[0];
-  const page = context.pages()[0] ?? await context.newPage();
+  for (let i = 0; i < 100 && !context.pages().length; ++i)
+    await new Promise(resolve => setTimeout(resolve, 100));
+  const page = context.pages()[0];
+  assert(page, 'Host WebView2 page did not appear');
+  // The debugging endpoint can exist before the host has configured its real
+  // WebView. Wait for that navigation instead of racing it with a second one.
+  await page.waitForURL('https://lexica.local/**', {waitUntil: 'domcontentloaded', timeout: 20000});
+  await page.locator('.app-shell').waitFor();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.addInitScript(() => {

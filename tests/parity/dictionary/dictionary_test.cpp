@@ -214,6 +214,15 @@ int main() {
         recreated.database().withConnection([](sqlite3 *db) {
           check(scalar(db, "SELECT COUNT(*) FROM word_enrichments WHERE mnemonic IS NOT NULL") > 0,
                 "seed metadata missing before app_info or after recreating a database");
+          const auto changes = sqlite3_total_changes(db);
+          std::string touched;
+          sqlite3_update_hook(db, [](void *out, int, const char *, const char *table, sqlite3_int64 id) {
+            *static_cast<std::string *>(out) += std::string(table) + ":" + std::to_string(id) + " ";
+          }, &touched);
+          p::backfillSeedMetadata(db, "2026-10-30T00:00:00.000Z");
+          sqlite3_update_hook(db, nullptr, nullptr);
+          check(sqlite3_total_changes(db) == changes,
+                "unchanged seed metadata must not create startup writes or trigger a WAL checkpoint: " + touched);
           return 0;
         });
       }

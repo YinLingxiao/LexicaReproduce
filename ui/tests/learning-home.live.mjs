@@ -46,8 +46,8 @@ test('isolated service: lookup, due review, feedback, refreshed home', async ({p
 	await page.getByRole('button', {name: 'Look up'}).click();
 	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toBeVisible();
 	await expect(page.getByText('查词记录已保存')).toBeVisible();
-	await expect(page.getByText(/已记录查词 \d+ 次/)).toBeVisible();
-	await expect(page.getByText(/已安排复习/)).toBeVisible();
+	await expect(page.getByText(/查过 \d+ 次/)).toBeVisible();
+	await expect(page.getByText(/下次复习/)).toBeVisible();
 	await page.screenshot({path: path.join(evidence, 'home-live-lookup.png'), fullPage: true, animations: 'disabled'});
 
 	await rpc('lookup_word', {word: 'subtle'});

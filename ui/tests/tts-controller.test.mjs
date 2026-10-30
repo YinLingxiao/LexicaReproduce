@@ -191,6 +191,7 @@ test('rate, voice and repeat are applied once per utterance', async () => {
     assert.equal(h.requests[0].voiceId, null);
     assert.match(h.controller.snapshot().notice, /请求的英式英语不可用/);
     assert.match(h.controller.snapshot().notice, /Zira/);
+    assert.equal(h.controller.snapshot().actualAccent, 'US');
     const fire = async () => {
         h.audios[0].onended?.();
         await flush();

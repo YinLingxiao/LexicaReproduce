@@ -1,0 +1,7 @@
+{
+  "max_window_reply_ms": 15.98,
+  "normal_backend_startup_ms": 13,
+  "writer_lock_ui_responsive": true,
+  "close_during_startup": true,
+  "ok": true
+}

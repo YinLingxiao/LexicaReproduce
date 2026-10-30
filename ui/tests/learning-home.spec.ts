@@ -308,15 +308,15 @@ test('lookup hint uses the saved record and does not invent a review time', asyn
 	});
 	await page.goto('/?word=meticulous');
 	await expect(page.getByText('查词记录已保存')).toBeVisible();
-	await expect(page.getByText('已记录查词 2 次')).toBeVisible();
-	await expect(page.getByText('学习状态：学习中')).toBeVisible();
-	await expect(page.getByText(/已安排复习/)).toBeVisible();
+	await expect(page.getByText('查过 2 次')).toBeVisible();
+	await expect(page.getByText('学习中', {exact: true})).toBeVisible();
+	await expect(page.getByText(/下次复习/)).toBeVisible();
 	expect((await calls(page)).filter((call) => call.command === 'lookup_word')).toHaveLength(1);
 	expect((await calls(page)).some((call) => call.command === 'library_words')).toBe(true);
 	await page.screenshot({path: `${evidence}/lookup-saved.png`, fullPage: true, animations: 'disabled'});
 	await page.goto('/?word=subtle');
 	await expect(page.getByText('查词记录已保存')).toBeVisible();
-	await expect(page.getByText('词库记录里没有下次复习时间')).toBeVisible();
+	await expect(page.getByText(/下次复习/)).toHaveCount(0);
 	await expect(page.getByText('已安排复习')).toHaveCount(0);
 	expect((await calls(page)).filter((call) => call.command === 'lookup_word').map((call) => call.args.word)).toEqual(['subtle']);
 });
@@ -338,9 +338,10 @@ test('repeat lookup and status refresh keep an unsaved note', async ({page}) => 
 		state.library[0].status = 'familiar';
 		localStorage.setItem('test.home.state', JSON.stringify(state));
 	});
+	await page.getByLabel('学习记录操作').click();
 	await page.getByRole('button', {name: '刷新学习状态'}).click();
 	await expect(notes).toHaveValue('未保存的笔记');
-	await expect(page.getByText('学习状态：熟悉')).toBeVisible();
+	await expect(page.getByText('熟悉', {exact: true})).toBeVisible();
 	await expect.poll(async () => (await calls(page)).filter((call) => call.command === 'lookup_word').length).toBe(1);
 	expect((await calls(page)).some((call) => call.command === 'stats_summary')).toBe(true);
 });
@@ -352,6 +353,22 @@ test('new-word entry filters due cards from the shared study API', async ({page}
 	await expect(page.getByRole('heading', {name: 'meticulous', exact: true})).toHaveCount(0);
 	const request = (await calls(page)).find((item) => item.command === 'study_group');
 	expect(request?.args.priority).toBe('new_first');
+});
+
+test('paused words hide stale due dates and keep the lookup header compact', async ({page}) => {
+	await boot(page, {stats: emptyStats, library: [{id:1,word:'meticulous',status:'ignored',visit_count:2,next_review_at:'2020-01-01T00:00:00.000Z'}]});
+	await page.evaluate(() => localStorage.setItem('lexica.preferences', JSON.stringify({theme:'dark',edition:'obsidian'})));
+	await page.goto('/?word=meticulous');
+	await expect(page.getByText('已暂停复习', {exact:true})).toBeVisible();
+	await expect(page.getByText(/下次复习/)).toHaveCount(0);
+	const hint = page.getByLabel('查词学习记录');
+	expect((await hint.boundingBox())!.height).toBeLessThan(65);
+	await expect(page.getByRole('button', {name:'刷新学习状态'})).not.toBeVisible();
+	await expect(page.locator('.metadata-panel')).not.toBeVisible();
+	expect((await page.locator('.hero-card').boundingBox())!.height).toBeLessThan(390);
+	await page.screenshot({path:test.info().outputPath('compact-dark-lookup.png'),fullPage:true});
+	await page.setViewportSize({width:480,height:820});
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test('late grade response cannot advance a newly selected learning session', async ({page}) => {

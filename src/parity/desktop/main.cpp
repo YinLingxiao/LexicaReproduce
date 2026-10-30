@@ -2,6 +2,8 @@
 #include "parity/app/executor.h"
 #include "parity/app/paths.h"
 #include <WebView2.h>
+#include <atomic>
+#include <chrono>
 #include <cstring>
 #include <deque>
 #include <fstream>
@@ -18,6 +20,7 @@ namespace p = lexica::parity;
 namespace fs = std::filesystem;
 namespace {
 constexpr UINT kReply = WM_APP + 1;
+constexpr UINT kStartup = WM_APP + 2;
 constexpr wchar_t kOrigin[] = L"https://lexica.local/";
 std::wstring wide(const std::string &s) {
   if (s.empty())
@@ -137,6 +140,13 @@ struct Host {
   bool stopping = false, stopped = false;
   std::unique_ptr<p::Application> app;
   std::unique_ptr<p::Executor> executor;
+  std::thread startupThread;
+  std::atomic<bool> startupDone{false};
+  p::Cancellation startupStop;
+  std::string startupError;
+  std::int64_t startupMs = 0;
+  bool closePending = false;
+  bool interfaceReady = false;
   void writeReport(p::Json value) {
     if (report.empty())
       return;
@@ -164,18 +174,72 @@ struct Host {
     PostMessageW(window, kReply, 0, 0);
   }
   void startWorker() {
-    app = std::make_unique<p::Application>(
-        layout.databaseFile, nullptr,
-        [this](const std::string &name, const p::Json &payload) {
-          send(
-              {{"protocol_version", 1}, {"event", name}, {"payload", payload}});
-        }, !smoke && automaticDictionarySetup);
+    SetWindowTextW(window, L"Lexica · 正在打开词库");
+    startupThread = std::thread([this] {
+      const auto began = std::chrono::steady_clock::now();
+      p::setCurrentCancellation(&startupStop);
+      try {
+        app = std::make_unique<p::Application>(
+            layout.databaseFile, nullptr,
+            [this](const std::string &name, const p::Json &payload) {
+              send({{"protocol_version", 1}, {"event", name}, {"payload", payload}});
+            }, !smoke && automaticDictionarySetup);
+      } catch (const std::exception &error) {
+        startupError = error.what();
+      }
+      p::setCurrentCancellation(nullptr);
+      startupMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::steady_clock::now() - began).count();
+      startupDone.store(true, std::memory_order_release);
+      PostMessageW(window, kStartup, 0, 0);
+    });
+    SetTimer(window, 2, 500, nullptr);
+  }
+  void finishStartup() {
+    if (!startupDone.load(std::memory_order_acquire))
+      return;
+    if (startupThread.joinable())
+      startupThread.join();
+    if (closePending) {
+      DestroyWindow(window);
+      return;
+    }
+    if (!startupError.empty()) {
+      fail(startupError);
+      return;
+    }
     executor = std::make_unique<p::Executor>(
         [this](const p::Json &request, const p::Cancellation *cancel) {
           return app->dispatch(request, cancel);
         });
+    startWebview();
+  }
+  void paintStartup() {
+    PAINTSTRUCT paint{};
+    const auto dc = BeginPaint(window, &paint);
+    RECT area{};
+    GetClientRect(window, &area);
+    const auto background = CreateSolidBrush(RGB(247, 244, 238));
+    FillRect(dc, &area, background);
+    DeleteObject(background);
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, RGB(73, 67, 61));
+    const auto font = CreateFontW(-MulDiv(17, GetDpiForWindow(window), 96), 0, 0, 0,
+                                 FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                                 0, 0, CLEARTYPE_QUALITY, 0, L"Microsoft YaHei UI");
+    const auto previous = SelectObject(dc, font);
+    const wchar_t *text = closePending ? L"正在安全结束启动…"
+        : startupDone.load(std::memory_order_acquire) ? L"词库已就绪，正在打开界面…"
+                                                     : L"正在打开本地词库…";
+    DrawTextW(dc, text, -1, &area, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    SelectObject(dc, previous);
+    DeleteObject(font);
+    EndPaint(window, &paint);
   }
   void stop() {
+    startupStop.request();
+    if (startupThread.joinable())
+      startupThread.join();
     {
       std::lock_guard<std::mutex> lock(mutex);
       if (stopped)
@@ -200,7 +264,9 @@ struct Host {
       return;
     finished = true;
     exitCode = result.value("ok", false) ? 0 : 1;
-    writeReport(result);
+    auto measured = result;
+    measured["backend_startup_ms"] = startupMs;
+    writeReport(measured);
     if (!report.empty()) {
       const auto screenshot = report.parent_path() / L"desktop.png";
       ComPtr<IStream> stream;
@@ -493,7 +559,22 @@ struct Host {
     RECT bounds{};
     GetClientRect(window, &bounds);
     controller->put_Bounds(bounds);
-    controller->put_IsVisible(TRUE);
+    controller->put_IsVisible(FALSE);
+    require(webview->add_NavigationCompleted(
+        Callback<ICoreWebView2NavigationCompletedEventHandler>(
+            [this](ICoreWebView2 *, ICoreWebView2NavigationCompletedEventArgs *args) -> HRESULT {
+              BOOL success = FALSE;
+              args->get_IsSuccess(&success);
+              if (!success) {
+                fail("Cannot load the local interface");
+                return S_OK;
+              }
+              interfaceReady = true;
+              KillTimer(window, 2);
+              SetWindowTextW(window, L"Lexica");
+              controller->put_IsVisible(TRUE);
+              return S_OK;
+            }).Get(), &token));
     require(webview->Navigate(smoke ? L"https://lexica.local/?word=meticulous"
                                     : kOrigin));
   }
@@ -508,6 +589,8 @@ struct Host {
       throw p::Error("RESOURCE_ERROR",
                      "Build the frontend and package its ui folder first");
     startWorker();
+  }
+  void startWebview() {
     require(CreateCoreWebView2EnvironmentWithOptions(
         nullptr, layout.profile.c_str(), nullptr,
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
@@ -553,6 +636,25 @@ LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM w, LPARAM l) {
   if (!host)
     return DefWindowProcW(window, message, w, l);
   switch (message) {
+  case WM_PAINT:
+    if (!host->interfaceReady) {
+      host->paintStartup();
+      return 0;
+    }
+    break;
+  case WM_CLOSE:
+    if (host->startupThread.joinable() &&
+        !host->startupDone.load(std::memory_order_acquire)) {
+      host->closePending = true;
+      host->startupStop.request();
+      InvalidateRect(window, nullptr, FALSE);
+      return 0;
+    }
+    break;
+  case kStartup:
+    try { host->finishStartup(); }
+    catch (const std::exception &error) { host->fail(error.what()); }
+    return 0;
   case WM_SIZE:
     if (host->controller) {
       RECT r{};
@@ -588,7 +690,11 @@ LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM w, LPARAM l) {
     return 0;
   }
   case WM_TIMER:
-    if (host->smoke && !host->finished)
+    if (w == 2) {
+      InvalidateRect(window, nullptr, FALSE);
+      return 0;
+    }
+    if (w == 1 && host->smoke && !host->finished)
       host->fail("Desktop smoke timeout");
     return 0;
   case WM_DESTROY:
@@ -598,6 +704,7 @@ LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM w, LPARAM l) {
   default:
     return DefWindowProcW(window, message, w, l);
   }
+  return DefWindowProcW(window, message, w, l);
 }
 } // namespace
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int show) {
