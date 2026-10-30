@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
+	import { page } from '$app/state';
 	import { disclosure } from '$lib/motion';
 	import { goto } from '$app/navigation';
 	import {
 		studyGroup,
 		studyGrade,
 		reviewGroup,
+		statsSummary,
 		startReviewItem,
 		requestHint,
 		submitReview,
@@ -32,6 +34,7 @@
 	import StudySettingsPanel from '$lib/components/StudySettingsPanel.svelte';
 
 	type Phase = 'loading' | 'error' | 'empty' | 'browse' | 'practice' | 'done';
+	type ReviewMode = 'default' | 'due' | 'new';
 
 	interface CardFeedback {
 		correct: boolean;
@@ -58,6 +61,19 @@
 
 	let phase = $state<Phase>('loading');
 	let error = $state('');
+	let activeMode = $state<ReviewMode>('default');
+	let sessionToken = 0;
+	let followToken = 0;
+	let followUp = $state<number | 'loading' | 'error' | 'idle'>('idle');
+	let showRoundDone = $state(false);
+	let finishedRound = false;
+	const reviewMode = $derived<ReviewMode>(
+		page.url.searchParams.get('mode') === 'due'
+			? 'due'
+			: page.url.searchParams.get('mode') === 'new'
+				? 'new'
+				: 'default'
+	);
 	// 组内每个词只出现一次；浏览队列存下标，“忘记”时把下标追加到队尾。
 	let group = $state<StudyCardEntry[]>([]);
 	let queue = $state<number[]>([]);
@@ -120,12 +136,31 @@
 	const toRevisit = $derived(formalDone.filter((done, i) => done && !solved[i]).length);
 	const solvedCount = $derived(solved.filter(Boolean).length);
 
-	async function fetchCards(): Promise<StudyCardEntry[]> {
+	function dueCards(entries: Awaited<ReturnType<typeof reviewGroup>>): StudyCardEntry[] {
+		return entries.map((g) => ({
+			entry: g.entry,
+			item: g.item,
+			is_new: false,
+			bookmarked: false,
+			in_custom_wordbook: false
+		}));
+	}
+
+	async function fetchCards(mode: ReviewMode): Promise<StudyCardEntry[]> {
 		const s = preferences.study;
 		const useLegacyFixture =
 			typeof window !== 'undefined' &&
 			(localStorage.getItem('test.review.ids') !== null ||
 				localStorage.getItem('test.review.defonly') !== null);
+		if (mode === 'due') {
+			fromStudy = false;
+			return dueCards(await reviewGroup());
+		}
+		if (mode === 'new') {
+			fromStudy = true;
+			const session = await studyGroup(s.wordbook, s.dailyNewLimit, s.priority);
+			return session.cards;
+		}
 		if (!useLegacyFixture) {
 			try {
 				const session = await studyGroup(s.wordbook, s.dailyNewLimit, s.priority);
@@ -138,26 +173,47 @@
 			}
 		}
 		fromStudy = false;
-		const entries = await reviewGroup();
-		return entries.map((g) => ({
-			entry: g.entry,
-			item: g.item,
-			is_new: false,
-			bookmarked: false,
-			in_custom_wordbook: false
-		}));
+		return dueCards(await reviewGroup());
 	}
 
-	async function load() {
+	async function refreshRemaining() {
+		const token = ++followToken;
+		followUp = 'loading';
+		try {
+			const summary = await statsSummary();
+			if (token !== followToken) return;
+			followUp = summary.due_now;
+		} catch {
+			if (token !== followToken) return;
+			followUp = 'error';
+		}
+	}
+
+	function markDone() {
+		finishedRound = true;
+		phase = 'done';
+		if (activeMode === 'due') void refreshRemaining();
+	}
+
+	async function load(mode: ReviewMode = reviewMode) {
+		const token = ++sessionToken;
+		const carriedRound = finishedRound;
+		finishedRound = false;
+		activeMode = mode;
 		phase = 'loading';
 		error = '';
 		showSettings = false;
+		followUp = 'idle';
 		try {
-			group = await fetchCards();
+			const cards = await fetchCards(mode);
+			if (token !== sessionToken) return;
+			group = cards;
 			if (!group.length) {
+				showRoundDone = carriedRound && mode === 'due';
 				phase = 'empty';
 				return;
 			}
+			showRoundDone = false;
 			queue = group.map((_, i) => i);
 			ignored = group.map(() => false);
 			formalDone = group.map(() => false);
@@ -171,6 +227,8 @@
 			phase = 'browse';
 			kickOffAi();
 		} catch (e) {
+			if (token !== sessionToken) return;
+			showRoundDone = false;
 			error = errorMessage(e);
 			phase = 'error';
 		}
@@ -225,7 +283,7 @@
 	function finishBrowse() {
 		showSettings = false;
 		if (preferences.study.inSessionQuiz && group.some((_, i) => !ignored[i])) startPractice();
-		else phase = 'done';
+		else markDone();
 	}
 
 	async function toggleBookmark() {
@@ -439,7 +497,7 @@
 	async function next() {
 		if (busy || !feedback) return;
 		if (pos + 1 >= order.length) {
-			phase = 'done';
+			markDone();
 			return;
 		}
 		pos++;
@@ -474,8 +532,11 @@
 		}
 	}
 
-	onMount(() => {
-		void load();
+	$effect(() => {
+		const mode = reviewMode;
+		untrack(() => {
+			void load(mode);
+		});
 	});
 </script>
 
@@ -483,19 +544,40 @@
 <main class="page review-page">
 	{#if phase === 'loading'}<div class="skeleton" role="status" aria-label="Loading review"></div>
 	{:else if phase === 'error'}<section class="panel empty">
-			<h2>Review unavailable</h2>
+			{#if activeMode === 'due'}
+				<h2>到期复习暂时无法加载</h2>
+			{:else if activeMode === 'new'}
+				<h2>新词学习暂时无法加载</h2>
+			{:else}
+				<h2>Review unavailable</h2>
+			{/if}
 			<p class="error" role="alert">{error}</p>
-			<button onclick={load}>Reload</button>
+			<button onclick={() => load(activeMode)}>{activeMode === 'default' ? 'Reload' : '重试'}</button>
 		</section>
 	{:else if phase === 'empty'}<section class="panel empty">
-			<div class="empty-icon"><Icon name="check" size={28} /></div>
-			<h2>Nothing due</h2>
-			<p>Words you look up resurface here when they start to fade.</p>
-			<a href="/" class="button primary">Look up a word <Icon name="arrow" size={16} /></a>
+			{#if activeMode === 'due'}
+				<h2>{showRoundDone ? '本轮已完成' : '当前暂无到期复习'}</h2>
+				<p>{showRoundDone ? '本轮已完成。当前暂无到期复习。' : '到期队列是空的。'}</p>
+				<a href="/" class="button primary">继续查词</a>
+				<a class="button" href="/review?mode=new">学习新词</a>
+			{:else if activeMode === 'new'}
+				<h2>当前没有新词</h2>
+				<p>这是当前词书的新词学习，不是到期复习。</p>
+				<a href="/" class="button primary">继续查词</a>
+				<a class="button" href="/review?mode=due">查看到期复习</a>
+			{:else}
+				<div class="empty-icon"><Icon name="check" size={28} /></div>
+				<h2>Nothing due</h2>
+				<p>Words you look up resurface here when they start to fade.</p>
+				<a href="/" class="button primary">Look up a word <Icon name="arrow" size={16} /></a>
+			{/if}
 		</section>
 	{:else if phase === 'browse' && browseCard}
 		<div class="session-top">
 			<span>Browse · <strong>{browseIdx + 1}</strong> / {queue.length}</span>
+			{#if activeMode === 'due'}<span class="counts">到期复习</span>{:else if activeMode === 'new'}<span
+					class="counts">新词学习 · {bookLabel}</span
+				>{/if}
 			{#if fromStudy}<span class="counts">{bookLabel} · 新词 {newCount} · 复习 {reviewCount}</span
 				>{/if}
 			<div class="top-actions">
@@ -649,6 +731,28 @@
 					</ol>{/if}
 			</div>
 		</section>
+	{:else if phase === 'done' && activeMode === 'due'}
+		<section class="panel empty">
+			<div class="empty-icon"><Icon name="check" size={28} /></div>
+			<h2>本轮已完成</h2>
+			<div class="summary">
+				{#if practiced}
+					<div><span>{mastered}</span>recalled first try</div>
+					<div><span>{retried}</span>needed practice</div>
+					<div><span>{practiceTotal}</span>in group</div>
+				{:else}
+					<div><span>{gradeCounts.know}</span>认识</div>
+					<div><span>{gradeCounts.hazy}</span>模糊</div>
+					<div><span>{gradeCounts.forgot}</span>忘记</div>
+				{/if}
+			</div>
+			{#if followUp === 'loading'}<p role="status">正在读取剩余到期数量</p>
+			{:else if followUp === 'error'}<p class="error" role="alert">剩余数量暂时读不出来。可以继续获取下一组。</p>
+			{:else if followUp === 0}<p>统计显示当前没有剩余到期词。如果和队列不一致，可以再获取一次。</p>
+			{:else if typeof followUp === 'number'}<p>统计显示仍有 {followUp.toLocaleString()} 个到期。这个数字和下一组可能不一致。</p>{/if}
+			<button class="primary" onclick={() => load('due')}>继续获取到期词</button>
+			<a href="/" class="button">返回首页</a>
+		</section>
 	{:else if phase === 'done'}
 		<section class="panel empty">
 			<div class="empty-icon"><Icon name="check" size={28} /></div>
@@ -666,7 +770,7 @@
 			</div>
 			<a href="/" class="button primary">Done <Icon name="arrow" size={16} /></a><button
 				class="ghost"
-				onclick={load}>Next group</button
+				onclick={() => load()}>Next group</button
 			>
 		</section>
 	{/if}
