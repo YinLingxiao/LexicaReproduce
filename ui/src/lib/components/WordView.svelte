@@ -5,7 +5,7 @@
 	import HighlightedText from './HighlightedText.svelte';
 	import AiExampleLoading from './AiExampleLoading.svelte';
 	import { preferences } from '$lib/preferences.svelte';
-	import { speakText } from '$lib/tts';
+	import SpeakButton from './SpeakButton.svelte';
 	import SyllableHeadword from './SyllableHeadword.svelte';
 	import {
 		CEFR_LEVELS,
@@ -140,7 +140,6 @@
 	let busy = $state(false);
 	let message = $state('');
 	let error = $state('');
-	let voices = $state<SpeechSynthesisVoice[]>([]);
 	const dirty = $derived(note !== savedNote);
 	let mounted = true;
 	let recordedRank = 0;
@@ -273,37 +272,6 @@
 			error = 'Clipboard unavailable — select the text and copy it manually.';
 		}
 	}
-	function syncVoices() {
-		if ('speechSynthesis' in window)
-			voices = window.speechSynthesis
-				.getVoices()
-				.filter((v) => v.localService && v.lang.toLowerCase().startsWith('en'));
-	}
-	function speak() {
-		if (!entry) return;
-		if (!voices.length) {
-			speakText(entry.word, {
-				accent: preferences.study.accent,
-				rate: preferences.study.speechRate
-			});
-			return;
-		}
-		speechSynthesis.cancel();
-		const utterance = new SpeechSynthesisUtterance(entry.word);
-		utterance.voice = voices[0];
-		utterance.lang = voices[0].lang;
-		utterance.rate = 0.85;
-		utterance.onerror = () => {
-			if (mounted) error = 'Pronunciation unavailable — check the system English voice pack.';
-		};
-		speechSynthesis.speak(utterance);
-	}
-	function speakExample(text: string) {
-		speakText(text, {
-			accent: preferences.study.accent,
-			rate: preferences.study.speechRate
-		});
-	}
 	function keys(e: KeyboardEvent) {
 		if (
 			e.isComposing ||
@@ -327,15 +295,9 @@
 		if (full) record(entry?.senses.some((s) => s.chinese_definition) ? 'chinese' : 'english');
 		void loadNote();
 		void loadAiExample();
-		syncVoices();
-		window.speechSynthesis?.addEventListener('voiceschanged', syncVoices);
 	});
 	onDestroy(() => {
 		mounted = false;
-		if (typeof window !== 'undefined') {
-			window.speechSynthesis?.removeEventListener('voiceschanged', syncVoices);
-			window.speechSynthesis?.cancel();
-		}
 	});
 </script>
 
@@ -368,15 +330,14 @@
 					<h1><SyllableHeadword word={entry.display} split={preferences.study.autoSplitSyllables} /></h1>
 					<div class="phonetic-row">
 						{#if entry.phonetic}<span class="phonetic">{entry.phonetic}</span>{/if}
-						<button
-							class="icon-button ghost sound-btn"
-							disabled={!voices.length && isPreview()}
-							onclick={speak}
-							aria-label="Play pronunciation"
-							title={voices.length
-								? 'Play pronunciation (offline voice)'
-								: 'Play pronunciation'}><Icon name="sound" size={18} /></button
-						>
+						<SpeakButton
+							text={entry.word}
+							playKey={`lookup-${entry.id}-word`}
+							label="朗读单词"
+							accent={preferences.study.accent}
+							rate={preferences.study.speechRate}
+							repeat={preferences.study.pronounceRepeat === 'thrice' ? 3 : 1}
+						/>
 					</div>
 				</header>
 
@@ -500,9 +461,18 @@
 			<section class="panel word-card">
 				{#if !full}
 					<div class="context">
-						{#if example}<p class="reading example">
-								<HighlightedText text={example.text} word={entry.word} />
-							</p>
+						{#if example}<div class="lead-example">
+								<p class="reading example">
+									<HighlightedText text={example.text} word={entry.word} />
+								</p>
+								<SpeakButton
+									text={example.text}
+									playKey={`lookup-${entry.id}-lead-${'id' in example ? example.id : 'ai'}`}
+									label="朗读例句"
+									accent={preferences.study.accent}
+									rate={preferences.study.speechRate}
+								/>
+							</div>
 							{#if aiSentence}<span class="ai-source">AI example</span>{/if}
 							{#if examples.length > 1}<button class="ghost another" onclick={() => exampleIdx++}
 									>Another example <span
@@ -566,13 +536,13 @@
 											<p class="reading"><HighlightedText text={ex.text} word={entry.word} /></p>
 											{#if ex.translation}<footer>{ex.translation}</footer>{/if}
 										</div>
-										<button
-											type="button"
-											class="icon-button ghost ex-sound"
-											aria-label="朗读例句"
-											title="朗读例句"
-											onclick={() => speakExample(ex.text)}><Icon name="sound" size={16} /></button
-										>
+										<SpeakButton
+											text={ex.text}
+											playKey={`lookup-${entry.id}-sense-${ex.id}`}
+											label="朗读例句"
+											accent={preferences.study.accent}
+											rate={preferences.study.speechRate}
+										/>
 									</blockquote>
 								{/each}
 								{#if i === 0 && aiSentence}
@@ -583,13 +553,13 @@
 											</p>
 											<footer>AI example</footer>
 										</div>
-										<button
-											type="button"
-											class="icon-button ghost ex-sound"
-											aria-label="朗读例句"
-											onclick={() => speakExample(aiSentence)}
-											><Icon name="sound" size={16} /></button
-										>
+										<SpeakButton
+											text={aiSentence}
+											playKey={`lookup-${entry.id}-ai`}
+											label="朗读例句"
+											accent={preferences.study.accent}
+											rate={preferences.study.speechRate}
+										/>
 									</blockquote>
 								{:else if i === 0 && aiLoading}
 									<AiExampleLoading />
@@ -806,10 +776,6 @@
 		color: var(--muted);
 		font-size: 16px;
 	}
-	.sound-btn {
-		color: var(--accent);
-	}
-
 	.metrics-bar {
 		display: flex;
 		align-items: center;
@@ -962,9 +928,17 @@
 		padding: 24px;
 		border-radius: 10px;
 	}
+	.lead-example {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 12px;
+	}
 	.example {
 		font: 450 22px/1.75 var(--serif);
 		margin: 0;
+		flex: 1;
+		min-width: 0;
 	}
 	.ai-source {
 		display: inline-block;
@@ -1102,11 +1076,6 @@
 		color: var(--muted);
 		margin-top: 5px;
 	}
-	.ex-sound {
-		color: var(--accent);
-		margin-top: -2px;
-	}
-
 	.translation-summary {
 		margin-top: 22px;
 		padding-top: 18px;

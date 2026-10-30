@@ -42,7 +42,10 @@
     "AiConfigView": {"enabled":"bool", "base_url":"string", "model":"string", "has_key":"bool"},
     "AiExample": {"word_id":"int", "sense_id":"int?", "sentence":"string"},
     "AiGenItem": {"word_id":"int", "sense_id":"int?"},
-    "FadingWord": {"word":"string", "display":"string", "high_priority":"bool", "next_review_at":"string?"}
+    "FadingWord": {"word":"string", "display":"string", "high_priority":"bool", "next_review_at":"string?"},
+    "TtsVoice": {"id":"string", "label":"string", "language":"string", "accent":"string"},
+    "TtsVoiceList": {"supported":"bool", "voices":"TtsVoice[]", "message":"string?"},
+    "TtsSynthesis": {"mime":"string", "audio_base64":"string", "voice_id":"string", "voice_label":"string", "language":"string", "requested_accent":"string?", "actual_accent":"string", "substituted":"bool"}
   },
   "unions": {"LookupOutcome": {"hit": {"entry":"WordEntry"}, "miss": {"suggestions":"Suggestion[]"}}}
 }

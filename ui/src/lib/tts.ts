@@ -1,105 +1,145 @@
-// Minimal speech-synthesis controller. No UI, no state framework — callers just
-// fire and forget. Repeated playback is queued with a short natural pause.
+import { ttsCancel, ttsSynthesize, ttsVoices, type TtsVoiceList } from './api';
+import {
+	createSpeechController,
+	SpeechError,
+	type SpeakInput,
+	type SpeechAudio,
+	type SpeechSnapshot
+} from './speech-controller';
+import { RpcError } from './transport';
+
+const VOICE_KEY = 'lexica.tts.voiceId';
 
 export interface SpeakOptions {
 	accent?: 'US' | 'UK';
 	rate?: number;
 	repeat?: number;
+	voiceId?: string | null;
+	playKey?: string;
 }
 
-type VoiceList = SpeechSynthesisVoice[];
-
-let pauseTimer: ReturnType<typeof setTimeout> | null = null;
-let session = 0;
-
-function synth(): SpeechSynthesis | null {
-	if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
-	return window.speechSynthesis;
-}
-
-function normaliseLang(voice: SpeechSynthesisVoice): string {
-	return voice.lang.toLowerCase().replace('_', '-');
-}
-
-function pickVoice(voices: VoiceList, accent: 'US' | 'UK'): SpeechSynthesisVoice | null {
-	const target = accent === 'US' ? 'en-us' : 'en-gb';
-	const exact = voices.find((voice) => normaliseLang(voice) === target);
-	if (exact) return exact;
-	const regional = voices.find((voice) => normaliseLang(voice).startsWith(target));
-	if (regional) return regional;
-	return (
-		voices.find((voice) => normaliseLang(voice).startsWith('en')) ??
-		voices.find((voice) => normaliseLang(voice).startsWith('en-')) ??
-		null
-	);
-}
-
-function clearTimer(): void {
-	if (pauseTimer !== null) {
-		clearTimeout(pauseTimer);
-		pauseTimer = null;
+export function getPreferredVoiceId(): string | null {
+	if (typeof localStorage === 'undefined') return null;
+	try {
+		return localStorage.getItem(VOICE_KEY) || null;
+	} catch {
+		return null;
 	}
 }
 
-/** Cancels any queued or active utterance. */
-export function stopSpeaking(): void {
-	session += 1;
-	clearTimer();
-	synth()?.cancel();
+export function setPreferredVoiceId(id: string | null): void {
+	if (typeof localStorage === 'undefined') return;
+	try {
+		if (id) localStorage.setItem(VOICE_KEY, id);
+		else localStorage.removeItem(VOICE_KEY);
+	} catch {
+		/* The current session can still use the selected voice. */
+	}
 }
 
-/**
- * Speaks text in the requested accent, rate and repeat count.
- * Repeats are separated by a 350 ms pause; a new call cancels the previous one.
- */
-export function speakText(text: string, opts: SpeakOptions = {}): void {
-	const content = typeof text === 'string' ? text.trim() : '';
-	if (!content) return;
-	const engine = synth();
-	if (!engine) return;
+function bytesFromBase64(value: string): Uint8Array {
+	const binary = atob(value);
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+	return bytes;
+}
 
-	stopSpeaking();
-	const run = session;
-	const accent = opts.accent === 'US' ? 'US' : 'UK';
-	const rate = opts.rate === 0.8 || opts.rate === 1.2 ? opts.rate : 1;
-	const repeat = opts.repeat === 3 ? 3 : 1;
-	const voices = engine.getVoices();
-	const voice = pickVoice(voices, accent);
-
-	let spoken = 0;
-
-	const next = () => {
-		if (run !== session) return;
-		if (spoken >= repeat) return;
-		spoken += 1;
-
-		const utterance = new SpeechSynthesisUtterance(content);
-		utterance.lang = accent === 'US' ? 'en-US' : 'en-GB';
-		utterance.rate = rate;
-		utterance.pitch = 1;
-		utterance.volume = 1;
-		if (voice) utterance.voice = voice;
-
-		const scheduleNext = () => {
-			if (run !== session || spoken >= repeat) return;
-			clearTimer();
-			pauseTimer = setTimeout(() => {
-				pauseTimer = null;
-				next();
-			}, 350);
-		};
-
-		utterance.onend = scheduleNext;
-		utterance.onerror = scheduleNext;
-
-		try {
-			// Chrome can leave the queue paused after a cancel on some platforms.
-			engine.resume();
-			engine.speak(utterance);
-		} catch {
-			/* Speech synthesis is best-effort. */
+function browserAudio(url: string): SpeechAudio {
+	const audio = new Audio();
+	audio.preload = 'auto';
+	audio.src = url;
+	let ended: (() => void) | null = null;
+	let failed: (() => void) | null = null;
+	audio.onended = () => ended?.();
+	audio.onerror = () => failed?.();
+	return {
+		play: () => audio.play(),
+		pause: () => audio.pause(),
+		setCurrentTime: (seconds) => {
+			audio.currentTime = seconds;
+		},
+		get onended() {
+			return ended;
+		},
+		set onended(fn) {
+			ended = fn;
+		},
+		get onerror() {
+			return failed;
+		},
+		set onerror(fn) {
+			failed = fn;
 		}
 	};
-
-	next();
 }
+
+const controller = createSpeechController({
+	async synthesize(request) {
+		try {
+			const result = await ttsSynthesize({
+				text: request.text,
+				token: request.token,
+				voiceId: request.voiceId,
+				accent: request.accent,
+				rate: request.rate
+			});
+			return {
+				mime: result.mime,
+				bytes: bytesFromBase64(result.audio_base64),
+				voiceId: result.voice_id,
+				voiceLabel: result.voice_label,
+				language: result.language,
+				requestedAccent: result.requested_accent,
+				actualAccent: result.actual_accent,
+				substituted: result.substituted
+			};
+		} catch (error) {
+			if (error instanceof RpcError) throw new SpeechError(error.code, error.message);
+			if (error instanceof SpeechError) throw error;
+			if (error instanceof Error) throw new SpeechError('RESOURCE_ERROR', error.message);
+			throw new SpeechError('RESOURCE_ERROR', '朗读失败');
+		}
+	},
+	cancel: async (token) => {
+		await ttsCancel(token);
+	},
+	createAudio: browserAudio,
+	createObjectURL: (bytes, mime) => {
+		const copy = new ArrayBuffer(bytes.byteLength);
+		new Uint8Array(copy).set(bytes);
+		return URL.createObjectURL(new Blob([copy], { type: mime }));
+	},
+	revokeObjectURL: (url) => URL.revokeObjectURL(url),
+	setTimer: (fn, ms) => window.setTimeout(fn, ms),
+	clearTimer: (id) => window.clearTimeout(id)
+});
+
+export function speakText(text: string, opts: SpeakOptions = {}): void {
+	const input: SpeakInput = {
+		text,
+		playKey: opts.playKey ?? text,
+		accent: opts.accent,
+		rate: opts.rate,
+		repeat: opts.repeat,
+		voiceId: opts.voiceId === undefined ? getPreferredVoiceId() : opts.voiceId
+	};
+	controller.speak(input);
+}
+
+export function stopSpeaking(): void {
+	controller.stop();
+}
+
+export function getSpeechSnapshot(): SpeechSnapshot {
+	return controller.snapshot();
+}
+
+export function subscribeSpeech(listener: () => void): () => void {
+	return controller.subscribe(listener);
+}
+
+export function loadTtsVoices(): Promise<TtsVoiceList> {
+	return ttsVoices();
+}
+
+if (typeof window !== 'undefined') window.addEventListener('pagehide', () => controller.stop());

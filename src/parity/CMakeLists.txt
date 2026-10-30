@@ -17,7 +17,7 @@ add_library(lexica_parity
 target_include_directories(lexica_parity PUBLIC "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/third_party"
   PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(lexica_parity PUBLIC lexica_sqlite)
-foreach(domain dictionary learning library ai)
+foreach(domain dictionary learning library ai tts)
   # Each agent owns its local CMakeLists and source list; no root build edits.
   add_subdirectory("modules/${domain}")
 endforeach()

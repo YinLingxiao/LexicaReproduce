@@ -137,7 +137,7 @@ int main() {
     {
       p::Application app(synthetic);
       const auto caps = app.capabilities();
-      check(caps["contract_version"] == "1.2.0", "contract version mismatch");
+      check(caps["contract_version"] == "1.3.0", "contract version mismatch");
       check(call(app, "lookup_word",
                  {{"word", "zzcompat"}})["result"]["outcome"]["type"] == "hit",
             "upstream-shaped row was lost");

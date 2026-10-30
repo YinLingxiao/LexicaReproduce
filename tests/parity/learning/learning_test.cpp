@@ -194,7 +194,7 @@ void testMemoryCommands(const std::filesystem::path &file) {
   FakeClock clock;
   auto app = openApp(file, clock);
   auto caps = call(app, "system_capabilities", p::Json::object(), nextId());
-  check(caps["ok"] == true && caps["result"]["commands"].size() == 31,
+  check(caps["ok"] == true && caps["result"]["commands"].size() == 34,
         "catalog");
   for (const auto &command : caps["result"]["commands"])
     if (command["name"] == "lookup_word")

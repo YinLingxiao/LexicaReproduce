@@ -9,6 +9,7 @@
 	import { preferences, applyPreferences } from '$lib/preferences.svelte';
 	import SyllableHeadword from './SyllableHeadword.svelte';
 	import { speakText } from '$lib/tts';
+	import SpeakButton from './SpeakButton.svelte';
 	import Icon from './Icon.svelte';
 	import HighlightedText from './HighlightedText.svelte';
 	import { describeLevel, displayPos } from '$lib/lexicon-display';
@@ -134,19 +135,24 @@
 
 	function speakWord() {
 		speakText(entry.word, {
+			playKey: `study-${entry.id}-word`,
 			accent: s.accent,
 			rate: s.speechRate,
 			repeat: s.pronounceRepeat === 'thrice' ? 3 : 1
 		});
 	}
-	function speakSentence(text: string) {
-		speakText(text, { accent: s.accent, rate: s.speechRate });
+	function speakSentence(text: string, id: number) {
+		speakText(text, {
+			playKey: `study-${entry.id}-sentence-${id}`,
+			accent: s.accent,
+			rate: s.speechRate
+		});
 	}
 
 	onMount(() => {
-		if (s.cardMode === 'context' && s.autoPronounceContext && example) speakSentence(example.text);
+		if (s.cardMode === 'context' && s.autoPronounceContext && example) speakSentence(example.text, example.id);
 		else if (s.autoPronounceWord) speakWord();
-		else if (s.autoPronounceExample && example) speakSentence(example.text);
+		else if (s.autoPronounceExample && example) speakSentence(example.text, example.id);
 	});
 </script>
 
@@ -165,9 +171,14 @@
 		<h2 class="headword"><SyllableHeadword word={entry.display} split={s.autoSplitSyllables} /></h2>
 		<div class="phonetic-row">
 			{#if entry.phonetic}<span class="phonetic">{entry.phonetic}</span>{/if}
-			<button class="icon-btn sound-btn" aria-label="朗读单词" title="朗读单词" onclick={speakWord}
-				><Icon name="sound" size={18} /></button
-			>
+			<SpeakButton
+				text={entry.word}
+				playKey={`study-${entry.id}-word`}
+				label="朗读单词"
+				accent={s.accent}
+				rate={s.speechRate}
+				repeat={s.pronounceRepeat === 'thrice' ? 3 : 1}
+			/>
 		</div>
 	</header>
 
@@ -177,11 +188,13 @@
 				<div class="context-card">
 					<div class="example-header">
 						<span class="example-pill"><em>context</em><span>语境</span></span>
-						<button
-							class="icon-btn sound-btn"
-							aria-label="朗读例句"
-							onclick={() => speakSentence(example.text)}><Icon name="sound" size={16} /></button
-						>
+						<SpeakButton
+							text={example.text}
+							playKey={`study-${entry.id}-sentence-${example.id}`}
+							label="朗读例句"
+							accent={s.accent}
+							rate={s.speechRate}
+						/>
 					</div>
 					<p class="example-en reading"><HighlightedText text={example.text} word={entry.word} /></p>
 					<button class="reveal block" onclick={() => (defsShown = true)}>点击显示完整释义</button>
@@ -258,11 +271,13 @@
 									>
 										<em>example</em><span>{s.exampleStyle === 'exam' ? '真题' : '标准'}</span>
 									</button>
-									<button
-										class="icon-btn sound-btn"
-										aria-label="朗读例句"
-										onclick={() => speakSentence(example.text)}><Icon name="sound" size={16} /></button
-									>
+									<SpeakButton
+										text={example.text}
+										playKey={`study-${entry.id}-sentence-${example.id}`}
+										label="朗读例句"
+										accent={s.accent}
+										rate={s.speechRate}
+									/>
 								</div>
 								<p class="example-en reading">
 									<HighlightedText text={example.text} word={entry.word} />
@@ -528,10 +543,6 @@
 		color: var(--fg);
 		background: var(--soft);
 	}
-	.sound-btn {
-		color: var(--accent);
-	}
-
 	/* ── 英英分义与 CEFR 等级胶囊 ────────────────────────────── */
 	.senses-block {
 		margin-top: 6px;

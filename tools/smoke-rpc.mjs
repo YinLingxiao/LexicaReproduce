@@ -26,7 +26,7 @@ try{
   const caps=await rpc('system_capabilities');assert.equal(caps.ok,true);assert.equal(caps.result.contract_version,contract.contract_version);
   const note=caps.result.commands.find(command=>command.name==='save_word_note');
   assert.equal(note.available,true);
-  assert.equal(caps.result.commands.filter(command=>command.available).length,31);
+  assert.equal(caps.result.commands.filter(command=>command.available).length,contract.commands.length);
   const hit=await rpc('lookup_word',{word:'meticulous'});assert.equal(hit.result.outcome.entry.word,'meticulous');
   assert.equal((await rpc('lookup_word',{word:'there-is-no-such-word'})).result.outcome.type,'miss');
   assert.equal((await rpc('search_suggest',{query:'met'})).result[0].word,'meticulous');
@@ -46,6 +46,6 @@ try{
   const during=await Promise.race([rpc('lookup_word',{word:'meticulous'}),new Promise((_,reject)=>setTimeout(()=>reject(Error('SSE subscriptions starved RPC workers')),4000))]);assert.equal(during.ok,true);assert.equal(during.result.outcome.type,'hit');
   for(const response of extraStreams) await response.body.cancel();
   await reader.cancel();
-  const result={ok:true,checks:18,policy_file_replacement:true,transport:'real HTTP / C++ / SQLite',schema_version:info.result.schema_version,seed_words:info.result.word_count,unicode_path:true,events:true,concurrent_event_subscriptions:8,available_commands:31,contract_version:caps.result.contract_version};
+  const result={ok:true,checks:18,policy_file_replacement:true,transport:'real HTTP / C++ / SQLite',schema_version:info.result.schema_version,seed_words:info.result.word_count,unicode_path:true,events:true,concurrent_event_subscriptions:8,available_commands:contract.commands.length,contract_version:caps.result.contract_version};
   fs.writeFileSync(path.join(data,'report.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
 }finally{child.kill();}

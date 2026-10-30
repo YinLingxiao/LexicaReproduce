@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { openUrl } from '$lib/transport';
-	import { preferences } from '$lib/preferences.svelte';
+	import { applyPreferences, preferences } from '$lib/preferences.svelte';
 	import { dictionaryImport } from '$lib/import-state.svelte';
 	import { dictionarySetup, runDictionarySetup } from '$lib/dictionary-setup.svelte';
 	import {
@@ -12,10 +12,13 @@
 		aiTestConnection,
 		errorMessage,
 		isPreview,
-		type AppInfo
+		type AppInfo,
+		type TtsVoiceList
 	} from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
+	import SpeakButton from '$lib/components/SpeakButton.svelte';
 	import StudySettingsPanel from '$lib/components/StudySettingsPanel.svelte';
+	import { getPreferredVoiceId, loadTtsVoices, setPreferredVoiceId } from '$lib/tts';
 	let info = $state<AppInfo | null>(null);
 	let error = $state('');
 	let logoError = $state('');
@@ -102,8 +105,46 @@
 			error = errorMessage(e);
 		}
 	}
+	let voiceState = $state<TtsVoiceList | null>(null);
+	let voiceError = $state('');
+	let selectedVoiceId = $state<string | null>(getPreferredVoiceId());
+	const accentLabel = (accent: string) =>
+		accent === 'US' ? '美式英语' : accent === 'UK' ? '英式英语' : accent;
+	const voiceMismatch = $derived.by(() => {
+		if (!voiceState?.supported || !voiceState.voices.length) return '';
+		const preferred = preferences.study.accent;
+		const selected = voiceState.voices.find((voice) => voice.id === selectedVoiceId);
+		if (selected && selected.accent !== preferred)
+			return `学习设置里的口音是${accentLabel(preferred)}，所选音色是 ${selected.label}（${selected.language}）。朗读会使用这个音色，不会再标成${accentLabel(preferred)}。`;
+		if (!selected && !voiceState.voices.some((voice) => voice.accent === preferred))
+			return `没有${accentLabel(preferred)}音色。跟随口音时会改用其他英语音色，并在朗读后写明实际音色。`;
+		return '';
+	});
+	async function loadVoices() {
+		voiceError = '';
+		try {
+			voiceState = await loadTtsVoices();
+			if (selectedVoiceId && !voiceState.voices.some((voice) => voice.id === selectedVoiceId)) {
+				selectedVoiceId = null;
+				setPreferredVoiceId(null);
+				voiceError = '已保存的英语音色不在当前系统中，已改回按口音选择。';
+			}
+		} catch (cause) {
+			voiceState = null;
+			voiceError = errorMessage(cause);
+		}
+	}
+	function chooseVoice(id: string | null) {
+		selectedVoiceId = id;
+		setPreferredVoiceId(id);
+	}
+	function chooseRate(rate: 0.8 | 1 | 1.2) {
+		preferences.study.speechRate = rate;
+		applyPreferences();
+	}
 	onMount(() => {
 		void loadAi();
+		void loadVoices();
 	});
 	async function doImport() {
 		if (!dictionaryImport.sourcePath.trim() || dictionaryImport.running) return;
@@ -183,6 +224,73 @@
 		<summary><h2>学习设置</h2><Icon name="chevron-right" size={16} /></summary>
 		<div class="study-body"><StudySettingsPanel /></div>
 	</details>
+	<section class="panel" id="pronunciation">
+		<div class="section-heading"><h2>发音</h2></div>
+		{#if voiceError}<p class="error" role="alert">{voiceError}</p>{/if}
+		{#if !voiceState && !voiceError}<p class="muted small">正在读取系统英语语音…</p>
+		{:else if voiceState && !voiceState.supported}<p class="error" role="alert">
+				{voiceState.message || '当前环境不支持 Windows 系统语音合成。'}
+			</p>
+		{:else if voiceState && voiceState.voices.length === 0}
+			<p class="error" role="alert">{voiceState.message || '没有可用的英语语音。'}</p>
+			<ol class="install-steps">
+				<li>打开「设置 → 时间和语言 → 语言和区域」。</li>
+				<li>选择「添加语言」，安装「英语(美国)」或「英语(英国)」。</li>
+				<li>在「安装语言功能」中勾选「文字转语音 / Text-to-speech」。</li>
+				<li>如果语言已经安装，点该语言旁的「…」→「语言选项」，下载「文字转语音」。</li>
+				<li>安装后可在「设置 → 时间和语言 → 语音」里查看和试听。</li>
+			</ol>
+		{:else if voiceState}
+			<div class="setting-row">
+				<h3>英语音色</h3>
+				<div class="voice-list">
+					<button
+						type="button"
+						aria-pressed={selectedVoiceId === null}
+						class:chosen={selectedVoiceId === null}
+						onclick={() => chooseVoice(null)}>跟随口音偏好（{accentLabel(preferences.study.accent)}）</button
+					>
+					{#each voiceState.voices as voice (voice.id)}<button
+							type="button"
+							aria-pressed={selectedVoiceId === voice.id}
+							class:chosen={selectedVoiceId === voice.id}
+							onclick={() => chooseVoice(voice.id)}
+							>{voice.label} · {accentLabel(voice.accent)} · {voice.language}</button
+						>{/each}
+				</div>
+			</div>
+			{#if voiceMismatch}<p class="import-note" role="status">{voiceMismatch}</p>{/if}
+		{/if}
+		<div class="setting-row">
+			<h3>语速</h3>
+			<div class="segmented">
+				{#each [[0.8, '0.8×'], [1, '1×'], [1.2, '1.2×']] as [key, label]}<button
+						type="button"
+						aria-pressed={preferences.study.speechRate === key}
+						class:chosen={preferences.study.speechRate === key}
+						onclick={() => chooseRate(key as 0.8 | 1 | 1.2)}>{label}</button
+					>{/each}
+			</div>
+		</div>
+		<p class="muted small">
+			口音现在是{accentLabel(preferences.study.accent)}，重复次数是{preferences.study.pronounceRepeat ===
+			'thrice'
+				? '3 次'
+				: '1 次'}。自动朗读单词{preferences.study.autoPronounceWord ? '开' : '关'}，自动朗读例句{preferences
+				.study.autoPronounceExample
+				? '开'
+				: '关'}，语境卡片自动朗读{preferences.study.autoPronounceContext ? '开' : '关'}。这些仍在上方学习设置中修改。
+		</p>
+		<SpeakButton
+			text="Hello. This is an English pronunciation preview."
+			playKey="settings-preview"
+			label="试听"
+			accent={preferences.study.accent}
+			rate={preferences.study.speechRate}
+			repeat={1}
+			voiceId={selectedVoiceId}
+		/>
+	</section>
 	<section class="panel dictionary">
 		<div class="section-heading"><h2>Dictionary</h2></div>
 		{#if error}<p class="error" role="alert">{error}</p>
@@ -329,8 +437,8 @@
 		</dl>
 	</section>
 	<p class="about">
-		Dictionary, bookmarks, notes and learning records stay on this device. Pronunciation uses the
-		system offline English voice.
+		Dictionary, bookmarks, notes and learning records stay on this device. Pronunciation uses an
+		installed Windows English voice.
 	</p>
 	<div class="credit">
 		<a
@@ -411,6 +519,25 @@
 		font-size: 13px;
 		margin: 0;
 		font-weight: 500;
+	}
+	.voice-list {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.voice-list button {
+		justify-content: flex-start;
+		text-align: left;
+	}
+	.voice-list button.chosen {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+	.install-steps {
+		margin: 8px 0 16px;
+		padding-left: 18px;
+		color: var(--muted);
+		font-size: 13px;
 	}
 	.segmented {
 		display: flex;
