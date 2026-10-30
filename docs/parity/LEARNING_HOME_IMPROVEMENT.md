@@ -115,4 +115,4 @@ npx playwright test -c playwright.learning-home-live.config.ts
 
 ## 提交
 
-功能与本报告在同一提交。SHA 以该提交为准，审核时执行 `git rev-parse HEAD`。
+功能提交 `530f64b31296ba40c3b321011dc40ab26f740992`。本行是随后补上的记录；审核以 `git rev-parse HEAD` 的分支尖端为准。
