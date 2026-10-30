@@ -166,3 +166,9 @@ Debug / Release 各 11/11，UI 夹具 24+11，控制器 7/7，打包版真实 UI
 使用独立的 3,401,187 词条副本检查深色主页、词条页和 480px 窄窗口；首页搜索框位于顶部，释义在首屏可见，无学习横幅、无溢出、无页面错误。原生 WebView2 中设置试听、单词、例句和刷新后播放均产生真实媒体播放事件；本轮没有人工听音。截图与布局报告位于 [dictionary-english](evidence/dictionary-english/dictionary-home-english.png)。没有写入实际用户词库。
 
 可启动包为 dist/LexicaReproduce-English。旧 dist/LexicaReproduce 窗口仍在运行，因此本轮保留旧目录，通过独立目录交付新版。
+
+## 上传前整理（2026-10-30）
+
+更新根 README 与工程入口，明确当前 `main`、合同 1.3.0、构建方式和历史实现边界；标注旧学习首页方案已经被字典优先方向替代。统一最近修改的前端源码与测试格式，增加 Prettier 配置并排除生成合同。增加 `test:tts`、`test:home`、`test:live` 命令，真实服务测试截图改写 `test.info().outputPath`，不再覆盖已归档验收证据。界面及业务行为未变。
+
+整理后重新执行：合同生成物检查通过，类型检查 0 错误 0 警告，生产 UI 构建通过，Debug CTest 11/11、TTS 控制器 7/7、原有界面夹具 24/24、字典首页夹具 7/7、真实服务与播放 2/2、原有真实 UI 3/3 全部通过。此前窄屏导航用例在完整顺序执行中通过。日志为 build-parity-msvc/upload-*.log。

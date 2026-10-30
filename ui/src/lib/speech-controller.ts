@@ -91,8 +91,7 @@ function noticeFor(job: Job, audio: SynthesisAudio): string {
 			: job.accent === 'UK'
 				? 'British English'
 				: 'preferred accent';
-	if (job.voiceId)
-		return `Selected voice: ${actual}. Your accent preference is ${wanted}.`;
+	if (job.voiceId) return `Selected voice: ${actual}. Your accent preference is ${wanted}.`;
 	return `${wanted} is unavailable. Using ${actual}.`;
 }
 
@@ -258,9 +257,7 @@ export function createSpeechController(deps: SpeechDeps) {
 							? error
 							: new SpeechError(
 									'RESOURCE_ERROR',
-									error instanceof Error
-										? error.message
-										: 'Pronunciation failed.',
+									error instanceof Error ? error.message : 'Pronunciation failed.',
 								);
 					if (speech.code === 'CANCELLED') {
 						set({ phase: 'idle', error: '' });
@@ -326,12 +323,8 @@ export function createSpeechController(deps: SpeechDeps) {
 			text,
 			playKey,
 			voiceId: input.voiceId ?? null,
-			accent:
-				input.accent === 'US' || input.accent === 'UK' ? input.accent : null,
-			rate:
-				input.rate === 0.8 || input.rate === 1 || input.rate === 1.2
-					? input.rate
-					: 1,
+			accent: input.accent === 'US' || input.accent === 'UK' ? input.accent : null,
+			rate: input.rate === 0.8 || input.rate === 1 || input.rate === 1.2 ? input.rate : 1,
 			repeat: input.repeat === 3 ? 3 : 1,
 		};
 		queued = job;

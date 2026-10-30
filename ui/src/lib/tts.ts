@@ -4,7 +4,7 @@ import {
 	SpeechError,
 	type SpeakInput,
 	type SpeechAudio,
-	type SpeechSnapshot
+	type SpeechSnapshot,
 } from './speech-controller';
 import { RpcError } from './transport';
 
@@ -69,7 +69,7 @@ function browserAudio(url: string): SpeechAudio {
 		},
 		set onerror(fn) {
 			failed = fn;
-		}
+		},
 	};
 }
 
@@ -81,7 +81,7 @@ const controller = createSpeechController({
 				token: request.token,
 				voiceId: request.voiceId,
 				accent: request.accent,
-				rate: request.rate
+				rate: request.rate,
 			});
 			return {
 				mime: result.mime,
@@ -91,13 +91,13 @@ const controller = createSpeechController({
 				language: result.language,
 				requestedAccent: result.requested_accent,
 				actualAccent: result.actual_accent,
-				substituted: result.substituted
+				substituted: result.substituted,
 			};
 		} catch (error) {
 			if (error instanceof RpcError) throw new SpeechError(error.code, error.message);
 			if (error instanceof SpeechError) throw error;
 			if (error instanceof Error) throw new SpeechError('RESOURCE_ERROR', error.message);
-			throw new SpeechError('RESOURCE_ERROR', "Pronunciation failed.");
+			throw new SpeechError('RESOURCE_ERROR', 'Pronunciation failed.');
 		}
 	},
 	cancel: async (token) => {
@@ -111,7 +111,7 @@ const controller = createSpeechController({
 	},
 	revokeObjectURL: (url) => URL.revokeObjectURL(url),
 	setTimer: (fn, ms) => window.setTimeout(fn, ms),
-	clearTimer: (id) => window.clearTimeout(id)
+	clearTimer: (id) => window.clearTimeout(id),
 });
 
 export function speakText(text: string, opts: SpeakOptions = {}): void {
@@ -121,7 +121,7 @@ export function speakText(text: string, opts: SpeakOptions = {}): void {
 		accent: opts.accent,
 		rate: opts.rate,
 		repeat: opts.repeat,
-		voiceId: opts.voiceId === undefined ? getPreferredVoiceId() : opts.voiceId
+		voiceId: opts.voiceId === undefined ? getPreferredVoiceId() : opts.voiceId,
 	};
 	controller.speak(input);
 }

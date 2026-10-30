@@ -5,7 +5,7 @@
 		preferences,
 		applyPreferences,
 		DAILY_NEW_LIMITS,
-		type StudyPreferences
+		type StudyPreferences,
 	} from '$lib/preferences.svelte';
 	import Icon from './Icon.svelte';
 
@@ -13,16 +13,16 @@
 
 	type Wordbook = StudyPreferences['wordbook'];
 	const WORDBOOK_NAMES: Record<Wordbook, string> = {
-		cet4: "CET-4",
-		cet6: "CET-6",
-		ky: "Postgraduate English",
+		cet4: 'CET-4',
+		cet6: 'CET-6',
+		ky: 'Postgraduate English',
 		toefl: 'TOEFL',
 		ielts: 'IELTS',
 		gre: 'GRE',
-		gk: "Gaokao English",
+		gk: 'Gaokao English',
 		oxford: 'Oxford 3000',
-		custom: "Custom wordbook",
-		encountered: "Search history"
+		custom: 'Custom wordbook',
+		encountered: 'Search history',
 	};
 	const WORDBOOK_ORDER = Object.keys(WORDBOOK_NAMES) as Wordbook[];
 
@@ -36,9 +36,9 @@
 				id,
 				name: WORDBOOK_NAMES[id],
 				total: info?.total_words ?? null,
-				learned: info?.learned_words ?? 0
+				learned: info?.learned_words ?? 0,
 			};
-		})
+		}),
 	);
 
 	onMount(async () => {
@@ -84,39 +84,39 @@
 	}
 
 	const cardModes = [
-		['standard', "Standard card"],
-		['context', "Context card"]
+		['standard', 'Standard card'],
+		['context', 'Context card'],
 	] as const;
 	const planStyles = [
-		['standard', "Standard"],
-		['intensive', "Intensive"],
-		['casual', "Casual"]
+		['standard', 'Standard'],
+		['intensive', 'Intensive'],
+		['casual', 'Casual'],
 	] as const;
 	const priorities = [
-		['mixed', "Mixed"],
-		['new_first', "New words first"],
-		['review_first', "Reviews first"]
+		['mixed', 'Mixed'],
+		['new_first', 'New words first'],
+		['review_first', 'Reviews first'],
 	] as const;
 	const repeats = [
-		['never', "Once"],
-		['thrice', "Three times"]
+		['never', 'Once'],
+		['thrice', 'Three times'],
 	] as const;
 	const accents = [
-		['US', "US"],
-		['UK', "UK"]
+		['US', 'US'],
+		['UK', 'UK'],
 	] as const;
 	const rates = [
 		[0.8, '0.8x'],
 		[1, '1x'],
-		[1.2, '1.2x']
+		[1.2, '1.2x'],
 	] as const;
 	const exampleStyles = [
-		['standard', "Dictionary examples"],
-		['exam', "Exam examples"]
+		['standard', 'Dictionary examples'],
+		['exam', 'Exam examples'],
 	] as const;
 	const exampleOrders = [
-		['first', "First"],
-		['random', "Random"]
+		['first', 'First'],
+		['random', 'Random'],
 	] as const;
 </script>
 
@@ -156,7 +156,8 @@
 				>
 					<span class="book-name">{b.name}</span>
 					{#if b.total !== null}
-						<span class="book-count">{b.learned.toLocaleString()} / {b.total.toLocaleString()}</span>
+						<span class="book-count">{b.learned.toLocaleString()} / {b.total.toLocaleString()}</span
+						>
 						<span class="book-bar" aria-hidden="true"
 							><span style:width="{b.total ? Math.min(100, (b.learned / b.total) * 100) : 0}%"
 							></span></span
@@ -214,7 +215,7 @@
 
 	<section class="panel">
 		<div class="section-heading"><h2>Pronunciation</h2></div>
-		{@render toggle('autoPronounceWord', "Auto-play words")}
+		{@render toggle('autoPronounceWord', 'Auto-play words')}
 		<div class="setting-row">
 			<h3>Repeat</h3>
 			<div class="segmented">
@@ -225,8 +226,8 @@
 					>{/each}
 			</div>
 		</div>
-		{@render toggle('autoPronounceExample', "Auto-play examples")}
-		{@render toggle('autoPronounceContext', "Auto-play context cards")}
+		{@render toggle('autoPronounceExample', 'Auto-play examples')}
+		{@render toggle('autoPronounceContext', 'Auto-play context cards')}
 		<div class="setting-row">
 			<h3>Accent</h3>
 			<div class="segmented">
@@ -271,15 +272,17 @@
 					>{/each}
 			</div>
 		</div>
-		<p class="muted small footnote">Exam examples support CET-4, CET-6, and postgraduate English exams.</p>
+		<p class="muted small footnote">
+			Exam examples support CET-4, CET-6, and postgraduate English exams.
+		</p>
 	</section>
 
 	<section class="panel">
 		<div class="section-heading"><h2>Cards and practice</h2></div>
-		{@render toggle('autoSplitSyllables', "Split syllables")}
-		{@render toggle('fadeIn', "Animate cards")}
-		{@render toggle('hideChinese', "Hide Chinese translations")}
-		{@render toggle('inSessionQuiz', "Spelling practice after browsing", true)}
+		{@render toggle('autoSplitSyllables', 'Split syllables')}
+		{@render toggle('fadeIn', 'Animate cards')}
+		{@render toggle('hideChinese', 'Hide Chinese translations')}
+		{@render toggle('inSessionQuiz', 'Spelling practice after browsing', true)}
 	</section>
 
 	<section class="panel">
@@ -320,7 +323,7 @@
 				</li>
 			{/each}
 		</ul>
-		{@render toggle('autoReturnToExamples', "Return to examples on each word", true)}
+		{@render toggle('autoReturnToExamples', 'Return to examples on each word', true)}
 	</section>
 </div>
 

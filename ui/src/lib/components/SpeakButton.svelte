@@ -1,12 +1,7 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
 	import { fitPopover } from '$lib/fit-popover';
-	import {
-		getSpeechSnapshot,
-		speakText,
-		stopSpeaking,
-		subscribeSpeech,
-	} from '$lib/tts';
+	import { getSpeechSnapshot, speakText, stopSpeaking, subscribeSpeech } from '$lib/tts';
 
 	let {
 		text,
@@ -45,20 +40,14 @@
 		return () => {
 			unsubscribe();
 			const snap = getSpeechSnapshot();
-			if (
-				snap.playKey === key &&
-				(snap.phase === 'loading' || snap.phase === 'playing')
-			)
+			if (snap.playKey === key && (snap.phase === 'loading' || snap.phase === 'playing'))
 				stopSpeaking();
 		};
 	});
 
 	function activate(): void {
 		const snap = getSpeechSnapshot();
-		if (
-			snap.playKey === playKey &&
-			(snap.phase === 'loading' || snap.phase === 'playing')
-		) {
+		if (snap.playKey === playKey && (snap.phase === 'loading' || snap.phase === 'playing')) {
 			stopSpeaking();
 			return;
 		}
@@ -66,11 +55,7 @@
 	}
 
 	const accessible = $derived(
-		phase === 'loading'
-			? 'Preparing audio'
-			: phase === 'playing'
-				? 'Stop playback'
-				: label,
+		phase === 'loading' ? 'Preparing audio' : phase === 'playing' ? 'Stop playback' : label,
 	);
 	const noticeId = $derived(`speech-info-${playKey.replace(/[^A-Za-z0-9_-]/g, '_')}`);
 </script>
@@ -85,8 +70,7 @@
 		title={[accessible, notice].filter(Boolean).join(' · ')}
 		aria-busy={phase === 'loading'}
 		aria-pressed={phase === 'playing'}
-		onclick={activate}
-		><Icon name="sound" size={18} /></button
+		onclick={activate}><Icon name="sound" size={18} /></button
 	>
 	{#if notice}<span class="speech-description" id={noticeId}>{notice}</span>{/if}
 	{#if message}<details class="speech-details" use:fitPopover>
@@ -131,10 +115,23 @@
 	button.active {
 		background: color-mix(in srgb, var(--accent) 12%, transparent);
 	}
-	button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-	button.busy { animation: speaking-pulse 0.8s ease-in-out infinite alternate; }
-	@keyframes speaking-pulse { to { opacity: 0.35; } }
-	@media (prefers-reduced-motion: reduce) { button.busy { animation: none; } }
+	button:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+	button.busy {
+		animation: speaking-pulse 0.8s ease-in-out infinite alternate;
+	}
+	@keyframes speaking-pulse {
+		to {
+			opacity: 0.35;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		button.busy {
+			animation: none;
+		}
+	}
 	.speech-details {
 		position: relative;
 		font-size: 11px;

@@ -3,10 +3,7 @@
 	import { openUrl } from '$lib/transport';
 	import { applyPreferences, preferences } from '$lib/preferences.svelte';
 	import { dictionaryImport } from '$lib/import-state.svelte';
-	import {
-		dictionarySetup,
-		runDictionarySetup,
-	} from '$lib/dictionary-setup.svelte';
+	import { dictionarySetup, runDictionarySetup } from '$lib/dictionary-setup.svelte';
 	import {
 		appInfo,
 		importEcdict,
@@ -21,11 +18,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import SpeakButton from '$lib/components/SpeakButton.svelte';
 	import StudySettingsPanel from '$lib/components/StudySettingsPanel.svelte';
-	import {
-		getPreferredVoiceId,
-		loadTtsVoices,
-		setPreferredVoiceId,
-	} from '$lib/tts';
+	import { getPreferredVoiceId, loadTtsVoices, setPreferredVoiceId } from '$lib/tts';
 	let info = $state<AppInfo | null>(null);
 	let error = $state('');
 	let logoError = $state('');
@@ -74,8 +67,7 @@
 		aiMessage = '';
 		aiError = '';
 		try {
-			const key =
-				keyAction === 'set' ? ai.key : keyAction === 'delete' ? '' : null;
+			const key = keyAction === 'set' ? ai.key : keyAction === 'delete' ? '' : null;
 			const cfg = await aiConfigSave(ai.enabled, ai.baseUrl, ai.model, key);
 			ai.enabled = cfg.enabled;
 			ai.baseUrl = cfg.base_url;
@@ -117,23 +109,14 @@
 	let voiceError = $state('');
 	let selectedVoiceId = $state<string | null>(getPreferredVoiceId());
 	const accentLabel = (accent: string) =>
-		accent === 'US'
-			? 'American English'
-			: accent === 'UK'
-				? 'British English'
-				: accent;
+		accent === 'US' ? 'American English' : accent === 'UK' ? 'British English' : accent;
 	const voiceMismatch = $derived.by(() => {
 		if (!voiceState?.supported || !voiceState.voices.length) return '';
 		const preferred = preferences.study.accent;
-		const selected = voiceState.voices.find(
-			(voice) => voice.id === selectedVoiceId,
-		);
+		const selected = voiceState.voices.find((voice) => voice.id === selectedVoiceId);
 		if (selected && selected.accent !== preferred)
 			return `Your accent preference is ${accentLabel(preferred)}. Pronunciation uses ${selected.label} (${selected.language}).`;
-		if (
-			!selected &&
-			!voiceState.voices.some((voice) => voice.accent === preferred)
-		)
+		if (!selected && !voiceState.voices.some((voice) => voice.accent === preferred))
 			return `${accentLabel(preferred)} is not installed. Another English voice will be used and identified in the speaker tooltip.`;
 		return '';
 	});
@@ -141,10 +124,7 @@
 		voiceError = '';
 		try {
 			voiceState = await loadTtsVoices();
-			if (
-				selectedVoiceId &&
-				!voiceState.voices.some((voice) => voice.id === selectedVoiceId)
-			) {
+			if (selectedVoiceId && !voiceState.voices.some((voice) => voice.id === selectedVoiceId)) {
 				selectedVoiceId = null;
 				setPreferredVoiceId(null);
 				voiceError =
@@ -205,9 +185,7 @@
 				{#each [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']] as [key, label]}<button
 						aria-pressed={preferences.theme === key}
 						class:chosen={preferences.theme === key}
-						onclick={() =>
-							(preferences.theme = key as 'light' | 'dark' | 'system')}
-						>{label}</button
+						onclick={() => (preferences.theme = key as 'light' | 'dark' | 'system')}>{label}</button
 					>{/each}
 			</div>
 		</div>
@@ -217,9 +195,8 @@
 				{#each [['obsidian', 'Obsidian'], ['cobalt', 'Cobalt'], ['vermilion', 'Vermilion']] as [key, label]}<button
 						aria-pressed={preferences.edition === key}
 						class:chosen={preferences.edition === key}
-						onclick={() =>
-							(preferences.edition = key as
-								'obsidian' | 'cobalt' | 'vermilion')}>{label}</button
+						onclick={() => (preferences.edition = key as 'obsidian' | 'cobalt' | 'vermilion')}
+						>{label}</button
 					>{/each}
 			</div>
 		</div>
@@ -254,12 +231,9 @@
 	<section class="panel" id="pronunciation">
 		<div class="section-heading"><h2>Pronunciation</h2></div>
 		{#if voiceError}<p class="error" role="alert">{voiceError}</p>{/if}
-		{#if !voiceState && !voiceError}<p class="muted small">
-				Loading system English voices…
-			</p>
+		{#if !voiceState && !voiceError}<p class="muted small">Loading system English voices…</p>
 		{:else if voiceState && !voiceState.supported}<p class="error" role="alert">
-				{voiceState.message ||
-					'System speech synthesis is not supported in this environment.'}
+				{voiceState.message || 'System speech synthesis is not supported in this environment.'}
 			</p>
 		{:else if voiceState && voiceState.voices.length === 0}
 			<p class="error" role="alert">
@@ -269,14 +243,8 @@
 				<li>Open Settings → Time & language → Language & region.</li>
 				<li>Add English (United States) or English (United Kingdom).</li>
 				<li>Select Text-to-speech when installing language features.</li>
-				<li>
-					For an installed language, open Language options and download
-					Text-to-speech.
-				</li>
-				<li>
-					View and preview installed voices in Settings → Time & language →
-					Speech.
-				</li>
+				<li>For an installed language, open Language options and download Text-to-speech.</li>
+				<li>View and preview installed voices in Settings → Time & language → Speech.</li>
 			</ol>
 		{:else if voiceState}
 			<div class="setting-row">
@@ -287,9 +255,7 @@
 						aria-pressed={selectedVoiceId === null}
 						class:chosen={selectedVoiceId === null}
 						onclick={() => chooseVoice(null)}
-						>Follow accent preference ({accentLabel(
-							preferences.study.accent,
-						)})</button
+						>Follow accent preference ({accentLabel(preferences.study.accent)})</button
 					>
 					{#each voiceState.voices as voice (voice.id)}<button
 							type="button"
@@ -316,8 +282,8 @@
 			</div>
 		</div>
 		<p class="muted small">
-			Accent: {accentLabel(preferences.study.accent)}. Repeat: {preferences
-				.study.pronounceRepeat === 'thrice'
+			Accent: {accentLabel(preferences.study.accent)}. Repeat: {preferences.study
+				.pronounceRepeat === 'thrice'
 				? '3 times'
 				: 'once'}. Auto-play settings are available in Study settings above.
 		</p>
@@ -338,8 +304,7 @@
 			<button onclick={refresh}>Retry</button>
 		{:else if info}<div class="dictionary-info">
 				<div>
-					<strong>{info.word_count.toLocaleString()}</strong><span>entries</span
-					>
+					<strong>{info.word_count.toLocaleString()}</strong><span>entries</span>
 				</div>
 				<span class="badge"
 					>{isPreview()
@@ -353,8 +318,7 @@
 			</div>
 		{:else}<p class="muted small">Loading…</p>{/if}
 		<p class="muted small dict-blurb">
-			Free ECDICT corpus (~3.4M entries, MIT). Downloaded to the app data folder
-			on first launch.
+			Free ECDICT corpus (~3.4M entries, MIT). Downloaded to the app data folder on first launch.
 			<a
 				href="https://github.com/skywind3000/ECDICT/releases/tag/1.0.28"
 				target="_blank"
@@ -386,18 +350,13 @@
 					spellcheck="false"
 				/><button
 					class="primary"
-					disabled={!dictionaryImport.sourcePath.trim() ||
-						dictionaryImport.running ||
-						isPreview()}
+					disabled={!dictionaryImport.sourcePath.trim() || dictionaryImport.running || isPreview()}
 					>{dictionaryImport.running ? 'Importing…' : 'Import'}</button
 				>
 			</form>
 			{#if dictionaryImport.running}<p class="import-note" role="status">
 					Writing entries — keep the app open.
-				</p>{/if}{#if dictionaryImport.message}<p
-					class="import-note"
-					role="status"
-				>
+				</p>{/if}{#if dictionaryImport.message}<p class="import-note" role="status">
 					{dictionaryImport.message}
 				</p>{/if}{#if dictionaryImport.error}<p class="error" role="alert">
 					{dictionaryImport.error}
@@ -407,12 +366,11 @@
 	<section class="panel ai" id="ai-examples">
 		<div class="section-heading"><h2>DeepSeek example sentences</h2></div>
 		<p class="muted small ai-blurb">
-			DeepSeek is preconfigured and remains off until you add an API key and
-			enable it. When you look up a word with no dictionary example, it
-			generates a short sentence immediately. In review, AI supplies the
-			fill-in-the-blank sentences. Only the word and one definition are sent —
-			notes and learning history stay local. The key is stored in the Windows
-			credential manager, never in the database.
+			DeepSeek is preconfigured and remains off until you add an API key and enable it. When you
+			look up a word with no dictionary example, it generates a short sentence immediately. In
+			review, AI supplies the fill-in-the-blank sentences. Only the word and one definition are sent
+			— notes and learning history stay local. The key is stored in the Windows credential manager,
+			never in the database.
 		</p>
 		<div class="setting-row">
 			<h3>Enable</h3>
@@ -455,28 +413,19 @@
 					<input
 						type="password"
 						bind:value={ai.key}
-						placeholder={ai.hasKey
-							? 'Leave empty to keep the stored key'
-							: 'Paste API key'}
+						placeholder={ai.hasKey ? 'Leave empty to keep the stored key' : 'Paste API key'}
 						spellcheck="false"
 						autocomplete="off"
 						disabled={aiSaving}
 					/>
 				</label>
 				<div class="ai-actions">
-					<button
-						disabled={aiSaving}
-						onclick={() => saveAi(ai.key.trim() ? 'set' : 'keep')}
+					<button disabled={aiSaving} onclick={() => saveAi(ai.key.trim() ? 'set' : 'keep')}
 						>{aiSaving ? 'Saving…' : 'Save'}</button
-					><button
-						class="ghost"
-						disabled={aiTesting || aiSaving}
-						onclick={testAi}
+					><button class="ghost" disabled={aiTesting || aiSaving} onclick={testAi}
 						>{aiTesting ? 'Testing…' : 'Test connection'}</button
-					>{#if ai.hasKey}<button
-							class="ghost"
-							disabled={aiSaving}
-							onclick={() => saveAi('delete')}>Remove key</button
+					>{#if ai.hasKey}<button class="ghost" disabled={aiSaving} onclick={() => saveAi('delete')}
+							>Remove key</button
 						>{/if}
 				</div>
 				{#if aiMessage}<p class="import-note" role="status">{aiMessage}</p>{/if}
@@ -497,8 +446,8 @@
 		</dl>
 	</section>
 	<p class="about">
-		Dictionary, bookmarks, notes and learning records stay on this device.
-		Pronunciation uses an installed Windows English voice.
+		Dictionary, bookmarks, notes and learning records stay on this device. Pronunciation uses an
+		installed Windows English voice.
 	</p>
 	<div class="credit">
 		<a
@@ -511,9 +460,7 @@
 			onclick={openGithub}
 		>
 			<span class="credit-mark" aria-hidden="true"></span>
-			<span class="tooltip" id="credit-tip" role="tooltip"
-				>Designed by Y.I.A.</span
-			>
+			<span class="tooltip" id="credit-tip" role="tooltip">Designed by Y.I.A.</span>
 		</a>
 	</div>
 	{#if logoError}<p class="logo-error" role="alert">{logoError}</p>{/if}

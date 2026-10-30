@@ -44,13 +44,13 @@ export interface StudyPreferences {
 export const DAILY_NEW_LIMITS = [10, 20, 40, 60, 100] as const;
 
 const DEFAULT_EXTENSION_TABS: ExtensionTabConfig[] = [
-	{ id: 'mnemonic', label: "Mnemonic", enabled: true },
-	{ id: 'roots', label: "Roots and affixes", enabled: true },
-	{ id: 'derivatives', label: "Derivatives", enabled: true },
-	{ id: 'synonyms', label: "Synonyms", enabled: true },
-	{ id: 'antonyms', label: "Antonyms", enabled: true },
-	{ id: 'lookalikes', label: "Similar words", enabled: true },
-	{ id: 'forms', label: "Word forms", enabled: true }
+	{ id: 'mnemonic', label: 'Mnemonic', enabled: true },
+	{ id: 'roots', label: 'Roots and affixes', enabled: true },
+	{ id: 'derivatives', label: 'Derivatives', enabled: true },
+	{ id: 'synonyms', label: 'Synonyms', enabled: true },
+	{ id: 'antonyms', label: 'Antonyms', enabled: true },
+	{ id: 'lookalikes', label: 'Similar words', enabled: true },
+	{ id: 'forms', label: 'Word forms', enabled: true },
 ];
 
 export function defaultExtensionTabs(): ExtensionTabConfig[] {
@@ -77,7 +77,7 @@ export function defaultStudyPreferences(): StudyPreferences {
 		hideChinese: false,
 		inSessionQuiz: false,
 		extensionTabs: defaultExtensionTabs(),
-		autoReturnToExamples: false
+		autoReturnToExamples: false,
 	};
 }
 
@@ -123,27 +123,27 @@ function sanitizeStudy(raw: unknown): StudyPreferences {
 				'gk',
 				'oxford',
 				'custom',
-				'encountered'
+				'encountered',
 			] as const,
-			defaults.wordbook
+			defaults.wordbook,
 		),
 		cardMode: oneOf(value.cardMode, ['standard', 'context'] as const, defaults.cardMode),
 		planStyle: oneOf(
 			value.planStyle,
 			['standard', 'intensive', 'casual'] as const,
-			defaults.planStyle
+			defaults.planStyle,
 		),
 		dailyNewLimit: oneOf(value.dailyNewLimit, DAILY_NEW_LIMITS, defaults.dailyNewLimit),
 		priority: oneOf(
 			value.priority,
 			['mixed', 'new_first', 'review_first'] as const,
-			defaults.priority
+			defaults.priority,
 		),
 		autoPronounceWord: boolOr(value.autoPronounceWord, defaults.autoPronounceWord),
 		pronounceRepeat: oneOf(
 			value.pronounceRepeat,
 			['never', 'thrice'] as const,
-			defaults.pronounceRepeat
+			defaults.pronounceRepeat,
 		),
 		autoPronounceExample: boolOr(value.autoPronounceExample, defaults.autoPronounceExample),
 		autoPronounceContext: boolOr(value.autoPronounceContext, defaults.autoPronounceContext),
@@ -156,7 +156,7 @@ function sanitizeStudy(raw: unknown): StudyPreferences {
 		hideChinese: boolOr(value.hideChinese, defaults.hideChinese),
 		inSessionQuiz: boolOr(value.inSessionQuiz, defaults.inSessionQuiz),
 		extensionTabs: sanitizeExtensionTabs(value.extensionTabs),
-		autoReturnToExamples: boolOr(value.autoReturnToExamples, defaults.autoReturnToExamples)
+		autoReturnToExamples: boolOr(value.autoReturnToExamples, defaults.autoReturnToExamples),
 	};
 }
 
@@ -165,7 +165,7 @@ export const preferences = $state({
 	edition: 'obsidian' as DesignEdition,
 	reading: 'guided',
 	fontSize: 'normal',
-	study: defaultStudyPreferences()
+	study: defaultStudyPreferences(),
 });
 
 export function loadPreferences() {

@@ -3,8 +3,8 @@ import type { Sense, WordEntry } from '$lib/api';
 export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
 export type CefrLevel = (typeof CEFR_LEVELS)[number];
 
-export const NO_LEVEL_LABEL = "Level unavailable";
-export const NO_FREQUENCY_LABEL = "Frequency unavailable";
+export const NO_LEVEL_LABEL = 'Level unavailable';
+export const NO_FREQUENCY_LABEL = 'Frequency unavailable';
 
 const KNOWN_FREQUENCY_SOURCES = new Set(['ecdict.frq', 'ecdict.bnc']);
 
@@ -21,15 +21,15 @@ export function senseLevel(sense: Sense | null | undefined): CefrLevel | null {
 export function levelSourceLabel(source: string | null | undefined): string {
 	switch (source?.trim()) {
 		case 'seed':
-			return "Wordlist label";
+			return 'Wordlist label';
 		case 'ecdict_inferred':
-			return "Estimated";
+			return 'Estimated';
 		case 'legacy_unverified':
-			return "Legacy estimate";
+			return 'Legacy estimate';
 		case 'official':
-			return "Official level";
+			return 'Official level';
 		default:
-			return "Source not recorded";
+			return 'Source not recorded';
 	}
 }
 
@@ -55,7 +55,7 @@ export function describeLevel(sense: Sense | null | undefined): LevelDisplay {
 			source: null,
 			sourceLabel: levelSourceLabel(null),
 			estimated: false,
-			label: NO_LEVEL_LABEL
+			label: NO_LEVEL_LABEL,
 		};
 	}
 	const source = sense?.level_source?.trim() || null;
@@ -66,7 +66,7 @@ export function describeLevel(sense: Sense | null | undefined): LevelDisplay {
 		source,
 		sourceLabel,
 		estimated,
-		label: estimated ? `${level} · Estimated` : `${level} · ${sourceLabel}`
+		label: estimated ? `${level} · Estimated` : `${level} · ${sourceLabel}`,
 	};
 }
 
@@ -103,20 +103,19 @@ export function describeFrequency(entry: WordEntry | null | undefined): Frequenc
 	const source = entry?.frequency_source?.trim() || null;
 	const rank =
 		typeof rawRank === 'number' && Number.isFinite(rawRank) && rawRank > 0 ? rawRank : null;
-	const isCorpusRank =
-		rank !== null && source !== null && KNOWN_FREQUENCY_SOURCES.has(source);
+	const isCorpusRank = rank !== null && source !== null && KNOWN_FREQUENCY_SOURCES.has(source);
 	const sourceLabel =
 		source === 'ecdict.frq'
-			? "ECDICT contemporary corpus rank"
+			? 'ECDICT contemporary corpus rank'
 			: source === 'ecdict.bnc'
-				? "ECDICT British National Corpus rank"
+				? 'ECDICT British National Corpus rank'
 				: source === 'seed_approx'
-					? "Approximate seed ordering"
+					? 'Approximate seed ordering'
 					: source && KNOWN_FREQUENCY_SOURCES.has(source)
 						? source
 						: rank
-							? "Source not recorded"
-							: "Source unavailable";
+							? 'Source not recorded'
+							: 'Source unavailable';
 	if (!rank || source === 'seed_approx') {
 		return {
 			rank: source === 'seed_approx' ? null : rank,
@@ -128,8 +127,8 @@ export function describeFrequency(entry: WordEntry | null | undefined): Frequenc
 			label: NO_FREQUENCY_LABEL,
 			explanation:
 				source === 'seed_approx'
-					? "The seed ordering is approximate and is not shown as corpus frequency."
-					: "No frequency rank is available."
+					? 'The seed ordering is approximate and is not shown as corpus frequency.'
+					: 'No frequency rank is available.',
 		};
 	}
 	return {
@@ -140,7 +139,7 @@ export function describeFrequency(entry: WordEntry | null | undefined): Frequenc
 		isCorpusRank,
 		ticks: frequencyTicks(rank),
 		label: `#${rank.toLocaleString('en-US')}`,
-		explanation: "A lower rank means a more common word."
+		explanation: 'A lower rank means a more common word.',
 	};
 }
 
@@ -151,8 +150,7 @@ export interface CollinsDisplay {
 
 export function describeCollins(entry: WordEntry | null | undefined): CollinsDisplay | null {
 	const value = entry?.collins;
-	if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 5)
-		return null;
+	if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 5) return null;
 	return { stars: value, label: `Collins ${'★'.repeat(value)}${'☆'.repeat(5 - value)}` };
 }
 

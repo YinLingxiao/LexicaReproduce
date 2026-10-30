@@ -47,17 +47,13 @@
 		onupdate: () => void;
 	} = $props();
 
-	const entry = $derived(
-		result.outcome.type === 'hit' ? result.outcome.entry : null,
-	);
+	const entry = $derived(result.outcome.type === 'hit' ? result.outcome.entry : null);
 	const miss = $derived(result.outcome.type === 'miss' ? result.outcome : null);
 	let aiSentence = $state('');
 	let aiLoading = $state(false);
 	let aiUnavailable = $state(false);
 	const dictionaryExamples = $derived(
-		entry?.senses.flatMap((s) =>
-			s.examples.filter((example) => example.text.trim()),
-		) ?? [],
+		entry?.senses.flatMap((s) => s.examples.filter((example) => example.text.trim())) ?? [],
 	);
 	const examples = $derived(
 		aiSentence ? [{ text: aiSentence, translation: null }] : dictionaryExamples,
@@ -65,8 +61,7 @@
 
 	const primary = $derived(entry?.senses[0]);
 	const primaryPos = $derived(
-		entry?.senses.map((sense) => displayPos(sense.pos)).find((pos) => pos) ??
-			null,
+		entry?.senses.map((sense) => displayPos(sense.pos)).find((pos) => pos) ?? null,
 	);
 	const frequency = $derived(describeFrequency(entry));
 	const collins = $derived(describeCollins(entry));
@@ -84,11 +79,11 @@
 		const tagMap: Record<string, string> = {
 			cet4: 'CET-4',
 			cet6: 'CET-6',
-			ky: "Postgraduate",
+			ky: 'Postgraduate',
 			toefl: 'TOEFL',
 			ielts: 'IELTS',
 			gre: 'GRE',
-			gk: "Gaokao",
+			gk: 'Gaokao',
 		};
 		for (const t of entry.tags ?? []) {
 			const label = tagMap[t.toLowerCase()];
@@ -122,10 +117,7 @@
 		if (!entry) return [];
 		if (entry.derivatives?.length) return entry.derivatives;
 		return entry.word_family.map((raw) => {
-			const m =
-				/^(\S+)\s+((?:n|v|vt|vi|adj|adv|prep|conj|pron)\.)\s*(.*)$/i.exec(
-					raw.trim(),
-				);
+			const m = /^(\S+)\s+((?:n|v|vt|vi|adj|adv|prep|conj|pron)\.)\s*(.*)$/i.exec(raw.trim());
 			if (m) return { word: m[1], pos: m[2], gloss: m[3].trim() };
 			return { word: raw, pos: null, gloss: '' };
 		});
@@ -151,24 +143,14 @@
 	let recordChain = Promise.resolve();
 
 	async function loadAiExample() {
-		if (
-			!entry ||
-			dictionaryExamples.length ||
-			!entry.senses.length ||
-			isPreview()
-		)
-			return;
+		if (!entry || dictionaryExamples.length || !entry.senses.length || isPreview()) return;
 		try {
 			const config = await aiConfigGet();
 			if (!mounted || !config.enabled) return;
 			aiLoading = true;
-			const generated = await aiGenerateExamples([
-				{ word_id: entry.id, sense_id: null },
-			]);
+			const generated = await aiGenerateExamples([{ word_id: entry.id, sense_id: null }]);
 			if (!mounted) return;
-			const sentence = generated.find(
-				(item) => item.word_id === entry.id,
-			)?.sentence;
+			const sentence = generated.find((item) => item.word_id === entry.id)?.sentence;
 			if (sentence?.includes('______')) {
 				aiSentence = sentence
 					.replaceAll('______', entry.word)
@@ -199,8 +181,7 @@
 				recordedRank = ranks[level];
 				onupdate();
 			} catch (e) {
-				if (mounted)
-					error = `Learning record could not be saved: ${errorMessage(e)}`;
+				if (mounted) error = `Learning record could not be saved: ${errorMessage(e)}`;
 			}
 		});
 	}
@@ -210,18 +191,12 @@
 	}
 	function revealFull() {
 		full = true;
-		record(
-			entry?.senses.some((s) => s.chinese_definition) ? 'chinese' : 'english',
-		);
+		record(entry?.senses.some((s) => s.chinese_definition) ? 'chinese' : 'english');
 	}
 	function understand() {
 		full = true;
 		record(
-			!example && chineseSummary
-				? 'chinese'
-				: showEnglish || !example
-					? 'english'
-					: 'context',
+			!example && chineseSummary ? 'chinese' : showEnglish || !example ? 'english' : 'context',
 		);
 	}
 	async function loadNote() {
@@ -264,9 +239,7 @@
 		inCustomBook = next;
 		try {
 			await customWordbookToggle(entry.id, next);
-			message = next
-				? 'Added to custom wordbook'
-				: 'Removed from custom wordbook';
+			message = next ? 'Added to custom wordbook' : 'Removed from custom wordbook';
 		} catch (e) {
 			inCustomBook = !next;
 			error = errorMessage(e);
@@ -279,9 +252,7 @@
 		try {
 			await setWordIgnored(entry.id, !ignored);
 			ignored = !ignored;
-			message = ignored
-				? 'Review reminders paused'
-				: 'Review reminders resumed';
+			message = ignored ? 'Review reminders paused' : 'Review reminders resumed';
 			onupdate();
 		} catch (e) {
 			error = errorMessage(e);
@@ -306,9 +277,7 @@
 			e.ctrlKey ||
 			e.metaKey ||
 			e.altKey ||
-			(e.target as HTMLElement)?.matches(
-				'input,textarea,select,button,a,[contenteditable="true"]',
-			)
+			(e.target as HTMLElement)?.matches('input,textarea,select,button,a,[contenteditable="true"]')
 		)
 			return;
 		if (e.key === 'Escape') ondismiss();
@@ -317,16 +286,12 @@
 		if (!full && e.key === '3') revealFull();
 	}
 	beforeNavigate((navigation) => {
-		if (dirty && !confirm('You have unsaved notes. Leave anyway?'))
-			navigation.cancel();
+		if (dirty && !confirm('You have unsaved notes. Leave anyway?')) navigation.cancel();
 	});
 	onMount(() => {
 		recordedRank = ranks[result.comprehension_level ?? 'unknown'];
 		full = preferences.reading === 'full';
-		if (full)
-			record(
-				entry?.senses.some((s) => s.chinese_definition) ? 'chinese' : 'english',
-			);
+		if (full) record(entry?.senses.some((s) => s.chinese_definition) ? 'chinese' : 'english');
 		void loadNote();
 		void loadAiExample();
 	});
@@ -362,14 +327,10 @@
 			<section class="panel hero-card">
 				<header class="hero-head">
 					<h1>
-						<SyllableHeadword
-							word={entry.display}
-							split={preferences.study.autoSplitSyllables}
-						/>
+						<SyllableHeadword word={entry.display} split={preferences.study.autoSplitSyllables} />
 					</h1>
 					<div class="phonetic-row">
-						{#if entry.phonetic}<span class="phonetic">{entry.phonetic}</span
-							>{/if}
+						{#if entry.phonetic}<span class="phonetic">{entry.phonetic}</span>{/if}
 						<SpeakButton
 							text={entry.word}
 							playKey={`lookup-${entry.id}-word`}
@@ -384,10 +345,7 @@
 				<div class="metrics-bar">
 					<div class="metric-item freq-metric">
 						<span class="metric-label">Frequency</span>
-						{#if frequency.hasRank}<div
-								class="freq-ticks"
-								aria-label={frequency.label}
-							>
+						{#if frequency.hasRank}<div class="freq-ticks" aria-label={frequency.label}>
 								{#each { length: FREQUENCY_TICKS } as _, idx}<span
 										class="freq-tick"
 										class:on={idx < frequency.ticks}
@@ -396,15 +354,11 @@
 						<span class="metric-value">{frequency.label}</span>
 					</div>
 					{#if collins}<div class="metric-item">
-							<span class="metric-value" aria-label={collins.label}
-								>{collins.label}</span
-							>
+							<span class="metric-value" aria-label={collins.label}>{collins.label}</span>
 						</div>{/if}
 					<div class="metric-item level-metric">
 						<span class="metric-label">CEFR</span><span class="metric-value"
-							>{level.level ?? NO_LEVEL_LABEL}{level.estimated
-								? ' · Estimated'
-								: ''}</span
+							>{level.level ?? NO_LEVEL_LABEL}{level.estimated ? ' · Estimated' : ''}</span
 						>
 					</div>
 					<details class="metadata-details" use:fitPopover>
@@ -440,7 +394,7 @@
 						class:active={inCustomBook}
 						disabled={isPreview()}
 						onclick={toggleCustomBook}
-						title={inCustomBook ? "Remove from custom wordbook" : "Add to custom wordbook"}
+						title={inCustomBook ? 'Remove from custom wordbook' : 'Add to custom wordbook'}
 						aria-label="Add to custom wordbook">+</button
 					>
 				</div>
@@ -458,7 +412,7 @@
 							disabled={!noteReady || busy || isPreview()}
 						>
 							<Icon name={bookmarked ? 'star-filled' : 'star'} size={15} />
-							<span>{bookmarked ? "Bookmarked" : "Bookmark"}</span>
+							<span>{bookmarked ? 'Bookmarked' : 'Bookmark'}</span>
 						</button>
 						<button
 							type="button"
@@ -468,7 +422,7 @@
 							onclick={toggleTracking}
 						>
 							<Icon name="review" size={15} />
-							<span>{ignored ? "Resume review" : "Pause review"}</span>
+							<span>{ignored ? 'Resume review' : 'Pause review'}</span>
 						</button>
 						<button
 							type="button"
@@ -484,7 +438,7 @@
 					<div
 						class="memory-indicator"
 						title={ignored
-							? "Review paused"
+							? 'Review paused'
 							: result.memory
 								? `${statusLabel[result.memory.status ?? 'new']} · seen ${result.memory.visit_count}×`
 								: 'New word'}
@@ -492,9 +446,7 @@
 						<Icon name="brain" size={20} />
 						{#if result.memory}
 							<small
-								>{ignored
-									? "Paused"
-									: statusLabel[result.memory.status ?? 'new']} · {result.memory
+								>{ignored ? 'Paused' : statusLabel[result.memory.status ?? 'new']} · {result.memory
 									.visit_count}×</small
 							>
 						{/if}
@@ -519,9 +471,7 @@
 								/>
 							</div>
 							{#if aiSentence}<span class="ai-source">AI example</span>{/if}
-							{#if examples.length > 1}<button
-									class="ghost another"
-									onclick={() => exampleIdx++}
+							{#if examples.length > 1}<button class="ghost another" onclick={() => exampleIdx++}
 									>Another example <span
 										>{(exampleIdx % examples.length) + 1} / {examples.length}</span
 									><Icon name="arrow" size={14} /></button
@@ -529,31 +479,28 @@
 								<span
 									class="preview-label"
 									title={aiUnavailable
-										? "Examples are unavailable. Showing the dictionary definition."
+										? 'Examples are unavailable. Showing the dictionary definition.'
 										: undefined}
-									>{aiLoading ? "Definition · loading an example" : "Definition"}</span
+									>{aiLoading ? 'Definition · loading an example' : 'Definition'}</span
 								>
 								<p>
-									{chineseSummary || primary?.english_definition || "No definition available"}
+									{chineseSummary || primary?.english_definition || 'No definition available'}
 								</p>
 							</div>{/if}
 					</div>
 					{#if showEnglish}<div class="english-hint">
 							<p class="reading">
-								{primary?.english_definition ||
-									'No English definition — see the full entry.'}
+								{primary?.english_definition || 'No English definition — see the full entry.'}
 							</p>
 						</div>{/if}
 					<div class="disclosure-actions">
 						<button
 							class="primary"
 							onclick={understand}
-							disabled={!example &&
-								!showEnglish &&
-								!chineseSummary &&
-								!primary?.english_definition}>Understood <kbd>U</kbd></button
-						>{#if !showEnglish && primary?.english_definition}<button
-								onclick={revealEnglish}>English <kbd>2</kbd></button
+							disabled={!example && !showEnglish && !chineseSummary && !primary?.english_definition}
+							>Understood <kbd>U</kbd></button
+						>{#if !showEnglish && primary?.english_definition}<button onclick={revealEnglish}
+								>English <kbd>2</kbd></button
 							>{/if}<button class="ghost" onclick={revealFull}
 							>Full entry <Icon name="arrow" size={15} /></button
 						>
@@ -561,8 +508,9 @@
 				{/if}
 				{#if full || example}<div class="definitions" class:spaced={!full}>
 						<div class="definitions-head">
-							{#if primaryPos}<span class="pos-pill">{primaryPos}</span
-								>{:else}<span class="pos-pill missing">Part of speech unavailable</span>{/if}
+							{#if primaryPos}<span class="pos-pill">{primaryPos}</span>{:else}<span
+									class="pos-pill missing">Part of speech unavailable</span
+								>{/if}
 							<h2 class="defs-title">Definitions</h2>
 						</div>
 						{#each entry.senses as sense, i}
@@ -577,8 +525,7 @@
 												title={`CEFR ${senseLevelInfo.level} · ${senseLevelInfo.sourceLabel}`}
 												>{senseLevelInfo.level}</span
 											>
-											{#if senseLevelInfo.estimated}<small class="level-source"
-													>Estimated</small
+											{#if senseLevelInfo.estimated}<small class="level-source">Estimated</small
 												>{/if}
 										{:else}
 											<span class="level-pill missing">Unrated</span>
@@ -614,10 +561,7 @@
 										<blockquote class="sense-example">
 											<div class="ex-main">
 												<p class="reading">
-													<HighlightedText
-														text={aiSentence}
-														word={entry.word}
-													/>
+													<HighlightedText text={aiSentence} word={entry.word} />
 												</p>
 												<footer>AI example</footer>
 											</div>
@@ -694,10 +638,8 @@
 						{#each derivativesList as d}
 							<li>
 								<span class="tree-node" aria-hidden="true"></span>
-								<button
-									type="button"
-									class="word-jump"
-									onclick={() => oncommit(d.word)}>{d.word}</button
+								<button type="button" class="word-jump" onclick={() => oncommit(d.word)}
+									>{d.word}</button
 								>
 								<span class="deriv-gloss">
 									{#if d.pos}<em>{d.pos}</em>
@@ -715,10 +657,8 @@
 					<ul class="kv-list">
 						{#each entry.lookalikes as item}
 							<li>
-								<button
-									type="button"
-									class="word-jump"
-									onclick={() => oncommit(item.word)}>{item.word}</button
+								<button type="button" class="word-jump" onclick={() => oncommit(item.word)}
+									>{item.word}</button
 								>
 								<span class="deriv-gloss">
 									{#if item.pos}<em>{item.pos}</em>
@@ -736,11 +676,7 @@
 						<h2 class="extra-title">{group.title}</h2>
 						<div class="related-cloud">
 							{#each group.words as w}
-								<button
-									type="button"
-									class="cloud-word"
-									onclick={() => oncommit(w)}
-								>
+								<button type="button" class="cloud-word" onclick={() => oncommit(w)}>
 									{w}
 								</button>
 							{/each}
@@ -783,8 +719,7 @@
 			<button
 				class="ghost track"
 				disabled={!noteReady || busy || isPreview()}
-				onclick={toggleTracking}
-				>{ignored ? 'Resume reminders' : 'Pause reminders'}</button
+				onclick={toggleTracking}>{ignored ? 'Resume reminders' : 'Pause reminders'}</button
 			>
 		</aside>
 	</article>

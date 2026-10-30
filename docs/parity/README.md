@@ -2,10 +2,10 @@
 
 当前界面方向以用户最新确认的 [UI_DIRECTION.md](UI_DIRECTION.md) 为准：字典优先、英文界面、小喇叭发音，搜索页不放宣传语或复习任务卡。下文保留历史工程记录。
 
-2026-10-27 对照验收见 [ACCEPTANCE.md](ACCEPTANCE.md)。六个模块已合并，31 个业务命令均已注册。集成审核仍以 [REVIEW.md](REVIEW.md) 为准；下方 Phase 0 范围保留为基础交接记录。
+六个模块与 TTS 已合并到 `main`，34 个命令均已注册。最新验收见 [VALIDATION.md](VALIDATION.md)，发音集成见 [INTEGRATION_TTS_HOME_REVIEW.md](INTEGRATION_TTS_HOME_REVIEW.md)，启动修复见 [STARTUP_LOOKUP_FIX.md](STARTUP_LOOKUP_FIX.md)。2026-10-27 的对照验收及六 Agent 审核分别保留在 [ACCEPTANCE.md](ACCEPTANCE.md) 和 [REVIEW.md](REVIEW.md)。
 
 目标：Lexica 0.2.0，参考 SHA `c4b92a39402860566bf954f92efc8e59666aaa4a`。
-公共合同版本 `1.2.0`；协议版本 `1`；SQLite `user_version=6`。1.2.0 为词条增加词频来源、为义项增加等级来源；0006 迁移只追加来源列，不重写 0001～0005。
+公共合同版本 `1.3.0`；协议版本 `1`；SQLite `user_version=6`。1.2.0 增加词频及等级来源，1.3.0 增加系统发音接口；0006 迁移只追加来源列，不重写 0001～0005。
 
 用户已确认 C++ 后端和桌面壳，保留原版 Svelte 网页技术，优先外观与交互 1:1。
 

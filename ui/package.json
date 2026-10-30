@@ -10,6 +10,9 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test:e2e": "playwright test",
     "test:e2e:fixture": "playwright test -c playwright.fixture.config.ts",
+    "test:home": "playwright test -c playwright.learning-home.config.ts",
+    "test:live": "playwright test -c playwright.learning-home-live.config.ts",
+    "test:tts": "node --experimental-strip-types tests/tts-controller.test.mjs",
     "format": "prettier --write src tests playwright.config.ts"
   },
   "dependencies": {},

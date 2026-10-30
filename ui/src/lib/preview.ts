@@ -13,7 +13,7 @@ import type {
 	StudySessionGroup,
 	WordEntry,
 	WordFormEntry,
-	WordbookInfo
+	WordbookInfo,
 } from './api';
 
 const FORM_LABELS: Record<string, string> = {
@@ -27,14 +27,14 @@ const FORM_LABELS: Record<string, string> = {
 	noun: 'Noun',
 	verb: 'Verb',
 	adjective: 'Adjective',
-	adverb: 'Adverb'
+	adverb: 'Adverb',
 };
 
 const FORM_POS: Record<string, string> = {
 	Noun: 'n.',
 	Verb: 'v.',
 	Adjective: 'adj.',
-	Adverb: 'adv.'
+	Adverb: 'adv.',
 };
 
 function formsOf(raw: unknown): WordFormEntry[] {
@@ -59,7 +59,8 @@ const seedEntries: WordEntry[] = (seed.words as RawSeedWord[]).map((w, i) => ({
 	display: w.word,
 	phonetic: w.phonetic,
 	frequency_rank: w.frequency_rank,
-	frequency_source: w.frequency_rank !== null && w.frequency_rank !== undefined ? 'seed_approx' : null,
+	frequency_source:
+		w.frequency_rank !== null && w.frequency_rank !== undefined ? 'seed_approx' : null,
 	senses: w.senses.map((s, j) => ({
 		id: i * 10 + j,
 		pos: s.pos,
@@ -67,7 +68,7 @@ const seedEntries: WordEntry[] = (seed.words as RawSeedWord[]).map((w, i) => ({
 		chinese_definition: s.chinese,
 		level: s.level,
 		level_source: s.level ? 'seed' : null,
-		examples: s.examples.map((e, k) => ({ ...e, id: i * 100 + j * 10 + k }))
+		examples: s.examples.map((e, k) => ({ ...e, id: i * 100 + j * 10 + k })),
 	})),
 	collocations: w.collocations,
 	synonyms: w.synonyms,
@@ -78,8 +79,12 @@ const seedEntries: WordEntry[] = (seed.words as RawSeedWord[]).map((w, i) => ({
 	oxford: w.oxford ?? false,
 	mnemonic: w.mnemonic ?? null,
 	roots: w.roots ?? [],
-	derivatives: [], synonyms_detailed: [], antonyms_detailed: [], lookalikes: [], exam_example: null,
-	forms: formsOf(w.forms)
+	derivatives: [],
+	synonyms_detailed: [],
+	antonyms_detailed: [],
+	lookalikes: [],
+	exam_example: null,
+	forms: formsOf(w.forms),
 }));
 
 const MNEMONICS: Record<string, string> = {
@@ -91,42 +96,42 @@ const MNEMONICS: Record<string, string> = {
 	resilient: 're（回）+ sil（跳）：被压弯后还能弹回来，就是“有韧性”。',
 	pragmatic: 'prag（行动）+ matic：只看能不能落地，所以“务实”。',
 	conspicuous: 'con + spic（看）：所有人一眼都看见，就是“显眼”。',
-	inevitable: 'in（不）+ evit（避免）+ able：无法避免，就是“必然的”。'
+	inevitable: 'in（不）+ evit（避免）+ able：无法避免，就是“必然的”。',
 };
 
 const LOOKALIKES: Record<string, RelatedWordItem[]> = {
 	surgery: [
 		{ word: 'sugary', pos: 'adj.', gloss: '含糖的，过于甜蜜的' },
 		{ word: 'surely', pos: 'adv.', gloss: '肯定地，不会吧，必定，当然' },
-		{ word: 'surety', pos: 'n.', gloss: '保证金，担保人' }
+		{ word: 'surety', pos: 'n.', gloss: '保证金，担保人' },
 	],
 	religion: [
 		{ word: 'region', pos: 'n.', gloss: '区域，地区，地方，部位' },
 		{ word: 'relation', pos: 'n.', gloss: '关系，关联，亲属' },
-		{ word: 'revision', pos: 'n.', gloss: '修改，修订，复习' }
+		{ word: 'revision', pos: 'n.', gloss: '修改，修订，复习' },
 	],
 	meticulous: [
 		{ word: 'ridiculous', pos: 'adj.', gloss: '荒谬的' },
 		{ word: 'miraculous', pos: 'adj.', gloss: '奇迹般的' },
-		{ word: 'tenacious', pos: 'adj.', gloss: '顽强的' }
+		{ word: 'tenacious', pos: 'adj.', gloss: '顽强的' },
 	],
 	elaborate: [
 		{ word: 'collaborate', pos: 'v.', gloss: '合作' },
 		{ word: 'labor', pos: 'n.', gloss: '劳动' },
-		{ word: 'elaborately', pos: 'adv.', gloss: '精心地' }
+		{ word: 'elaborately', pos: 'adv.', gloss: '精心地' },
 	],
 	ambiguous: [
 		{ word: 'ambitious', pos: 'adj.', gloss: '有雄心的' },
-		{ word: 'amphibious', pos: 'adj.', gloss: '两栖的' }
+		{ word: 'amphibious', pos: 'adj.', gloss: '两栖的' },
 	],
 	resilient: [
 		{ word: 'resident', pos: 'n.', gloss: '居民' },
-		{ word: 'resistant', pos: 'adj.', gloss: '抵抗的' }
+		{ word: 'resistant', pos: 'adj.', gloss: '抵抗的' },
 	],
 	pragmatic: [
 		{ word: 'dogmatic', pos: 'adj.', gloss: '教条的' },
-		{ word: 'dramatic', pos: 'adj.', gloss: '戏剧性的' }
-	]
+		{ word: 'dramatic', pos: 'adj.', gloss: '戏剧性的' },
+	],
 };
 
 const SUFFIX_LOOKALIKES: Array<[string, string[]]> = [
@@ -144,7 +149,7 @@ const SUFFIX_LOOKALIKES: Array<[string, string[]]> = [
 	['al', ['local', 'formal', 'normal']],
 	['ic', ['basic', 'public', 'classic']],
 	['ly', ['quickly', 'clearly', 'likely']],
-	['y', ['happy', 'busy', 'easy']]
+	['y', ['happy', 'busy', 'easy']],
 ];
 
 const PREFIX_ROOTS: Array<[string, string]> = [
@@ -167,7 +172,7 @@ const PREFIX_ROOTS: Array<[string, string]> = [
 	['re', '再；向后'],
 	['de', '向下；去除'],
 	['ex', '向外；出'],
-	['ad', '朝向；加强']
+	['ad', '朝向；加强'],
 ];
 
 const SUFFIX_ROOTS: Array<[string, string]> = [
@@ -199,7 +204,7 @@ const SUFFIX_ROOTS: Array<[string, string]> = [
 	['er', '名词后缀，表示人或物'],
 	['or', '名词后缀，表示人或物'],
 	['ing', '现在分词或动名词后缀'],
-	['ed', '过去式或过去分词后缀']
+	['ed', '过去式或过去分词后缀'],
 ];
 
 function firstSense(entry: WordEntry) {
@@ -238,11 +243,11 @@ function rootsOf(entry: WordEntry): RootPart[] {
 	const word = entry.word.toLowerCase();
 	const roots: RootPart[] = [];
 	const prefix = PREFIX_ROOTS.find(
-		([part]) => word.startsWith(part) && word.length > part.length + 2
+		([part]) => word.startsWith(part) && word.length > part.length + 2,
 	);
 	if (prefix) roots.push({ part: `${prefix[0]}-`, meaning: prefix[1] });
 	const suffix = SUFFIX_ROOTS.find(
-		([part]) => word.endsWith(part) && word.length > part.length + 2
+		([part]) => word.endsWith(part) && word.length > part.length + 2,
 	);
 	if (suffix) roots.push({ part: `-${suffix[0]}`, meaning: suffix[1] });
 	if (!roots.length) roots.push({ part: word, meaning: firstChinese(entry) || '词根' });
@@ -277,7 +282,7 @@ function lookalikesOf(word: string): RelatedWordItem[] {
 	const manual = LOOKALIKES[word];
 	if (manual) return manual.map((item) => ({ ...item }));
 	const bucket = SUFFIX_LOOKALIKES.find(([suffix]) => word.endsWith(suffix));
-	return (bucket?.[1] ?? []).map((item) => ({ word: item, pos: null, gloss: "Similar words" }));
+	return (bucket?.[1] ?? []).map((item) => ({ word: item, pos: null, gloss: 'Similar words' }));
 }
 
 function enrich(entry: WordEntry): WordEntry {
@@ -289,11 +294,11 @@ function enrich(entry: WordEntry): WordEntry {
 		mnemonic: entry.mnemonic ?? mnemonicOf(entry),
 		roots: entry.roots?.length ? entry.roots : rootsOf(entry),
 		derivatives: entry.derivatives ?? derivativesOf(entry),
-		synonyms_detailed: entry.synonyms_detailed ?? detailList(entry.synonyms, entry, "Synonyms"),
-		antonyms_detailed: entry.antonyms_detailed ?? detailList(entry.antonyms, entry, "Antonyms"),
+		synonyms_detailed: entry.synonyms_detailed ?? detailList(entry.synonyms, entry, 'Synonyms'),
+		antonyms_detailed: entry.antonyms_detailed ?? detailList(entry.antonyms, entry, 'Antonyms'),
 		lookalikes: entry.lookalikes ?? lookalikesOf(entry.word),
 		forms: entry.forms ?? [],
-		exam_example: entry.exam_example ?? firstExample(entry)
+		exam_example: entry.exam_example ?? firstExample(entry),
 	};
 }
 
@@ -313,7 +318,7 @@ function studyItem(entry: WordEntry): ReviewItem {
 		kind: example ? 'cloze' : 'definition',
 		source: 'dictionary',
 		sense_id: sense?.id ?? null,
-		example_id: null
+		example_id: null,
 	};
 }
 
@@ -327,7 +332,7 @@ function studyCards(limit: number, wordbook: string, priority: StudyPriority): S
 		item: studyItem(entry),
 		is_new: index < newCount,
 		bookmarked: index % 6 === 0,
-		in_custom_wordbook: wordbook === 'custom' || index % 4 === 0
+		in_custom_wordbook: wordbook === 'custom' || index % 4 === 0,
 	}));
 	if (priority === 'new_first') {
 		cards.sort((a, b) => Number(b.is_new) - Number(a.is_new));
@@ -347,12 +352,12 @@ const WORD_BOOKS: Array<Omit<WordbookInfo, 'learned_words'> & { learned: number 
 	{ id: 'gk', name: '高考核心词', total_words: 3500, learned: 1580 },
 	{ id: 'oxford', name: '牛津 3000 核心词', total_words: 3000, learned: 912 },
 	{ id: 'custom', name: '我的生词本', total_words: 128, learned: 64 },
-	{ id: 'encountered', name: '查词本', total_words: 96, learned: 96 }
+	{ id: 'encountered', name: '查词本', total_words: 96, learned: 96 },
 ];
 
 export async function previewInvoke(
 	command: string,
-	args: Record<string, unknown> = {}
+	args: Record<string, unknown> = {},
 ): Promise<unknown> {
 	const query = String(args.query ?? args.word ?? '')
 		.trim()
@@ -366,7 +371,7 @@ export async function previewInvoke(
 				word_count: 50,
 				schema_version: 6,
 				fts_ok: true,
-				dictionary_ready: true
+				dictionary_ready: true,
 			};
 		case 'search_suggest':
 			return suggestions;
@@ -375,7 +380,7 @@ export async function previewInvoke(
 			return {
 				outcome: entry ? { type: 'hit', entry } : { type: 'miss', suggestions },
 				encounter_id: null,
-				memory: null
+				memory: null,
 			};
 		}
 		case 'stats_summary':
@@ -386,7 +391,7 @@ export async function previewInvoke(
 				stable: 0,
 				ignored: 0,
 				due_now: 0,
-				high_priority: 0
+				high_priority: 0,
 			};
 		case 'word_note':
 			return { bookmarked: false, note: '', ignored: false };
@@ -403,7 +408,7 @@ export async function previewInvoke(
 				return {
 					date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
 					lookups: 0,
-					reviews: 0
+					reviews: 0,
 				};
 			});
 		case 'ensure_dictionary':
@@ -420,7 +425,7 @@ export async function previewInvoke(
 				cards,
 				due_count: cards.length - newCount,
 				new_count: newCount,
-				today_learned_new: Math.min(12, newCount)
+				today_learned_new: Math.min(12, newCount),
 			};
 			return group;
 		}
@@ -429,7 +434,7 @@ export async function previewInvoke(
 				id: book.id,
 				name: book.name,
 				total_words: book.total_words,
-				learned_words: book.learned
+				learned_words: book.learned,
 			}));
 		case 'study_grade': {
 			const grade = String(args.grade ?? 'know') as StudyGrade;
@@ -441,7 +446,10 @@ export async function previewInvoke(
 				answer: '',
 				hints_used: 0,
 				memory: {
-					first_visit_at: '2026-10-21T00:00:00.000Z', last_visit_at: null, last_review_at: null, last_reinforcement_at: null,
+					first_visit_at: '2026-10-21T00:00:00.000Z',
+					last_visit_at: null,
+					last_review_at: null,
+					last_reinforcement_at: null,
 					word_id: Number(args.wordId ?? 0),
 					strength_days: grade === 'know' ? 3 : grade === 'hazy' ? 1 : 0,
 					difficulty: grade === 'forgot' ? 7 : 5,
@@ -450,8 +458,8 @@ export async function previewInvoke(
 					visit_count: 1,
 					weak_streak: grade === 'forgot' ? 1 : 0,
 					high_priority: grade === 'forgot',
-					next_review_at: null
-				}
+					next_review_at: null,
+				},
 			};
 			return feedback;
 		}
@@ -464,14 +472,21 @@ export async function previewInvoke(
 				enabled: false,
 				base_url: 'https://api.deepseek.com/v1',
 				model: 'deepseek-chat',
-				has_key: false
+				has_key: false,
 			};
 		case 'tts_voices':
-			return {supported: false, voices: [], message: "Speech is unavailable in browser preview. Start the C++ service or desktop app to use pronunciation."};
+			return {
+				supported: false,
+				voices: [],
+				message:
+					'Speech is unavailable in browser preview. Start the C++ service or desktop app to use pronunciation.',
+			};
 		case 'tts_cancel':
 			return null;
 		case 'tts_synthesize':
-			throw new Error("Speech is unavailable in browser preview. Start the C++ service or desktop app to use pronunciation.");
+			throw new Error(
+				'Speech is unavailable in browser preview. Start the C++ service or desktop app to use pronunciation.',
+			);
 		default:
 			throw new Error('Browser preview is read-only. Use the desktop app for this action.');
 	}

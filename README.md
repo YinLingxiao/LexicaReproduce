@@ -1,16 +1,52 @@
 # Lexica
 
-Windows 上的本地词汇学习程序，提供词库导入、查词、个人词汇、复习、统计和可选 AI 例句。项目按功能组织，不再按开发人员分目录。
+Windows 本地英语字典，使用 C++17 后端、WebView2 桌面壳和 Svelte 5 界面。以离线查词为核心，支持单词和例句发音、个人词库、笔记、复习、统计，以及可选 AI 例句。界面为英文，保留中文释义和翻译。
 
-Windows 程序下载：[0.1.0 Release](https://github.com/YinLingxiao/LexicaReproduce/releases/tag/v0.1.0)。解压完整程序包后运行 `lexica_desktop.exe`，环境要求及说明见 [0.1.0 使用说明](docs/parity/RELEASE-0.1.0.md)。
+已发布的历史程序包：[0.1.0 Release](https://github.com/YinLingxiao/LexicaReproduce/releases/tag/v0.1.0)，使用说明见 [RELEASE-0.1.0.md](docs/parity/RELEASE-0.1.0.md)。该包早于本次发音、启动和英文界面修订；当前源码请按下方命令构建。
 
 ## C++ / WebView2 复刻版
 
-原版 Lexica 0.2.0 的 C++/WebView2 + Svelte 基座已放在 `src/parity` 和 `ui`，与下文的旧版业务和数据库隔离。公共接口、模型和并行开发边界见 [Phase 0 交接入口](docs/parity/README.md)，六个 Agent 的任务提示词见 [任务入口](docs/agents/README.md)。
+当前实现位于 `src/parity` 和 `ui`，已合并到 `main`。接口合同为 1.3.0（34 个命令），协议 1，SQLite schema 6。界面方向见 [UI_DIRECTION.md](docs/parity/UI_DIRECTION.md)，构建和架构见 [工程入口](docs/parity/README.md)，测试结果及限制见 [验收记录](docs/parity/VALIDATION.md)。
 
-六个 Agent 的模块已合并到 `codex/parity-review`，31 个业务命令已接通。审核修复、验证结果和待验收范围见 [集成审核报告](docs/parity/REVIEW.md)。初始化依赖后运行 `tools/build-phase0.ps1 -Smoke` 可构建、测试和执行桌面验证；运行 `tools/package.ps1` 生成 `dist/LexicaReproduce/lexica_desktop.exe`。下面的旧业务说明供历史实现参考。
+需要 Windows x64、Visual Studio 2022 桌面 C++ 工具、Windows SDK、CMake 3.21+、Node/npm，以及 WebView2 Runtime。在 PowerShell 中运行：
 
-## 从哪里开始读
+```powershell
+./tools/bootstrap.ps1
+./tools/build-phase0.ps1 -Smoke
+./tools/package.ps1 -OutputDirectory dist/LexicaReproduce-English
+./dist/LexicaReproduce-English/lexica_desktop.exe
+```
+
+安装程序只需完整分发目录和 WebView2 Runtime。用户数据存储在 `%LOCALAPPDATA%/LexicaReproduce/parity-v1`，不随源码上传。MSVC 构建支持已安装的 Windows 英语音色；本机缺少目标口音时会标明实际音色。UCRT 构建不支持系统 TTS。
+
+| 当前目录 | 职责 |
+|---|---|
+| `src/parity/app` | 应用编排、命令执行和后台任务 |
+| `src/parity/modules` | 字典、词库、复习、统计、AI 和 TTS |
+| `src/parity/desktop` | Win32 / WebView2 桌面壳 |
+| `src/parity/storage` | SQLite 存储和迁移 |
+| `contracts` | C++ / TypeScript 共用接口与模型 |
+| `ui/src` | Svelte 界面、交互和发音控制器 |
+| `tests/parity`、`ui/tests` | 后端、界面和真实服务回归 |
+| `tools` | 依赖初始化、构建、打包和验证脚本 |
+
+前端回归在 `ui` 目录按顺序运行（TTS 控制器测试使用 Node 22.6+ 的类型剥离支持，浏览器测试使用 Microsoft Edge）：
+
+```powershell
+npm run check
+npm run test:tts
+npm run build
+npm run test:e2e:fixture
+npm run test:home
+npm run test:live
+npm run test:e2e
+```
+
+真实服务测试默认使用已构建的 MSVC Debug 服务和独立测试数据库；可通过 `LEXICA_SERVER_EXE`、`LEXICA_UI_DIR` 验证其他构建。浏览器测试截图写入已忽略的 `ui/test-results`，人工选定的验收截图保存在 `docs/parity/evidence`。静态构建和开发服务器共用 SvelteKit 输出目录，请顺序执行。
+
+历史分工和审核可见 [六 Agent 任务](docs/agents/README.md) 与 [集成审核报告](docs/parity/REVIEW.md)。以下内容仅适用于保留的旧版实现，使用独立的入口和数据目录。
+
+## 旧版实现：源码入口
 
 先看 [程序入口](src/main.cpp)，再看 [App 业务编排](src/app/app.cpp)。App 展示一次查词、一次复习如何调用其他模块；具体实现继续进入对应模块。
 
@@ -30,7 +66,7 @@ Windows 程序下载：[0.1.0 Release](https://github.com/YinLingxiao/LexicaRepr
 
 模块保持独立的 CMake 库目标。接口与控制台通过 App 调用业务；复习依赖词库和个人词汇；个人词汇通过公共的 `StageSource` 接口读取阶段，不反向依赖复习实现。
 
-## 构建和运行
+## 旧版实现：构建和运行
 
 使用 Windows x64、MSYS2 UCRT64、C++17。需要的 MSYS2 软件包：
 
@@ -49,7 +85,7 @@ build\lexica.exe
 
 更多启动参数、AI 配置和备份方法见 [运行说明](docs/运行说明.md)，HTTP 数据格式见 [接口说明](docs/接口说明.md)。VS Code 的调试入口指向 `build/lexica.exe`，调试前先构建。
 
-## 测试
+## 旧版实现：测试
 
 默认同时构建四个测试程序，编译完成后运行：
 
@@ -63,7 +99,7 @@ ctest --test-dir build --output-on-failure
 
 只需要主程序时，在 UCRT64 环境中配置 `cmake -S . -B build -G Ninja -DBUILD_TESTING=OFF`。需要恢复测试时重新配置 `-DBUILD_TESTING=ON`。采用其他构建目录时，程序、网页和测试输出也放在该目录下。
 
-## 模块说明与已知问题
+## 旧版实现：模块说明与已知问题
 
 - [词库与导入](docs/modules/dict.md)
 - [个人词汇与统计](docs/modules/vocab.md)

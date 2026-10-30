@@ -23,7 +23,7 @@
 		onIgnoreWord,
 		onGradeWord,
 		onOpenSettings,
-		onSelectWord
+		onSelectWord,
 	}: {
 		card: StudyCardEntry;
 		busy?: boolean;
@@ -40,7 +40,7 @@
 	const entry = $derived(card.entry);
 	const primaryPos = $derived(
 		entry.senses.map((sense) => displayPos(sense.pos)?.replace(/\.$/, '')).find((pos) => pos) ??
-			null
+			null,
 	);
 	const chineseSummary = $derived.by(() => {
 		const parts: string[] = [];
@@ -78,8 +78,10 @@
 	const definitionsVisible = $derived(s.cardMode === 'standard' || defsShown);
 
 	const tabs = $derived([
-		{ id: 'examples', label: "Examples" },
-		...s.extensionTabs.filter((t) => t.enabled).map((t) => ({ id: t.id as string, label: t.label }))
+		{ id: 'examples', label: 'Examples' },
+		...s.extensionTabs
+			.filter((t) => t.enabled)
+			.map((t) => ({ id: t.id as string, label: t.label })),
 	]);
 	let tab = $state(preferences.study.autoReturnToExamples ? 'examples' : lastTab);
 	const activeTab = $derived(tabs.some((t) => t.id === tab) ? tab : 'examples');
@@ -129,8 +131,11 @@
 	const filledTicks = $derived(
 		Math.max(
 			1,
-			Math.min(TICK_COUNT, Math.round(((progressIndex + 1) / Math.max(1, progressTotal)) * TICK_COUNT))
-		)
+			Math.min(
+				TICK_COUNT,
+				Math.round(((progressIndex + 1) / Math.max(1, progressTotal)) * TICK_COUNT),
+			),
+		),
 	);
 
 	function speakWord() {
@@ -138,19 +143,20 @@
 			playKey: `study-${entry.id}-word`,
 			accent: s.accent,
 			rate: s.speechRate,
-			repeat: s.pronounceRepeat === 'thrice' ? 3 : 1
+			repeat: s.pronounceRepeat === 'thrice' ? 3 : 1,
 		});
 	}
 	function speakSentence(text: string, id: number) {
 		speakText(text, {
 			playKey: `study-${entry.id}-sentence-${id}`,
 			accent: s.accent,
-			rate: s.speechRate
+			rate: s.speechRate,
 		});
 	}
 
 	onMount(() => {
-		if (s.cardMode === 'context' && s.autoPronounceContext && example) speakSentence(example.text, example.id);
+		if (s.cardMode === 'context' && s.autoPronounceContext && example)
+			speakSentence(example.text, example.id);
 		else if (s.autoPronounceWord) speakWord();
 		else if (s.autoPronounceExample && example) speakSentence(example.text, example.id);
 	});
@@ -161,7 +167,7 @@
 
 <article class="study-card" class:fade={s.fadeIn}>
 	<div class="card-top-bar">
-		<span class="mode-tag">{card.is_new ? "New words" : "Review"}</span>
+		<span class="mode-tag">{card.is_new ? 'New words' : 'Review'}</span>
 		<button
 			class="icon-btn dots-btn"
 			aria-label="Study settings"
@@ -199,8 +205,12 @@
 							rate={s.speechRate}
 						/>
 					</div>
-					<p class="example-en reading"><HighlightedText text={example.text} word={entry.word} /></p>
-					<button class="reveal block" onclick={() => (defsShown = true)}>Show full definition</button>
+					<p class="example-en reading">
+						<HighlightedText text={example.text} word={entry.word} />
+					</p>
+					<button class="reveal block" onclick={() => (defsShown = true)}
+						>Show full definition</button
+					>
 				</div>
 			{/if}
 
@@ -223,8 +233,7 @@
 											title={`CEFR ${senseLevelInfo.level} · ${senseLevelInfo.sourceLabel}`}
 											>{senseLevelInfo.level}</span
 										>
-										{#if senseLevelInfo.estimated}<small class="level-source">Estimated</small
-											>{/if}
+										{#if senseLevelInfo.estimated}<small class="level-source">Estimated</small>{/if}
 									{:else}
 										<span class="level-pill missing">Unrated</span>
 									{/if}
@@ -272,7 +281,7 @@
 										title="Switch dictionary / exam examples"
 										onclick={toggleExampleStyle}
 									>
-										<em>example</em><span>{s.exampleStyle === 'exam' ? "Exam" : "Standard"}</span>
+										<em>example</em><span>{s.exampleStyle === 'exam' ? 'Exam' : 'Standard'}</span>
 									</button>
 									<SpeakButton
 										text={example.text}
@@ -287,7 +296,9 @@
 								</p>
 								{#if example.translation}
 									{#if s.hideChinese && !zhShown}
-										<button class="reveal" onclick={() => (zhShown = true)}>Show Chinese translation</button>
+										<button class="reveal" onclick={() => (zhShown = true)}
+											>Show Chinese translation</button
+										>
 									{:else}
 										<p class="example-zh">{example.translation}</p>
 									{/if}
@@ -300,7 +311,9 @@
 								<div class="translation-block">
 									<span class="translation-pill"><em>translation</em></span>
 									{#if s.hideChinese && !zhShown}
-										<button class="reveal" onclick={() => (zhShown = true)}>Show Chinese definition</button>
+										<button class="reveal" onclick={() => (zhShown = true)}
+											>Show Chinese definition</button
+										>
 									{:else}
 										<p class="translation-zh">{chineseSummary}</p>
 									{/if}
@@ -350,7 +363,8 @@
 												<strong>{r.word}</strong>
 											{/if}
 											<span class="gloss">
-												{#if r.pos}<em>{r.pos}</em> {/if}{r.gloss}
+												{#if r.pos}<em>{r.pos}</em>
+												{/if}{r.gloss}
 											</span>
 										</li>
 									{/each}
@@ -389,7 +403,8 @@
 												<strong>{r.word}</strong>
 											{/if}
 											<span class="gloss">
-												{#if r.pos}<em>{r.pos}</em> {/if}{r.gloss}
+												{#if r.pos}<em>{r.pos}</em>
+												{/if}{r.gloss}
 											</span>
 										</li>
 									{/each}
@@ -410,8 +425,8 @@
 			type="button"
 			class="fab"
 			aria-pressed={card.bookmarked}
-			aria-label={card.bookmarked ? "Remove bookmark" : "Bookmark"}
-			title={card.bookmarked ? "Remove bookmark" : "Bookmark this word"}
+			aria-label={card.bookmarked ? 'Remove bookmark' : 'Bookmark'}
+			title={card.bookmarked ? 'Remove bookmark' : 'Bookmark this word'}
 			onclick={onToggleBookmark}
 		>
 			<Icon name={card.bookmarked ? 'star-filled' : 'star'} size={19} />

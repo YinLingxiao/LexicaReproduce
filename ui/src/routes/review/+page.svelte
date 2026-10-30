@@ -26,7 +26,7 @@
 		type ReviewFeedback,
 		type ReviewItem,
 		type StudyCardEntry,
-		type StudyGrade
+		type StudyGrade,
 	} from '$lib/api';
 	import { preferences } from '$lib/preferences.svelte';
 	import Icon from '$lib/components/Icon.svelte';
@@ -49,14 +49,14 @@
 	const BOOK_LABELS: Record<string, string> = {
 		cet4: 'CET-4',
 		cet6: 'CET-6',
-		ky: "Postgraduate",
+		ky: 'Postgraduate',
 		toefl: 'TOEFL',
 		ielts: 'IELTS',
 		gre: 'GRE',
-		gk: "Gaokao",
+		gk: 'Gaokao',
 		oxford: 'Oxford 3000',
-		custom: "Custom wordbook",
-		encountered: "Search history"
+		custom: 'Custom wordbook',
+		encountered: 'Search history',
 	};
 
 	let phase = $state<Phase>('loading');
@@ -72,7 +72,7 @@
 			? 'due'
 			: page.url.searchParams.get('mode') === 'new'
 				? 'new'
-				: 'default'
+				: 'default',
 	);
 	// 组内每个词只出现一次；浏览队列存下标，“忘记”时把下标追加到队尾。
 	let group = $state<StudyCardEntry[]>([]);
@@ -112,22 +112,20 @@
 		good: 'Recalled with a nudge',
 		hard: 'Took effort',
 		poor: 'Barely held on',
-		forgotten: 'Forgotten'
+		forgotten: 'Forgotten',
 	};
 	const hintLabels = ['First letter', 'English definition', 'Chinese definition'];
 	const kindLabel: Record<string, string> = {
 		cloze: 'Cloze',
 		definition: 'Definition',
-		definition_zh: 'Chinese definition'
+		definition_zh: 'Chinese definition',
 	};
 
-	const browseCard = $derived(
-		queue[browseIdx] !== undefined ? group[queue[browseIdx]] : undefined
-	);
+	const browseCard = $derived(queue[browseIdx] !== undefined ? group[queue[browseIdx]] : undefined);
 	const newCount = $derived(group.filter((c, i) => c.is_new && !ignored[i]).length);
 	const reviewCount = $derived(group.filter((c, i) => !c.is_new && !ignored[i]).length);
 	const bookLabel = $derived(
-		fromStudy ? (BOOK_LABELS[preferences.study.wordbook] ?? preferences.study.wordbook) : "Review"
+		fromStudy ? (BOOK_LABELS[preferences.study.wordbook] ?? preferences.study.wordbook) : 'Review',
 	);
 
 	const current = $derived(order[pos] !== undefined ? group[order[pos]] : undefined);
@@ -142,11 +140,13 @@
 			item: g.item,
 			is_new: false,
 			bookmarked: false,
-			in_custom_wordbook: false
+			in_custom_wordbook: false,
 		}));
 	}
 
-	async function fetchCards(mode: ReviewMode): Promise<{ cards: StudyCardEntry[]; fromStudy: boolean }> {
+	async function fetchCards(
+		mode: ReviewMode,
+	): Promise<{ cards: StudyCardEntry[]; fromStudy: boolean }> {
 		const s = preferences.study;
 		const useLegacyFixture =
 			typeof window !== 'undefined' &&
@@ -196,7 +196,7 @@
 		const carriedRound = finishedRound && activeMode === mode;
 		++followToken;
 		busy = false;
-		cardError = "";
+		cardError = '';
 		reviewId = null;
 		feedback = null;
 		finishedRound = false;
@@ -243,7 +243,7 @@
 		if (fromStudy) {
 			void aiEnrichWords(
 				cards.map((c) => c.entry.id),
-				preferences.study.exampleStyle === 'exam'
+				preferences.study.exampleStyle === 'exam',
 			).catch(() => {
 				/* 补全失败不影响学习 */
 			});
@@ -252,7 +252,7 @@
 			try {
 				const items = cards.map((g) => ({
 					word_id: g.item.word_id,
-					sense_id: g.item.sense_id
+					sense_id: g.item.sense_id,
 				}));
 				if (!items.length) return;
 				const cfg = await aiConfigGet();
@@ -366,7 +366,7 @@
 					source: 'ai' as const,
 					prompt: ai.sentence,
 					sense_id: ai.sense_id ?? g.item.sense_id,
-					example_id: null
+					example_id: null,
 				};
 			}
 			return g.item;
@@ -406,7 +406,7 @@
 					kind: item.kind,
 					source: item.source,
 					sense_id: item.sense_id,
-					example_id: item.example_id
+					example_id: item.example_id,
 				});
 				if (token !== sessionToken) return;
 				reviewId = started;
@@ -462,7 +462,7 @@
 					formal: true,
 					quality: fb.quality,
 					next: fb.memory?.next_review_at ?? null,
-					hints_used: fb.hints_used
+					hints_used: fb.hints_used,
 				};
 				if (fb.correct) {
 					solved[gi] = true;
@@ -480,7 +480,7 @@
 					formal: false,
 					quality: null,
 					next: null,
-					hints_used: hints.length
+					hints_used: hints.length,
 				};
 				if (res.correct) {
 					solved[gi] = true;
@@ -563,7 +563,10 @@
 		untrack(() => {
 			void load(mode);
 		});
-		return () => { ++sessionToken; ++followToken; };
+		return () => {
+			++sessionToken;
+			++followToken;
+		};
 	});
 </script>
 
@@ -579,12 +582,18 @@
 				<h2>Review unavailable</h2>
 			{/if}
 			<p class="error" role="alert">{error}</p>
-			<button onclick={() => load(activeMode)}>{activeMode === 'default' ? 'Reload' : "Try again"}</button>
+			<button onclick={() => load(activeMode)}
+				>{activeMode === 'default' ? 'Reload' : 'Try again'}</button
+			>
 		</section>
 	{:else if phase === 'empty'}<section class="panel empty">
 			{#if activeMode === 'due'}
-				<h2>{showRoundDone ? "Round complete" : "Nothing due"}</h2>
-				<p>{showRoundDone ? "Round complete. No more words are due." : "No words are due for review."}</p>
+				<h2>{showRoundDone ? 'Round complete' : 'Nothing due'}</h2>
+				<p>
+					{showRoundDone
+						? 'Round complete. No more words are due.'
+						: 'No words are due for review.'}
+				</p>
 				<a href="/" class="button primary">Continue searching</a>
 				<a class="button" href="/review?mode=new">Learn new words</a>
 			{:else if activeMode === 'new'}
@@ -602,9 +611,8 @@
 	{:else if phase === 'browse' && browseCard}
 		<div class="session-top">
 			<span>Browse · <strong>{browseIdx + 1}</strong> / {queue.length}</span>
-			{#if activeMode === 'due'}<span class="counts">Due reviews</span>{:else if activeMode === 'new'}<span
-					class="counts">New words · {bookLabel}</span
-				>{/if}
+			{#if activeMode === 'due'}<span class="counts">Due reviews</span
+				>{:else if activeMode === 'new'}<span class="counts">New words · {bookLabel}</span>{/if}
 			{#if fromStudy}<span class="counts">{bookLabel} · New {newCount} · Review {reviewCount}</span
 				>{/if}
 			<div class="top-actions">
@@ -649,14 +657,14 @@
 				<button
 					onclick={() => (browseIdx = Math.min(queue.length - 1, browseIdx + 1))}
 					disabled={browseIdx === queue.length - 1}>Next</button
-				><button
-					class="primary"
-					onclick={startPractice}
-					disabled={browseIdx < queue.length - 1}>Start practice</button
+				><button class="primary" onclick={startPractice} disabled={browseIdx < queue.length - 1}
+					>Start practice</button
 				>
 			</div>
 		</div>
-		<p class="key-hint muted small">← → Switch words · Space / Enter Know · 1 / 2 / 3 Know / Not sure / Forgot</p>
+		<p class="key-hint muted small">
+			← → Switch words · Space / Enter Know · 1 / 2 / 3 Know / Not sure / Forgot
+		</p>
 	{:else if phase === 'practice' && current && currentPrompt}
 		<div class="session-top">
 			<span><strong>{solvedCount}</strong> / {practiceTotal} recalled</span>
@@ -681,9 +689,9 @@
 						<strong>{feedback.answer}</strong>
 						<p>
 							{feedback.formal
-								? `${qualities[feedback.quality ?? 'forgotten']}${feedback.next
-										? ` · next ${dueLabel(feedback.next)}`
-										: ''}`
+								? `${qualities[feedback.quality ?? 'forgotten']}${
+										feedback.next ? ` · next ${dueLabel(feedback.next)}` : ''
+									}`
 								: feedback.correct
 									? 'Correct — recalled on retry'
 									: 'Not quite — this word will come back'}
@@ -774,9 +782,13 @@
 				{/if}
 			</div>
 			{#if followUp === 'loading'}<p role="status">Checking remaining due words…</p>
-			{:else if followUp === 'error'}<p class="error" role="alert">Could not load the remaining count. You can still fetch the next group.</p>
+			{:else if followUp === 'error'}<p class="error" role="alert">
+					Could not load the remaining count. You can still fetch the next group.
+				</p>
 			{:else if followUp === 0}<p>No words are currently due. Refresh the queue to check again.</p>
-			{:else if typeof followUp === 'number'}<p> {followUp.toLocaleString()} words are still due. Fetch the next group to refresh the queue.</p>{/if}
+			{:else if typeof followUp === 'number'}<p>
+					{followUp.toLocaleString()} words are still due. Fetch the next group to refresh the queue.
+				</p>{/if}
 			<button class="primary" onclick={() => load('due')}>Get next due group</button>
 			<a href="/" class="button">Back to search</a>
 		</section>

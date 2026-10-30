@@ -102,10 +102,7 @@
 		<a href="/" class="back"><Icon name="back" size={15} />Search</a>
 		<SearchBox oncommit={doLookup} bind:value />
 		<div class="word-area" aria-busy={loading}>
-			{#if loading}<div class="skeleton"></div>{:else if error}<div
-					class="error"
-					role="alert"
-				>
+			{#if loading}<div class="skeleton"></div>{:else if error}<div class="error" role="alert">
 					{error}
 				</div>
 				<button onclick={() => load(query)}>Try again</button>{:else if result}
@@ -121,9 +118,7 @@
 		<section class="search-block" aria-label="Dictionary search">
 			<SearchBox oncommit={doLookup} bind:value />
 			<div class="search-note">
-				<span
-					>{wordCount === null ? '—' : wordCount.toLocaleString()} entries · offline</span
-				>
+				<span>{wordCount === null ? '—' : wordCount.toLocaleString()} entries · offline</span>
 				<span><kbd>/</kbd> or <kbd>Ctrl K</kbd> to search</span>
 			</div>
 		</section>
@@ -146,13 +141,10 @@
 				<p class="quiet">Words you look up will appear here.</p>
 			{:else}
 				<div class="recent-grid">
-					{#each recent as r}<button
-							type="button"
-							onclick={() => doLookup(r.word)}
-							><span
-								><strong>{r.display}</strong><small>{r.phonetic ?? ''}</small
-								></span
-							><span class="when">{relTime(r.visited_at)}</span></button
+					{#each recent as r}<button type="button" onclick={() => doLookup(r.word)}
+							><span><strong>{r.display}</strong><small>{r.phonetic ?? ''}</small></span><span
+								class="when">{relTime(r.visited_at)}</span
+							></button
 						>{/each}
 				</div>
 			{/if}
